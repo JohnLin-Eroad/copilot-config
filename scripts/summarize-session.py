@@ -520,9 +520,14 @@ def post_to_notion_vault(title: str, learnings: list[str], date_str: str, sessio
 
 
 def main():
-    # Allow passing a specific session ID as argument
-    if len(sys.argv) > 1:
-        session_id = sys.argv[1]
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("session_id", nargs="?", help="Session ID to summarise")
+    parser.add_argument("--prose", help="Human prose summary to embed below the summary table")
+    args = parser.parse_args()
+
+    if args.session_id:
+        session_id = args.session_id
         session_dir = SESSIONS_DIR / session_id
         if not session_dir.exists():
             print(f"Session not found: {session_id}", file=sys.stderr)
