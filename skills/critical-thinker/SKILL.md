@@ -1,3 +1,11 @@
+---
+name: critical-thinker
+description: >
+  Critically evaluates any plan, proposal, architecture, or idea by systematically surfacing
+  both potential issues and genuine strengths. Use this skill to get an honest, balanced
+  assessment before committing to a significant decision or approach.
+---
+
 # Skill: Critical Thinker
 
 ## Purpose
