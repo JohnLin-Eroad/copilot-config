@@ -51,6 +51,34 @@ copilot-config/
 | `handoff-protocol` | Agent-to-agent context handoff via TASK_CONTEXT.md |
 | `jira-confluence-sync` | Create/update Jira + Confluence via MCP |
 
+## Config File Watcher
+
+A macOS LaunchAgent (`com.johnlin.copilot-config-sync`) runs `fswatch` in the background and automatically syncs config changes to GitHub — no need to wait for a chat session to close.
+
+**Watched paths:**
+- `~/.copilot/agents/`
+- `~/.copilot/skills/`
+- `~/.copilot/scripts/`
+- `~/.copilot/mcp-config.json`
+
+Any change to these files triggers `sync-config.py` with a 2-second debounce.
+
+**Logs:** `~/.copilot/logs/watch-config.log`
+
+**Manual control:**
+```bash
+# Check status
+launchctl list | grep copilot-config-sync
+
+# Restart
+launchctl unload ~/Library/LaunchAgents/com.johnlin.copilot-config-sync.plist
+launchctl load ~/Library/LaunchAgents/com.johnlin.copilot-config-sync.plist
+```
+
+**Prerequisite:** `brew install fswatch`
+
+---
+
 ## Session Summariser
 
 After every `copilot chat` session, `summarize-session.py` automatically:
