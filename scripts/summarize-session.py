@@ -527,18 +527,6 @@ def main():
         sys.exit(0)
 
     # Determine output filename
-    raw_title = workspace.get("summary", "session")
-    date_prefix = ""
-    created_at = workspace.get("created_at", "")
-    if created_at:
-        try:
-            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-            date_prefix = dt.strftime("%Y-%m-%d")
-        except ValueError:
-            date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    else:
-        date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
     # Determine output filename — date-only for same-day squashing
     raw_title = workspace.get("summary", "session")
     date_prefix = ""
@@ -570,6 +558,7 @@ def main():
         prev_note = find_prev_note(VAULT_DIR, filename)
         prev_stem = prev_note.stem if prev_note else None
         output_path.write_text(build_daily_file(messages, workspace, session_id, date_prefix, prev_stem=prev_stem))
+        rebuild_daily_summary(output_path)
         print(f"✅ Session saved: {output_path}")
         if prev_note:
             patch_next_link(prev_note, date_prefix)
