@@ -47,7 +47,25 @@ python3 ~/.copilot/scripts/summarize-session.py
 
 # Summarise a specific session by ID
 python3 ~/.copilot/scripts/summarize-session.py <session-id>
+
+# Summarise with a human prose summary (agent-generated)
+python3 ~/.copilot/scripts/summarize-session.py <session-id> --prose "Your 2-4 sentence summary here"
 ```
+
+## Agent Prose Summary Protocol
+
+When syncing a session (triggered by "sync session", "save session", etc.):
+
+1. **Generate a prose summary** of the full conversation — 2–5 sentences capturing what was accomplished, what was built/configured, and any notable decisions.
+2. **Pass it via `--prose`** when calling the script.
+
+**Example:**
+```bash
+python3 ~/.copilot/scripts/summarize-session.py be041063 \
+  --prose "The session built a full session-sync pipeline including a csync alias, same-day squashing for Notion and Obsidian, and a summary table at the top of each daily note. All historical sessions were backfilled into the new format."
+```
+
+The prose is stored between `<!-- prose_start -->` and `<!-- prose_end -->` markers in the daily Obsidian file — visible directly below the summary table. If `--prose` is omitted on re-runs, existing prose is preserved unchanged.
 
 ---
 
