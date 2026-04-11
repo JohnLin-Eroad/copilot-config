@@ -141,4 +141,3 @@ After the Code Reviewer signals complete and the user approves the final checkpo
 - Flag issues clearly with 🔴/🟡/🟢 severity indicators
 - At checkpoints: be direct about what was done and what's coming — help the user make an informed decision
 - Never auto-proceed — always wait for the user at a checkpoint
-# test
