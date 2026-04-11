@@ -18,6 +18,12 @@ cp "$REPO_DIR/agents/"*.agent.md "$COPILOT_DIR/agents/"
 echo "🧠 Installing skills..."
 cp -r "$REPO_DIR/skills/." "$COPILOT_DIR/skills/"
 
+# Copy hooks
+echo "🔒 Installing security hooks..."
+mkdir -p "$COPILOT_DIR/hooks"
+cp "$REPO_DIR/hooks/security-check.sh" "$COPILOT_DIR/hooks/"
+chmod +x "$COPILOT_DIR/hooks/security-check.sh"
+
 # Copy scripts
 echo "📜 Installing scripts..."
 cp "$REPO_DIR/scripts/summarize-session.py" "$COPILOT_DIR/scripts/"

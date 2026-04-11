@@ -50,6 +50,22 @@ copilot-config/
 | `session-summary` | Save session logs to copilot-sessions vault |
 | `handoff-protocol` | Agent-to-agent context handoff via TASK_CONTEXT.md |
 | `jira-confluence-sync` | Create/update Jira + Confluence via MCP |
+| `critical-thinker` | Balanced critical evaluation of plans, proposals, and decisions |
+
+## Hooks
+
+A `preToolUse` security hook fires before every tool call, blocking high-risk patterns and writing an audit log to `~/.copilot/logs/security-audit.jsonl`.
+
+| Pattern | Action |
+|---|---|
+| `curl \| bash`, `wget \| sh` (pipe-to-shell) | 🚫 Denied |
+| POST request referencing local credentials / config | 🚫 Denied |
+| Cloud metadata endpoint (`169.254.169.254`) | 🚫 Denied |
+| Download to executable/system path | 🚫 Denied |
+| Internal network access via web-fetch | 🚫 Denied |
+| `curl`/`wget` GET, `npm install`, `pip install`, `git clone`, etc. | ✅ Allowed + audited |
+
+Hook is registered in `~/.copilot/config.json` under the `hooks.preToolUse` key.
 
 ## Config File Watcher
 
