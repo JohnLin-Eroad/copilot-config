@@ -475,23 +475,40 @@ def main():
     else:
         date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-    slug = slugify(raw_title)
-    filename = f"{date_prefix}-{slug}.md"
+    # Determine output filename — date-only for same-day squashing
+    raw_title = workspace.get("summary", "session")
+    date_prefix = ""
+    created_at = workspace.get("created_at", "")
+    if created_at:
+        try:
+            dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+            date_prefix = dt.strftime("%Y-%m-%d")
+        except ValueError:
+            date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    else:
+        date_prefix = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    filename = f"{date_prefix}.md"
     output_path = VAULT_DIR / filename
 
     VAULT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Find previous note for bidirectional linking
-    prev_note = find_prev_note(VAULT_DIR, filename)
-    prev_stem = prev_note.stem if prev_note else None
-
-    summary = build_summary(messages, workspace, session_id, prev_stem=prev_stem)
-    output_path.write_text(summary)
-    print(f"✅ Session saved: {output_path}")
-
-    # Back-patch the → next link onto the previous note
-    if prev_note:
-        patch_next_link(prev_note, Path(filename).stem)
+    if output_path.exists():
+        content = output_path.read_text()
+        if session_id in content:
+            update_session_in_daily(output_path, messages, workspace, session_id)
+            print(f"✅ Session updated in: {output_path}")
+        else:
+            append_session_to_daily(output_path, messages, workspace, session_id)
+            print(f"✅ Session appended to: {output_path}")
+    else:
+        # New daily file — find prev for nav links
+        prev_note = find_prev_note(VAULT_DIR, filename)
+        prev_stem = prev_note.stem if prev_note else None
+        output_path.write_text(build_daily_file(messages, workspace, session_id, date_prefix, prev_stem=prev_stem))
+        print(f"✅ Session saved: {output_path}")
+        if prev_note:
+            patch_next_link(prev_note, date_prefix)
 
     # Extract learnings and post to Notion vault
     date_prefix_str = date_prefix  # already computed above
