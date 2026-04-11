@@ -342,48 +342,67 @@ def extract_learnings(messages: list[dict]) -> list[str]:
 
 
 def post_to_notion_vault(title: str, learnings: list[str], date_str: str, session_id: str) -> None:
-    """Sync learnings to the central Notion page — only appending items not already present."""
+    """Sync learnings to the central Notion page.
+
+    Same-day syncs are squashed: new bullets are appended inside the existing
+    day's section rather than creating a duplicate header.
+    """
     if not learnings:
         print("ℹ️  No learnings extracted — skipping Notion sync.")
         return
 
     try:
         page_id = get_or_create_learnings_page()
-        existing = fetch_existing_bullets(page_id)
+        blocks = fetch_all_blocks(page_id)
+        existing = existing_bullets_from_blocks(blocks)
         new_items = [item for item in learnings if item not in existing]
 
         if not new_items:
             print(f"ℹ️  All {len(learnings)} learnings already in Notion vault — nothing to add.")
             return
 
-        # Add a divider + session label before the new batch
-        children = [
-            {"object": "block", "type": "divider", "divider": {}},
+        bullet_blocks = [
             {
-                "object": "block",
-                "type": "callout",
-                "callout": {
-                    "rich_text": [{"type": "text", "text": {"content": f"{date_str} — {title}  (session: {session_id})"}}],
-                    "icon": {"emoji": "🗓️"},
-                    "color": "gray_background",
-                },
-            },
-        ]
-        for item in new_items:
-            children.append({
                 "object": "block",
                 "type": "bulleted_list_item",
                 "bulleted_list_item": {
                     "rich_text": [{"type": "text", "text": {"content": item[:2000]}}]
                 },
-            })
+            }
+            for item in new_items
+        ]
 
-        _notion_request(
-            f"https://api.notion.com/v1/blocks/{page_id}/children",
-            {"children": children},
-            method="PATCH",
-        )
-        print(f"💡 Synced {len(new_items)} new learnings to Notion vault (skipped {len(learnings) - len(new_items)} duplicates).")
+        _, last_block_id = find_todays_section(blocks, date_str)
+
+        if last_block_id:
+            # Squash into the existing today section — insert after the last block in it
+            _notion_request(
+                f"https://api.notion.com/v1/blocks/{page_id}/children",
+                {"children": bullet_blocks, "after": last_block_id},
+                method="PATCH",
+            )
+            print(f"💡 Added {len(new_items)} new learnings to today's Notion section (skipped {len(learnings) - len(new_items)} duplicates).")
+        else:
+            # First sync of the day — create a new dated section
+            children = [
+                {"object": "block", "type": "divider", "divider": {}},
+                {
+                    "object": "block",
+                    "type": "callout",
+                    "callout": {
+                        "rich_text": [{"type": "text", "text": {"content": f"{date_str} — {title}  (session: {session_id})"}}],
+                        "icon": {"emoji": "🗓️"},
+                        "color": "gray_background",
+                    },
+                },
+                *bullet_blocks,
+            ]
+            _notion_request(
+                f"https://api.notion.com/v1/blocks/{page_id}/children",
+                {"children": children},
+                method="PATCH",
+            )
+            print(f"💡 Synced {len(new_items)} new learnings to Notion vault (skipped {len(learnings) - len(new_items)} duplicates).")
     except urllib.error.HTTPError as e:
         print(f"⚠️  Notion API error {e.code}: {e.read().decode()}", file=sys.stderr)
     except Exception as e:
