@@ -352,7 +352,7 @@ def rebuild_daily_summary(file_path: Path) -> None:
     file_path.write_text(updated)
 
 
-(file_path: Path, messages: list[dict], workspace: dict, session_id: str) -> None:
+def append_session_to_daily(file_path: Path, messages: list[dict], workspace: dict, session_id: str) -> None:
     """Append a new session section to an existing daily file."""
     content = file_path.read_text()
     section_num = len(re.findall(r"^## Session \d+:", content, re.MULTILINE)) + 1
@@ -362,6 +362,7 @@ def rebuild_daily_summary(file_path: Path) -> None:
         file_path.write_text(content.rstrip() + f"\n\n---\n\n{section}\n\n{_FOOTER}\n")
     else:
         file_path.write_text(new_content)
+    rebuild_daily_summary(file_path)
 
 
 def update_session_in_daily(file_path: Path, messages: list[dict], workspace: dict, session_id: str) -> None:
@@ -377,9 +378,9 @@ def update_session_in_daily(file_path: Path, messages: list[dict], workspace: di
     new_section = build_session_section(messages, workspace, session_id, section_num)
     # Replace from the ## Session line up to (but not including) the next ## Session or footer
     pattern = rf"## Session {section_num}: .+\n<!-- session_id: {re.escape(session_id)} -->.*?(?=\n## Session \d+:|\n{re.escape('---')})"
-    replacement = new_section
-    updated = re.sub(pattern, replacement, content, flags=re.DOTALL)
+    updated = re.sub(pattern, new_section, content, flags=re.DOTALL)
     file_path.write_text(updated)
+    rebuild_daily_summary(file_path)
 
 
 def find_prev_note(vault_dir: Path, current_filename: str) -> Path | None:
