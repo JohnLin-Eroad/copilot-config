@@ -1,0 +1,15 @@
+# Runtime state — never commit
+notion-vault-state.json
+command-history-state.json
+mcp-oauth-config/
+session-state/
+jb/
+logs/
+restart
+
+# OS
+.DS_Store
+
+# Secrets (real config lives in ~/.copilot/, not here)
+*.secret
+.env
