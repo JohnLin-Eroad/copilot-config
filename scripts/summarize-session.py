@@ -578,12 +578,15 @@ def main():
         else:
             append_session_to_daily(output_path, messages, workspace, session_id)
             print(f"✅ Session appended to: {output_path}")
+        if args.prose:
+            rebuild_daily_summary(output_path, prose=args.prose)
+            print(f"📝 Prose summary updated.")
     else:
         # New daily file — find prev for nav links
         prev_note = find_prev_note(VAULT_DIR, filename)
         prev_stem = prev_note.stem if prev_note else None
         output_path.write_text(build_daily_file(messages, workspace, session_id, date_prefix, prev_stem=prev_stem))
-        rebuild_daily_summary(output_path)
+        rebuild_daily_summary(output_path, prose=args.prose)
         print(f"✅ Session saved: {output_path}")
         if prev_note:
             patch_next_link(prev_note, date_prefix)
