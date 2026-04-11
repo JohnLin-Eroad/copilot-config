@@ -79,9 +79,9 @@ def get_or_create_learnings_page() -> str:
     return page_id
 
 
-def fetch_existing_bullets(page_id: str) -> set[str]:
-    """Fetch all existing bullet point text from a Notion page (handles pagination)."""
-    existing: set[str] = set()
+def fetch_all_blocks(page_id: str) -> list[dict]:
+    """Fetch all child blocks from a Notion page, handling pagination."""
+    blocks = []
     cursor = None
     while True:
         url = f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=100"
@@ -90,16 +90,54 @@ def fetch_existing_bullets(page_id: str) -> set[str]:
         req = urllib.request.Request(url, headers=_notion_headers())
         with urllib.request.urlopen(req, context=ssl._create_unverified_context(), timeout=15) as resp:
             data = json.loads(resp.read())
-        for block in data.get("results", []):
-            if block.get("type") == "bulleted_list_item":
-                texts = block["bulleted_list_item"].get("rich_text", [])
-                text = "".join(t.get("plain_text", "") for t in texts).strip()
-                if text:
-                    existing.add(text)
+        blocks.extend(data.get("results", []))
         if not data.get("has_more"):
             break
         cursor = data.get("next_cursor")
+    return blocks
+
+
+def existing_bullets_from_blocks(blocks: list[dict]) -> set[str]:
+    """Extract the text of all bulleted_list_item blocks."""
+    existing: set[str] = set()
+    for block in blocks:
+        if block.get("type") == "bulleted_list_item":
+            texts = block["bulleted_list_item"].get("rich_text", [])
+            text = "".join(t.get("plain_text", "") for t in texts).strip()
+            if text:
+                existing.add(text)
     return existing
+
+
+def find_todays_section(blocks: list[dict], date_str: str) -> tuple[str | None, str | None]:
+    """
+    Find an existing callout section whose text starts with date_str.
+    Returns (callout_block_id, last_block_id_in_section) so new bullets can be
+    appended after last_block_id_in_section using Notion's `after` parameter.
+    Returns (None, None) if no section exists for today.
+    """
+    callout_idx = None
+    callout_id = None
+    for i, block in enumerate(blocks):
+        if block.get("type") == "callout":
+            texts = block["callout"].get("rich_text", [])
+            text = "".join(t.get("plain_text", "") for t in texts)
+            if text.startswith(date_str):
+                callout_idx = i
+                callout_id = block["id"]
+                break
+
+    if callout_idx is None:
+        return None, None
+
+    # Walk forward until the next divider (or end) to find the last block in this section.
+    last_block_id = callout_id
+    for block in blocks[callout_idx + 1:]:
+        if block.get("type") == "divider":
+            break
+        last_block_id = block["id"]
+
+    return callout_id, last_block_id
 
 
 def find_latest_session() -> Path | None:

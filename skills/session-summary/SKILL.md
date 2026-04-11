@@ -29,38 +29,25 @@ copilot-sessions/
 
 ---
 
-## Invocation
+## Auto-Summariser Script
 
-### In-session trigger (inside Copilot chat)
-When the user says any of:
-- "sync session"
-- "sync session data"
-- "save session"
-- "sync to obsidian"
-- "sync to notion"
+The vault is automatically populated by:
 
-…the agent MUST immediately run the summariser script for the **current session ID**
-(available from `workspace.yaml` in the session state directory):
-
-```bash
-python3 ~/.copilot/scripts/summarize-session.py <current-session-id>
+```
+~/.copilot/scripts/summarize-session.py
 ```
 
-The session ID is the UUID folder name under `~/.copilot/session-state/`.
-Always pass the current session ID explicitly so the script doesn't fall back to
-the last-modified session.
+This script is triggered by the `copilot()` zsh wrapper function in `~/.zshrc`
+every time a `gh copilot chat` session ends.
 
-### Terminal alias
-A `csync` zsh function is defined in `~/.zshrc` for quick manual invocation:
-
+**Run manually:**
 ```bash
-csync              # syncs the most recent session
-csync <session-id> # syncs a specific session
-```
+# Summarise the most recent session
+python3 ~/.copilot/scripts/summarize-session.py
 
-### Automatic (on session exit)
-The `copilot()` zsh wrapper in `~/.zshrc` calls this script automatically
-every time a `gh copilot chat` session ends — no manual action needed.
+# Summarise a specific session by ID
+python3 ~/.copilot/scripts/summarize-session.py <session-id>
+```
 
 ---
 
