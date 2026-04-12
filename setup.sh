@@ -29,7 +29,21 @@ echo "📜 Installing scripts..."
 cp "$REPO_DIR/scripts/summarize-session.py" "$COPILOT_DIR/scripts/"
 cp "$REPO_DIR/scripts/sync-config.py" "$COPILOT_DIR/scripts/"
 cp "$REPO_DIR/scripts/watch-config.sh" "$COPILOT_DIR/scripts/"
+cp "$REPO_DIR/scripts/add-learning.sh" "$COPILOT_DIR/scripts/"
 chmod +x "$COPILOT_DIR/scripts/watch-config.sh"
+chmod +x "$COPILOT_DIR/scripts/add-learning.sh"
+
+# Copy global agent instructions
+echo "📝 Installing global agent instructions..."
+cp "$REPO_DIR/copilot-instructions.md" "$COPILOT_DIR/copilot-instructions.md"
+
+# Seed global learnings (only if not already present)
+if [ ! -f "$COPILOT_DIR/learnings.md" ]; then
+  echo "📚 Installing global learnings seed..."
+  cp "$REPO_DIR/learnings.md" "$COPILOT_DIR/learnings.md"
+else
+  echo "📚 learnings.md already exists — skipping (preserving live entries)"
+fi
 
 # MCP config
 if [ -f "$COPILOT_DIR/mcp-config.json" ]; then

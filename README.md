@@ -52,7 +52,30 @@ copilot-config/
 | `jira-confluence-sync` | Create/update Jira + Confluence via MCP |
 | `critical-thinker` | Balanced critical evaluation of plans, proposals, and decisions |
 
-## Hooks
+## Learnings System
+
+Agents automatically capture lessons learned during each task.
+
+| File | Scope |
+|---|---|
+| `~/.copilot/learnings.md` | Global — cross-repo patterns, preferences, gotchas |
+| `<repo>/.github/learnings.md` | Local — repo-specific findings (created on first use) |
+
+At task start, agents read both files for context. At task end, they write new learnings using `add-learning.sh`:
+
+```bash
+# Write a global learning
+~/.copilot/scripts/add-learning.sh --global "message"
+
+# Write a local learning (must be inside a git repo)
+~/.copilot/scripts/add-learning.sh --local "message"
+
+# Auto-detect (local if in git repo, else global)
+~/.copilot/scripts/add-learning.sh "message"
+```
+
+Instructions for agents are in `~/.copilot/copilot-instructions.md` (auto-loaded each session).
+
 
 A `preToolUse` security hook fires before every tool call, blocking high-risk patterns and writing an audit log to `~/.copilot/logs/security-audit.jsonl`.
 

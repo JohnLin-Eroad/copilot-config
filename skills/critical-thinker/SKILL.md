@@ -54,6 +54,8 @@ Call out implicit assumptions the plan relies on that haven't been validated. As
 - What has been left out or glossed over?
 - Are there dependencies, constraints, or stakeholders not accounted for?
 
+**For code-level decisions specifically:** Before choosing a type, annotation, naming convention, or default value — examine the immediate surrounding code first. Ask: *does this choice match how the existing codebase handles the same concern?* Small inconsistencies (e.g. `Boolean` vs `boolean`, missing or extra `@Column`, non-standard getter names) compound into tech debt and bugs. Never pick a default in isolation.
+
 ### 5. Open Questions ❓
 List the most important unanswered questions the team should address before proceeding.
 
