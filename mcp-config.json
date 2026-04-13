@@ -26,6 +26,13 @@
       "type": "http",
       "url": "https://agent365.svc.cloud.microsoft/agents/tenants/YOUR_TENANT_ID/servers/mcp_CalendarTools"
     },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.slack.com/mcp"
+      ]
+    },
     "notion": {
       "command": "npx",
       "args": ["-y", "@notionhq/notion-mcp-server"],
