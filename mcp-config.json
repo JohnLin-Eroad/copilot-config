@@ -30,7 +30,9 @@
       "command": "npx",
       "args": [
         "mcp-remote",
-        "https://mcp.slack.com/mcp"
+        "https://mcp.slack.com/mcp",
+        "--static-oauth-client-info",
+        "/Users/johnlin/.copilot/mcp-oauth-config/slack.json"
       ]
     },
     "notion": {
