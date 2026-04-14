@@ -558,11 +558,73 @@ def _dedup(items: list[str]) -> list[str]:
     return unique
 
 
+def _make_bullet(text: str) -> dict:
+    return {
+        "object": "block",
+        "type": "bulleted_list_item",
+        "bulleted_list_item": {
+            "rich_text": [{"type": "text", "text": {"content": text[:2000]}}]
+        },
+    }
+
+
+def _make_toggle(heading: str, children: list[dict]) -> dict:
+    """Create a Notion toggle block with bullet children nested inside."""
+    return {
+        "object": "block",
+        "type": "toggle",
+        "toggle": {
+            "rich_text": [{"type": "text", "text": {"content": heading}}],
+            "color": "default",
+            "children": children,
+        },
+    }
+
+
+def existing_learning_texts(page_id: str) -> set[str]:
+    """Collect all bullet text already stored under any toggle on this page (dedup guard)."""
+    texts: set[str] = set()
+    top_blocks = fetch_all_blocks(page_id)
+    for block in top_blocks:
+        if block.get("type") == "toggle":
+            child_blocks = fetch_all_blocks(block["id"])
+            for cb in child_blocks:
+                if cb.get("type") == "bulleted_list_item":
+                    rt = cb["bulleted_list_item"].get("rich_text", [])
+                    text = "".join(t.get("plain_text", "") for t in rt).strip()
+                    if text:
+                        texts.add(text)
+        elif block.get("type") == "bulleted_list_item":
+            # Legacy flat bullets from before the toggle format
+            rt = block["bulleted_list_item"].get("rich_text", [])
+            text = "".join(t.get("plain_text", "") for t in rt).strip()
+            if text:
+                texts.add(text)
+    return texts
+
+
+def find_session_toggle(blocks: list[dict], session_id: str) -> str | None:
+    """Return the block ID of an existing toggle that contains this session_id."""
+    for block in blocks:
+        if block.get("type") == "toggle":
+            rt = block["toggle"].get("rich_text", [])
+            text = "".join(t.get("plain_text", "") for t in rt)
+            if session_id in text:
+                return block["id"]
+    return None
+
+
 def post_to_notion_vault(title: str, learnings: list[str], date_str: str, session_id: str) -> None:
     """Sync learnings to the central Notion page.
 
-    Same-day syncs are squashed: new bullets are appended inside the existing
-    day's section rather than creating a duplicate header.
+    Each session gets its own toggle block:
+
+        ▶ 🗓️ 2025-04-14 — Session title  (session: abc123)
+            • Learning one
+            • Learning two
+
+    Same-session syncs append new bullets inside the existing toggle.
+    Duplicate bullets (matched by text) are always skipped.
     """
     if not learnings:
         print("ℹ️  No learnings extracted — skipping Notion sync.")
@@ -570,56 +632,38 @@ def post_to_notion_vault(title: str, learnings: list[str], date_str: str, sessio
 
     try:
         page_id = get_or_create_learnings_page()
-        blocks = fetch_all_blocks(page_id)
-        existing = existing_bullets_from_blocks(blocks)
-        new_items = [item for item in learnings if item not in existing]
+        existing_texts = existing_learning_texts(page_id)
+        new_items = [item for item in learnings if item not in existing_texts]
 
         if not new_items:
             print(f"ℹ️  All {len(learnings)} learnings already in Notion vault — nothing to add.")
             return
 
-        bullet_blocks = [
-            {
-                "object": "block",
-                "type": "bulleted_list_item",
-                "bulleted_list_item": {
-                    "rich_text": [{"type": "text", "text": {"content": item[:2000]}}]
-                },
-            }
-            for item in new_items
-        ]
+        bullet_blocks = [_make_bullet(item) for item in new_items]
+        top_blocks = fetch_all_blocks(page_id)
+        toggle_id = find_session_toggle(top_blocks, session_id)
 
-        _, last_block_id = find_todays_section(blocks, date_str)
-
-        if last_block_id:
-            # Squash into the existing today section — insert after the last block in it
+        if toggle_id:
+            # Append new bullets into the existing session toggle
             _notion_request(
-                f"https://api.notion.com/v1/blocks/{page_id}/children",
-                {"children": bullet_blocks, "after": last_block_id},
+                f"https://api.notion.com/v1/blocks/{toggle_id}/children",
+                {"children": bullet_blocks},
                 method="PATCH",
             )
-            print(f"💡 Added {len(new_items)} new learnings to today's Notion section (skipped {len(learnings) - len(new_items)} duplicates).")
+            print(f"💡 Added {len(new_items)} learnings to existing session toggle (skipped {len(learnings) - len(new_items)} duplicates).")
         else:
-            # First sync of the day — create a new dated section
+            # New session — create a toggle heading + bullets, preceded by a divider
+            toggle_heading = f"🗓️ {date_str} — {title}  (session: {session_id})"
             children = [
                 {"object": "block", "type": "divider", "divider": {}},
-                {
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "rich_text": [{"type": "text", "text": {"content": f"{date_str} — {title}  (session: {session_id})"}}],
-                        "icon": {"emoji": "🗓️"},
-                        "color": "gray_background",
-                    },
-                },
-                *bullet_blocks,
+                _make_toggle(toggle_heading, bullet_blocks),
             ]
             _notion_request(
                 f"https://api.notion.com/v1/blocks/{page_id}/children",
                 {"children": children},
                 method="PATCH",
             )
-            print(f"💡 Synced {len(new_items)} new learnings to Notion vault (skipped {len(learnings) - len(new_items)} duplicates).")
+            print(f"💡 Synced {len(new_items)} learnings to new session toggle in Notion (skipped {len(learnings) - len(new_items)} duplicates).")
     except urllib.error.HTTPError as e:
         print(f"⚠️  Notion API error {e.code}: {e.read().decode()}", file=sys.stderr)
     except Exception as e:
