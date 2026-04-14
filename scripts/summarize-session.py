@@ -428,27 +428,134 @@ def patch_next_link(prev_path: Path, next_stem: str) -> None:
         prev_path.write_text(content.rstrip() + f"\n\n→ [[{next_stem}]]\n")
 
 
-def extract_learnings(messages: list[dict]) -> list[str]:
-    """Extract key learnings from AI messages — bullet points, numbered items, and recommendations."""
-    learnings = []
+
+# Patterns that indicate structural output rather than genuine insights
+_STRUCTURAL_PATTERNS = [
+    re.compile(r'^\*\*[^*]+\*\*\s+[—–-]'),          # **Service Name** — description
+    re.compile(r'^\*\*\d+\s+\w+\*\*'),                # **19 domain files**
+    re.compile(r'\[\[[\w\s/\-]+\]\]'),                 # wiki-links [[...]]
+    re.compile(r'`[/~][^\s`]{5,}`'),                   # file paths like `/path/to/file`
+    re.compile(r'https?://\S+'),                       # bare URLs
+    re.compile(r'^(Deleted|Created|Updated|Added|Removed|Fixed|Renamed)\s'),  # status verbs
+    re.compile(r'\b\d+\s+(files?|services?|references?|endpoints?|notes?)\b'), # "220 references"
+    re.compile(r'^(All|Zero)\s+\d+'),                  # "All 220 linked"
+    re.compile(r'\|\s*\w+\s*\|'),                      # table rows
+]
+
+# Keywords that indicate genuine insight
+_INSIGHT_KEYWORDS = re.compile(
+    r'\b(always|never|important|note that|gotcha|watch out|be aware|don\'t|prefer|'
+    r'avoid|instead|because|turns out|discovered|found that|key insight|critical|'
+    r'required|must|should|be careful|caveat|warning|ensure|guarantee|pattern|'
+    r'approach|reason|why|how to)\b',
+    re.IGNORECASE,
+)
+
+
+def _is_structural(line: str) -> bool:
+    """Return True if this line looks like structured output rather than an insight."""
+    for pattern in _STRUCTURAL_PATTERNS:
+        if pattern.search(line):
+            return True
+    return False
+
+
+def _extract_from_learnings_section(content: str) -> list[str]:
+    """Extract bullets from any '## Key Learnings' / '## Learnings' section in a message."""
+    results = []
+    in_section = False
+    for line in content.split("\n"):
+        stripped = line.strip()
+        if re.match(r'^#{1,3}\s+(Key\s+)?Learnings?', stripped, re.IGNORECASE):
+            in_section = True
+            continue
+        if in_section:
+            if re.match(r'^#{1,3}\s+', stripped):
+                in_section = False
+                continue
+            if re.match(r'^[-*•]\s+.{10,}', stripped):
+                results.append(re.sub(r'^[-*•]\s+', '', stripped))
+            elif re.match(r'^\d+[.)]\s+.{10,}', stripped):
+                results.append(re.sub(r'^\d+[.)]\s+', '', stripped))
+    return results
+
+
+def _extract_from_markers(content: str) -> list[str]:
+    """Extract content between <!-- learnings_start --> and <!-- learnings_end --> markers."""
+    match = re.search(
+        r'<!--\s*learnings_start\s*-->(.*?)<!--\s*learnings_end\s*-->',
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        return []
+    block = match.group(1)
+    results = []
+    for line in block.split("\n"):
+        stripped = line.strip()
+        if re.match(r'^[-*•]\s+.{10,}', stripped):
+            results.append(re.sub(r'^[-*•]\s+', '', stripped))
+        elif re.match(r'^\d+[.)]\s+.{10,}', stripped):
+            results.append(re.sub(r'^\d+[.)]\s+', '', stripped))
+        elif stripped and not stripped.startswith('#'):
+            results.append(stripped)
+    return [r for r in results if r]
+
+
+def extract_learnings(messages: list[dict], explicit: list[str] | None = None) -> list[str]:
+    """Extract key learnings from the session.
+
+    Priority order:
+    1. ``explicit`` — caller-provided list (e.g. from --learnings flag)
+    2. <!-- learnings_start --> ... <!-- learnings_end --> markers in any AI message
+    3. Dedicated '## Key Learnings' / '## Learnings' sections in AI messages
+    4. Fallback: bullet/numbered lines that pass insight heuristics (structural noise filtered out)
+    """
+    if explicit:
+        return _dedup(explicit)[:30]
+
+    # Pass 1: marker blocks
+    marker_learnings: list[str] = []
+    for msg in messages:
+        if msg["role"] == "assistant":
+            marker_learnings.extend(_extract_from_markers(msg["content"]))
+    if marker_learnings:
+        return _dedup(marker_learnings)[:30]
+
+    # Pass 2: dedicated learnings sections
+    section_learnings: list[str] = []
+    for msg in messages:
+        if msg["role"] == "assistant":
+            section_learnings.extend(_extract_from_learnings_section(msg["content"]))
+    if section_learnings:
+        return _dedup(section_learnings)[:30]
+
+    # Pass 3: heuristic fallback — bullets with insight language, structural noise filtered
+    fallback: list[str] = []
     for msg in messages:
         if msg["role"] != "assistant":
             continue
         for line in msg["content"].split("\n"):
             line = line.strip()
-            if re.match(r'^[-*•]\s+.{20,}', line):
-                learnings.append(re.sub(r'^[-*•]\s+', '', line))
-            elif re.match(r'^\d+[.)]\s+.{20,}', line):
-                learnings.append(re.sub(r'^\d+[.)]\s+', '', line))
+            if not re.match(r'^([-*•]|\d+[.)])\s+.{20,}', line):
+                continue
+            text = re.sub(r'^([-*•]|\d+[.)]\s*)', '', line).strip()
+            if _is_structural(text):
+                continue
+            if _INSIGHT_KEYWORDS.search(text):
+                fallback.append(text)
 
-    # Deduplicate, preserving order
+    return _dedup(fallback)[:20]
+
+
+def _dedup(items: list[str]) -> list[str]:
     seen: set[str] = set()
     unique = []
-    for item in learnings:
+    for item in items:
         if item not in seen:
             seen.add(item)
             unique.append(item)
-    return unique[:25]
+    return unique
 
 
 def post_to_notion_vault(title: str, learnings: list[str], date_str: str, session_id: str) -> None:
