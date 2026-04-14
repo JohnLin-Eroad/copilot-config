@@ -50,6 +50,77 @@ If a repo does not yet have `.github/learnings.md`, the script will create it au
 
 ---
 
+## Sovereign Platform
+
+John is building **Sovereign** — a local replica of EROAD's AI-governed transformation platform. Always be aware of this project when it's relevant.
+
+### Key locations
+- **Codebase**: `~/sovereign/` — Maven multi-module, Java 21, Spring Boot 3.4
+- **Frontend**: `~/sovereign/web/` — Next.js 15 on `:3000`
+- **API**: Spring Boot on `:8080`
+- **Agent YAMLs**: `~/sovereign/api/web/src/main/resources/agents/`
+- **Skills YAMLs**: `~/sovereign/api/web/src/main/resources/skills/`
+
+### Starting services
+```bash
+# Infrastructure (LocalStack SQS/S3 + PostgreSQL)
+cd ~/sovereign && docker compose up -d
+
+# API (Java 21 required)
+source ~/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.7-zulu
+cd ~/sovereign/api && mvn -pl web spring-boot:run > /tmp/sovereign-api.log 2>&1 &
+
+# Frontend
+cd ~/sovereign/web && npm run dev > /tmp/sovereign-web.log 2>&1 &
+```
+
+### Checking health
+```bash
+curl -s http://localhost:8080/health       # API
+curl -s http://localhost:8080/roles        # agent roles
+open http://localhost:3000                 # Web UI
+```
+
+### Architecture rule
+The project uses strict hexagonal architecture. **Domain must never import Infrastructure.**
+Module dependency order: `domain` ← `application` ← `infrastructure` ← `web`
+
+### Copilot Agents
+All agents live in `~/.copilot/agents/` (no `sov-` prefix). Specialist agents include:
+`architect`, `developer`, `security`, `testing`, `devops`, `discovery`, `governance`,
+`orchestrator`, `code-reviewer`, `documentation`, `product-owner`, `scrum-master`,
+`compliance`, `integration`, `performance`, `data-migration`, `critical-thinker`,
+`product-manager`, `qa-engineer`, `senior-software-engineer`, `ai-master`,
+`brain-data-retrieval`, `brain-consolidation`, `brain-repo-sync`, `agent-factory`
+
+**ERD agents**: `erd-strategy`, `erd-product`, `erd-engineering`, `erd-customer`, `erd-finance`,
+`erd-hr`, `erd-operations`, `erd-data`, `erd-marketing`, `erd-executive`
+
+---
+
+## Orchestrator Pipeline
+
+For **EROAD code tasks** (any task involving code changes, architecture decisions, or engineering work in an EROAD repository or the Sovereign platform), route through the orchestrator pipeline:
+
+```
+brain-data-retrieval → [specialist agents] → brain-consolidation
+```
+
+**Invoke the orchestrator when the task:**
+- Involves writing or changing code in an EROAD repo (eroad/, sovereign/, or any `github.com/eroad/*` repo)
+- Involves writing or changing code in the Sovereign platform (`~/sovereign/`)
+- Requires an architectural decision or ADR
+- Touches EROAD infrastructure, CI/CD, or deployments
+
+**Do NOT invoke the orchestrator for:**
+- General coding questions unrelated to EROAD (e.g. "how does X work in Python")
+- Personal/non-work projects outside the eroad org
+- Quick lookups, explanations, or questions that don't result in code changes
+
+**How to trigger:** John will say *"orchestrator:"* at the start of a message, or otherwise make clear it's an EROAD engineering task. When in doubt, ask.
+
+---
+
 ## General Behaviour
 
 - Always check `.github/copilot-instructions.md` in the current repo for project-specific instructions.
