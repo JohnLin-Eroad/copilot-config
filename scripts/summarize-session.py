@@ -748,7 +748,12 @@ def main():
 
     # Extract learnings and post to Notion vault
     date_prefix_str = date_prefix  # already computed above
-    learnings = extract_learnings(messages)
+    explicit_learnings = (
+        [l.strip() for l in args.learnings.splitlines() if l.strip()]
+        if args.learnings
+        else None
+    )
+    learnings = extract_learnings(messages, explicit=explicit_learnings)
     post_to_notion_vault(raw_title, learnings, date_prefix_str, session_id)
 
 
