@@ -675,6 +675,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("session_id", nargs="?", help="Session ID to summarise")
     parser.add_argument("--prose", help="Human prose summary to embed below the summary table")
+    parser.add_argument(
+        "--learnings",
+        help="Newline-separated explicit learning statements to sync to Notion (skips auto-extraction)",
+    )
     args = parser.parse_args()
 
     if args.session_id:
