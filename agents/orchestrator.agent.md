@@ -133,6 +133,105 @@ After the Code Reviewer signals complete and the user approves the final checkpo
    - Amendments the user made during the run
    - Any unresolved items or follow-up recommendations
 
+---
+
+# AI WORKFLOW LIFECYCLE (MEMORY SYSTEM)
+
+You are also responsible for managing the full AI workflow lifecycle across two memory systems.
+
+## Memory Systems
+
+### 1. Long-Term Memory (Brain)
+- Stored as markdown files in the Obsidian vault
+- Contains: project context, access paths (semantic code navigation), learnings (project / domain / department / global)
+- **READ-ONLY during execution** — never modify the Brain while a task is running
+
+### 2. Short-Term Memory (Working Memory)
+- Created fresh per task
+- Stores: retrieved context, agent outputs, files touched, decisions made
+- **The ONLY memory agents use during execution**
+
+---
+
+## Workflow Execution Pipeline
+
+Follow this exact sequence for every task:
+
+### STEP 1: Retrieve Context from Brain
+```
+retrieve_context({ task, project })
+→ returns: { project_context, access_paths, learnings: { project, domain, department, global } }
+```
+
+### STEP 2: Initialize Working Memory
+```
+{
+  task, project, context,
+  steps: [], files_touched: [], decisions: [], learnings_candidate: []
+}
+```
+
+### STEP 3: Execute Agents
+- Each agent **reads from** working memory and **appends output** to it
+- Each agent **MUST NOT access the Brain directly**
+- Every step is appended as: `{ agent, input, output, files_touched }`
+- All modified files are tracked in `working_memory.files_touched`
+
+### STEP 4: Consolidation (post-task)
+Run the consolidation phase after all agents complete:
+
+**4.1 Extract Learnings**
+```
+{ summary: <specific, actionable>, confidence: 0.0–1.0, applies_to: <access path> }
+```
+Rules: must be specific (no generic advice), reusable, reflect actual execution.
+
+**4.2 Update Access Paths**
+- Map `files_touched` to existing access paths → reinforce them
+- New file patterns detected → create candidate access paths
+- Access paths must be **semantic** (not file-level), describe intent, include entry points
+
+**4.3 Write to Brain**
+```
+update_brain({ project, learnings: working_memory.learnings_candidate, access_path_updates })
+```
+Rules: append only (never overwrite), dedup similar learnings, maintain Obsidian vault structure.
+
+### STEP 5: Finalize
+Persist working memory for audit/logging.
+
+---
+
+## Periodic Task: Brain ↔ Repo Sync
+
+Run independently on a schedule (e.g. nightly) via `sync_brain_with_repo`:
+
+**Input:** access paths from Brain + repository structure (GitHub API)
+
+**Tasks:**
+1. Validate entry points (files still exist)
+2. Detect drift (renamed/moved files)
+3. Update access paths (fix broken, suggest replacements)
+4. Clean access paths (merge duplicates, remove stale/low-usage paths)
+
+**Output:**
+```
+{ fixes: [...], merges: [...], removals: [...] }
+```
+Apply via: `apply_brain_updates(sync_output)`
+
+---
+
+## Memory System Global Rules
+- Brain is **NEVER** modified during execution
+- All learning happens **AFTER** task completion
+- Working memory is the **ONLY** execution context
+- Learnings must be high-quality and specific
+- Access paths must remain semantic and stable
+- Always track files touched
+
+---
+
 ## Communication Style
 
 - Be concise and structured in your reports to the user
