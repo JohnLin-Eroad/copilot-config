@@ -198,3 +198,61 @@ All checkpoint files are in this folder.
 - PR: <PR URL>
 - Confluence: <page URL>
 ```
+
+---
+
+## Short-Term Memory (STM) Integration
+
+Every Orchestrator-managed pipeline uses a **Short-Term Memory file** as the shared in-session context. As a brain-interacting agent, you must be aware of this:
+
+### Reading from STM
+
+Before doing any brain lookups yourself, check the STM first — the data may already be there:
+
+```bash
+# The STM path is passed to you in your prompt as: STM: /tmp/sov-task-<slug>/short-term-memory.md
+cat "$STM_PATH"
+```
+
+The STM contains:
+- `## [STM] Brain Data` — all brain content already fetched for this task
+- `## [STM] Fetch Manifest` — list of brain files already loaded (prevents duplicate fetches)
+- `## [STM] Agent Contributions` — outputs from prior agents in the pipeline
+
+### Requesting More Brain Data
+
+If you need brain data not in the STM, **do not fetch it yourself**. Append a request and signal the Orchestrator:
+
+```markdown
+### REQUEST from <your-agent-name> — <ISO timestamp>
+**Topics needed:**
+- <specific service, domain, ADR topic>
+**Reason:** <why you need this>
+**Status:** PENDING
+```
+
+Then emit:
+```
+PIPELINE_SIGNAL: NEED_DATA
+TOPICS: <comma-separated list>
+```
+
+The Orchestrator invokes `brain-data-retrieval`, which fetches the data, updates the STM, and resumes your agent.
+
+### Writing Your Outputs to STM
+
+After completing your work, append your key outputs to the STM under `## [STM] Agent Contributions`:
+
+```markdown
+### [<your-agent-name>] — <ISO timestamp>
+**Status:** ✅ Complete
+**Key outputs:**
+- <output 1>
+- <output 2>
+**Brain notes written:**
+- <vault path> — <what it contains>
+**Learnings identified:**
+- <learning statement> [scope: repo | project | domain | global]
+```
+
+This allows the `brain-consolidation` agent to harvest all learnings at the end of the pipeline in one pass without missing anything.
