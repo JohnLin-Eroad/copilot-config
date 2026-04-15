@@ -1,0 +1,117 @@
+{
+  "version": "1.0",
+  "description": "Copilot governance rules — evaluated by the governance-audit hook on every tool call",
+  "blastRadiusLevels": {
+    "LOW":      "Single file, no runtime impact — proceed autonomously",
+    "MEDIUM":   "Multi-file or config change — proceed, summarise changes",
+    "HIGH":     "Cross-service, breaking, or hard-to-reverse — explain first",
+    "CRITICAL": "Irreversible, multi-system, or credential-touching — stop and get approval"
+  },
+  "rules": [
+    {
+      "id": "sec-001",
+      "name": "No pipe-to-shell downloads",
+      "description": "curl/wget output piped directly into an interpreter is a code execution vector",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "security"
+    },
+    {
+      "id": "sec-002",
+      "name": "No credential exfiltration",
+      "description": "POST requests referencing local credentials, tokens, or config files",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "security"
+    },
+    {
+      "id": "sec-003",
+      "name": "No cloud metadata access",
+      "description": "169.254.169.254 endpoint leaks cloud instance credentials",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "security"
+    },
+    {
+      "id": "sec-004",
+      "name": "No obfuscated shell expansion",
+      "description": "${var@P} and ${!var} patterns are prompt injection vectors",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "security"
+    },
+    {
+      "id": "gov-001",
+      "name": "Protect home directory",
+      "description": "rm -rf ~ or /Users/<user> destroys the entire environment",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "governance"
+    },
+    {
+      "id": "gov-002",
+      "name": "Protect critical directories",
+      "description": "Recursive delete of .copilot, sovereign, copilot-config, eroad-brain, IdeaProjects requires explicit approval",
+      "severity": "BLOCK",
+      "blastRadius": "CRITICAL",
+      "category": "governance",
+      "protected": [".copilot", "sovereign", "copilot-config", "eroad-brain", "IdeaProjects"]
+    },
+    {
+      "id": "gov-003",
+      "name": "No force push",
+      "description": "git push --force rewrites shared history — requires explicit human decision",
+      "severity": "BLOCK",
+      "blastRadius": "HIGH",
+      "category": "governance"
+    },
+    {
+      "id": "gov-004",
+      "name": "No destructive DB operations",
+      "description": "DROP TABLE/DATABASE or TRUNCATE TABLE must be explicitly approved",
+      "severity": "BLOCK",
+      "blastRadius": "HIGH",
+      "category": "governance"
+    },
+    {
+      "id": "gov-005",
+      "name": "No download to executable paths",
+      "description": "Downloading directly to /bin, /usr/local/bin, or .sh/.py files prevents silent code injection",
+      "severity": "BLOCK",
+      "blastRadius": "HIGH",
+      "category": "governance"
+    },
+    {
+      "id": "audit-001",
+      "name": "Log all destructive file operations",
+      "description": "rm -rf on non-critical paths is allowed but logged as HIGH",
+      "severity": "LOG",
+      "blastRadius": "HIGH",
+      "category": "audit"
+    },
+    {
+      "id": "audit-002",
+      "name": "Log all VCS writes",
+      "description": "git commit, push, rebase, reset — logged as MEDIUM",
+      "severity": "LOG",
+      "blastRadius": "MEDIUM",
+      "category": "audit"
+    },
+    {
+      "id": "audit-003",
+      "name": "Log all DB queries",
+      "description": "psql/mysql/sqlite3 commands — logged as MEDIUM",
+      "severity": "LOG",
+      "blastRadius": "MEDIUM",
+      "category": "audit"
+    },
+    {
+      "id": "audit-004",
+      "name": "Log all file writes",
+      "description": "edit/create tool calls — logged as MEDIUM",
+      "severity": "LOG",
+      "blastRadius": "MEDIUM",
+      "category": "audit"
+    }
+  ]
+}

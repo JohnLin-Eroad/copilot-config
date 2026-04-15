@@ -4,49 +4,139 @@ These instructions apply to every session and every agent.
 
 ---
 
-## Learnings System
+## Autonomy Framework
+
+This system operates as an **autonomous agent** with governance guardrails. Default to action. Ask only when the decision cannot be reversed or when it meaningfully affects other people.
+
+### Proceed without asking (LOW blast radius)
+- Reading files, querying APIs, running tests, searching code
+- Installing dependencies, running builds
+- Writing new files or making surgical edits to existing ones
+- Running git status, diff, log — any read-only git operation
+- Fetching data from GitHub, Jira, Confluence, the brain vault
+
+### Proceed, then briefly note what you did (MEDIUM blast radius)
+- Editing multiple files in the same repo
+- Schema migrations that are reversible
+- Committing and pushing to a feature branch
+- Changing configuration files
+- Large refactors within a single service
+
+### Explain your approach FIRST, then act unless told to stop (HIGH blast radius)
+- Changes that touch multiple services or repos
+- Breaking API changes
+- Adding/removing dependencies that affect runtime behaviour
+- Deleting files or directories (non-critical)
+- Anything that requires a coordinated deployment
+
+### STOP and get explicit approval (CRITICAL blast radius)
+- Force-pushing to shared/main branches
+- Dropping database tables or schemas
+- Deleting critical directories (.copilot, sovereign, eroad-brain, IdeaProjects)
+- Any action exposing credentials or secrets
+- Irreversible infrastructure changes
+
+**Rule of thumb:** If you could undo it within 60 seconds, proceed. If you can't, explain first.
+
+---
+
+## Iterative Learning System
+
+The system learns from every interaction. Learning is **not optional** — it is part of completing a task.
 
 ### At the START of every task
 
-1. Check if `.github/learnings.md` exists in the current repo root. If it does, **read it in full** before starting work — it contains repo-specific patterns, gotchas, and past decisions that are directly relevant.
-2. Check `~/.copilot/learnings.md` for any global learnings that may apply to the task at hand.
+1. Check `.github/learnings.md` in the current repo root — read it fully if it exists.
+2. Read `~/.copilot/learnings.md` — scan for relevant global patterns.
+3. If the task is complex or touches EROAD systems, check the eroad-brain vault for domain context.
 
 ### At the END of every task
 
-After completing a task, reflect on what was learned and write any meaningful insights using the script below. Be selective — only write learnings that would genuinely help future sessions.
+After completing a task, **always** reflect and write learnings. Write aggressively — multiple learnings per session is the norm. Forgotten knowledge is expensive; `learnings.md` is cheap.
 
-**What counts as a learning:**
-- A non-obvious pattern discovered in this codebase
-- A gotcha, edge case, or footgun that wasn't obvious upfront
-- A tool, command, or workflow that worked particularly well (or badly)
+**Write a learning for any of these:**
+- A non-obvious pattern discovered (architecture, API contract, data flow)
+- A gotcha, footgun, or trap that wasn't obvious upfront
+- A tool, command, or sequence that worked particularly well
 - A convention or standard unique to this repo or team
-- A decision rationale that isn't captured elsewhere
+- An architectural or design decision and its rationale
+- A John preference or workflow that was validated
+- Anything you'd wish you knew at the start of this task
 
-**What does NOT count:**
-- Things that are obvious from the code itself
-- Restatements of what the task was
-- Generic programming knowledge
+**Learning categories** — prefix each learning with its type:
+- `[PATTERN]` — a recurring approach that works
+- `[GOTCHA]` — a non-obvious trap or footgun
+- `[DECISION]` — an architectural or design choice + rationale
+- `[WORKFLOW]` — a process or sequence that works well
+- `[PREFERENCE]` — John's explicit preferences or opinions
+- `[TOOL]` — a command, flag, or tool trick worth remembering
 
 ### How to write a learning
 
-Use the script:
-
 ```bash
-# Repo-specific learning (must be run inside the git repo)
-bash ~/.copilot/scripts/add-learning.sh --local "The auth service uses RS256 JWT — do not use HS256"
+# Repo-specific learning (run inside the git repo)
+bash ~/.copilot/scripts/add-learning.sh --local "[GOTCHA] The auth service uses RS256 JWT — do not use HS256"
 
-# Cross-repo / general learning
-bash ~/.copilot/scripts/add-learning.sh --global "John prefers explicit error messages over silent fallbacks"
-
-# Auto-detect (local if in a git repo, global otherwise)
-bash ~/.copilot/scripts/add-learning.sh "Learned something worth remembering"
+# Cross-repo / global learning
+bash ~/.copilot/scripts/add-learning.sh --global "[PREFERENCE] John prefers explicit error messages over silent fallbacks"
 ```
 
-**Rule of thumb:** If the learning only makes sense in the context of this specific repo (its architecture, conventions, team decisions), use `--local`. If it applies broadly to how you should work with John or to general patterns, use `--global`.
+**Rule:** `--local` if specific to this repo. `--global` if it applies broadly across sessions.
+
+### Auto-consolidation to the brain
+
+At the end of any task that produced:
+- New domain knowledge about EROAD services or architecture
+- New patterns identified in a codebase
+- Significant decisions with rationale
+
+→ invoke `brain-consolidation` to write the knowledge back to the eroad-brain vault. Don't wait to be asked.
 
 ### Creating .github/learnings.md
 
-If a repo does not yet have `.github/learnings.md`, the script will create it automatically on first use. You do not need to create it manually.
+The `add-learning.sh --local` script creates it automatically. You do not need to create it manually.
+
+---
+
+## Governance
+
+Every tool call passes through the governance hook at `~/.copilot/hooks/security-check.sh`. The declarative rules live at `~/copilot-config/governance-rules.json`.
+
+### Governance rules summary
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| `sec-001` | BLOCK | No pipe-to-shell downloads |
+| `sec-002` | BLOCK | No credential exfiltration via POST |
+| `sec-003` | BLOCK | No cloud metadata endpoint access |
+| `sec-004` | BLOCK | No obfuscated shell expansion |
+| `gov-001` | BLOCK | No rm -rf home directory |
+| `gov-002` | BLOCK | No rm -rf critical dirs (.copilot, sovereign, etc.) |
+| `gov-003` | BLOCK | No git push --force |
+| `gov-004` | BLOCK | No DROP TABLE / DROP DATABASE / TRUNCATE |
+| `gov-005` | BLOCK | No download to executable paths |
+| `audit-*` | LOG   | All destructive, VCS, DB, and file-write operations |
+
+### Audit trail
+
+Every tool call is logged to `~/.copilot/logs/audit.jsonl` with:
+- Timestamp, tool name, decision (ALLOW/BLOCK), blast radius, category, note
+
+To view recent audit entries:
+```bash
+tail -20 ~/.copilot/logs/audit.jsonl | jq .
+# or view security blocks only:
+jq 'select(.decision=="BLOCK")' ~/.copilot/logs/audit.jsonl | tail -10
+```
+
+### Agents must self-assess blast radius
+
+Before taking any HIGH/CRITICAL action, explicitly state:
+```
+Blast radius: HIGH
+Reason: <why>
+Proceeding with: <what>
+```
 
 ---
 
@@ -125,4 +215,6 @@ brain-data-retrieval → [specialist agents] → brain-consolidation
 
 - Always check `.github/copilot-instructions.md` in the current repo for project-specific instructions.
 - Prefer surgical, minimal changes unless asked to do a broader refactor.
-- When in doubt about scope, ask before implementing.
+- **Default to action** — proceed autonomously unless the blast radius is HIGH or CRITICAL.
+- When in doubt about scope, briefly state your assumption and proceed.
+- At the end of every task: write learnings, run `brain-consolidation` if domain knowledge was gained.

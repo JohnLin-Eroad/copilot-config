@@ -208,6 +208,8 @@ After **every phase**, write a checkpoint and present it to the user:
 
 **Do NOT invoke the next agent until the user explicitly says `continue` (or equivalent).**
 
+> **Exception — autonomous mode:** For tasks where every agent phase has LOW or MEDIUM blast radius (e.g. discovery, documentation, read-only analysis), self-chain all phases and present a single consolidated checkpoint at the end. Only pause mid-pipeline when a phase produces something HIGH blast radius (code changes, schema migrations, config writes) or when a pushback signal is received.
+
 ### Handling `more-data:` Command
 
 If the user types `more-data: <topic>` at any checkpoint, invoke `brain-data-retrieval` with that topic, then present a mini-checkpoint showing what was fetched, then offer `continue` to resume the interrupted pipeline.
@@ -244,10 +246,11 @@ Maintain a `TASK_CONTEXT.md` alongside the STM for agent handoffs (see `handoff-
 
 1. **Always start with `brain-data-retrieval`** — never skip Phase 0
 2. **Always end with `brain-consolidation`** — even if the pipeline was stopped early and resumed
-3. **One agent at a time** — invoke the next only after user approves the checkpoint
+3. **Autonomous by default** — self-chain agents for LOW/MEDIUM blast radius pipelines; only checkpoint on HIGH/CRITICAL
 4. **STM path in every prompt** — every agent prompt must include the STM path
 5. **Handle `NEED_DATA` immediately** — don't let agents proceed without needed context
 6. **Pushbacks block the pipeline** — resolve before moving forward
 7. **Preserve the checkpoint trail** — write checkpoint files for every phase
 8. **Brain consolidation on `stop`** — if the user stops early, still run brain-consolidation on what was produced so knowledge isn't lost
+9. **Write learnings** — at the end of every task, run `add-learning.sh` for any non-obvious patterns, gotchas, or decisions encountered
 
