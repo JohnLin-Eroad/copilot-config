@@ -439,9 +439,12 @@ def _extract_from_learnings_section(content: str) -> list[str]:
 
 
 def _extract_from_markers(content: str) -> list[str]:
-    """Extract content between <!-- learnings_start --> and <!-- learnings_end --> markers."""
+    """Extract content between <!-- learnings_start --> and <!-- learnings_end --> markers.
+
+    Markers must appear on their own line to avoid matching inline examples.
+    """
     match = re.search(
-        r'<!--\s*learnings_start\s*-->(.*?)<!--\s*learnings_end\s*-->',
+        r'(?:^|\n)[ \t]*<!--\s*learnings_start\s*-->[ \t]*\n(.*?)\n[ \t]*<!--\s*learnings_end\s*-->',
         content,
         re.DOTALL | re.IGNORECASE,
     )
