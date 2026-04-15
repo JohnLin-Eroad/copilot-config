@@ -140,7 +140,58 @@ Proceeding with: <what>
 
 ---
 
-## Sovereign Platform
+## Context Engineering
+
+Context engineering is the most important skill for working with LLMs effectively. **Output quality is determined primarily by what's in the context window, not by clever prompts.** Before blaming a model for bad output, check what it was given.
+
+### The 7 layers of context (inject in priority order)
+
+| Layer | What | Notes |
+|---|---|---|
+| 1 | System prompt | Role, rules, negative constraints, output format |
+| 2 | Task-specific instructions | The actual request, with explicit scope |
+| 3 | Short-term memory (STM) | Prior agent outputs in this session |
+| 4 | Long-term memory (brain) | Fetched vault content — relevance-filtered |
+| 5 | Retrieved knowledge (RAG) | On-demand fetches triggered mid-task |
+| 6 | Tool results | Output from tool calls, code execution, search |
+| 7 | Structured output schema | Expected format, if relevant |
+
+### Context hygiene rules
+
+- **Compress, don't dump.** Brain files >150 lines should be compressed before STM injection. Extract headings + keyword-relevant lines only. Dense, relevant context beats large, unfocused context.
+- **Negative context beats silence.** Always tell agents what is NOT in the brain (`## [STM] Negative Context`). Agents hallucinate to fill gaps — explicit absence is better than empty space.
+- **Freshness matters.** Prefer recently updated brain files. Stale decisions that have been superseded are worse than no context.
+- **Role prompting activates the right patterns.** Specific, detailed role descriptions produce better outputs than generic ones. "You are an expert Java architect who has worked on EROAD's hexagonal migration" > "You are an expert developer".
+- **Negative constraints.** Say what NOT to do. "Do not add new dependencies." "Do not modify the public API." "Do not speculate on topics not in the STM."
+- **Most agent failures are context failures.** If an agent produces poor output, the fix is usually to improve what was in the context — not to retry with the same context.
+
+---
+
+## Model Selection
+
+Use the cheapest model that can reliably do the job. Escalate to a more powerful model if output quality is insufficient.
+
+| Task type | Use | Why |
+|---|---|---|
+| Architecture, ADRs, complex reasoning | Sonnet (or Opus for critical decisions) | Deep reasoning chains needed |
+| Code implementation, test writing | Sonnet | Quality + speed balance |
+| Discovery, file reading, status checks | Haiku | Fast, cheap, sufficient |
+| Security review, compliance | Sonnet | Precision required |
+| Simple searches, grep, lookups | Haiku | Minimal task |
+
+**Thinking time is a knob.** Complex reasoning tasks benefit from extended thinking / chain-of-thought. Simple factual tasks don't. Don't waste tokens on unnecessary reasoning traces.
+
+---
+
+## Test-First as Autonomy Enabler
+
+**Test coverage is the multiplier for agent autonomy.** Without a test suite, agents must be reviewed on every change. With a good test suite, agents can self-verify and iterate.
+
+- When working in a repo with good test coverage: run tests after every change. The eval loop in the orchestrator handles this automatically.
+- When working in a repo with poor/no tests: flag this explicitly. State: "Agent autonomy is limited here until tests exist." Suggest adding coverage as a separate task.
+- Treat increasing test coverage as an investment in future autonomy, not just a quality measure.
+
+---
 
 John is building **Sovereign** — a local replica of EROAD's AI-governed transformation platform. Always be aware of this project when it's relevant.
 
@@ -218,3 +269,5 @@ brain-data-retrieval → [specialist agents] → brain-consolidation
 - **Default to action** — proceed autonomously unless the blast radius is HIGH or CRITICAL.
 - When in doubt about scope, briefly state your assumption and proceed.
 - At the end of every task: write learnings, run `brain-consolidation` if domain knowledge was gained.
+- **Code is cheap, knowledge is expensive.** Invest time in data schemas, interfaces, tests, and domain understanding. Scripts, glue code, and one-off tools can be regenerated — don't over-engineer them.
+- **Read the `## [STM] Negative Context` section** in the STM before working. Do NOT speculate on topics listed there. Raise `PIPELINE_SIGNAL: NEED_DATA` if a listed gap is critical to your work.

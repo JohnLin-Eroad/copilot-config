@@ -91,6 +91,12 @@ This file is the shared in-session context for all agents working on this task.
 
 ---
 
+## [STM] Negative Context
+<!-- Topics searched in brain but NOT found. All agents: do NOT speculate on these. -->
+<!-- Raise PIPELINE_SIGNAL: NEED_DATA if any listed topic is critical to your work. -->
+
+---
+
 ## [STM] Retrieval Log
 
 ---
@@ -139,7 +145,7 @@ Phase 1  → product-manager         (spec, Jira ticket, Confluence page)
 Phase 2  → architect               (ADRs, system design)
 Phase 3  → security                (architecture-level review)
 Phase 4  → developer               (implementation)
-Phase 5  → testing / qa-engineer   (tests, validation)
+Phase 5  → testing / qa-engineer   (tests, validation)        ← see Eval Loop below
 Phase 6  → security                (code-level review)
 Phase 7  → code-reviewer           (final review)
 Phase 8  → devops                  (CI/CD, deployment)
@@ -150,6 +156,18 @@ Phase 10 → brain-consolidation     (write all new knowledge back to brain)
 Not every task needs all phases — skip what's not relevant. **You must always run Phase 0 and Phase 10.**
 
 **Checkpoint after every phase** — present results to user and wait for `continue` before proceeding.
+
+### Eval Loop (Phase 4 ↔ Phase 5)
+
+After the developer completes Phase 4, the testing agent runs the test suite. If tests fail:
+
+1. Pass the **full failure output** back to the developer with: `EVAL_FEEDBACK: <failure output>`
+2. Developer fixes and re-implements (Phase 4 retry)
+3. Testing re-runs (Phase 5 retry)
+4. Repeat up to **2 retry cycles** (3 attempts total)
+5. If still failing after 2 retries → checkpoint to user with full context, do NOT proceed blindly
+
+**When a codebase has no test suite:** note this in the checkpoint as a CRITICAL OBSERVATION and recommend test investment. State clearly: "Agent autonomy on this codebase is limited until tests exist."
 
 ---
 
@@ -162,8 +180,8 @@ Phase 0  → brain-data-retrieval
 Phase 1  → discovery              (domain dossier)
 Phase 2  → architect              (ADRs + work packages)
 Phase 3  → security               (arch review)
-Phase 4  → developer              (implement)
-Phase 5  → testing                (validate)
+Phase 4  → developer              (implement)           ↕ eval loop ↕
+Phase 5  → testing                (validate — loops back to Phase 4 on failure, max 2x)
 Phase 6  → security               (code review)
 Phase 7  → code-reviewer          (final review)
 Phase 8  → governance             (blast radius check)
@@ -171,6 +189,22 @@ Phase 9  → devops                 (CI/CD)
 Phase 10 → documentation          (update docs)
 Phase 11 → brain-consolidation
 ```
+
+---
+
+## Model Selection
+
+Not all tasks need the same model. Match the model to the task to optimise quality and speed.
+
+| Task type | Recommended model | Reason |
+|---|---|---|
+| Architecture decisions, ADRs, complex reasoning | `claude-opus-4.6` or `claude-sonnet-4.6` with extended thinking | Benefits from deep reasoning chains |
+| Code implementation, test writing, refactoring | `claude-sonnet-4.6` | Balance of quality and speed |
+| Discovery, search, file reading, status checks | `claude-haiku-4.5` | Fast, cheap, sufficient |
+| Security review, compliance, high-stakes decisions | `claude-sonnet-4.6` | Needs precision |
+| Simple lookups, grep, list operations | `claude-haiku-4.5` | Minimal task; use fast model |
+
+**Rule:** Use the cheapest model that can reliably do the job. Escalate to a more powerful model if the first attempt produces low-quality output.
 
 ---
 

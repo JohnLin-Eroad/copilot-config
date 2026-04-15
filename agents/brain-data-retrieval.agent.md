@@ -76,20 +76,55 @@ find "$BRAIN" -iname "*service-name*" -type f
 grep -r --include="*.md" -l "KEYWORD" "$BRAIN" 2>/dev/null
 ```
 
+Track topics you searched for that returned **no results** — these go into `## [STM] Negative Context` later.
+
+### Step 3.5 — Score and Rank Candidates
+
+Before fetching, rank all candidate files by **relevance + freshness**. Do NOT blindly fetch in discovery order.
+
+**Relevance scoring (0–3 points each):**
+- +3 if the file's name matches a service/domain mentioned in the task
+- +2 if the file contains 3+ of the task's key terms
+- +1 if the file contains 1–2 key terms or is tangentially related
+
+**Freshness scoring (0–1 point):**
+- +1 if the file was modified within the last 30 days (check with `stat -f "%Sm" -t "%Y-%m-%d" <file>`)
+
+```bash
+# Check file modification date
+stat -f "%Sm" -t "%Y-%m-%d" "$BRAIN/01 - Services/some-service.md"
+```
+
+**Fetch threshold:** Only fetch files scoring **2 or higher**. Skip files scoring 0–1 (note them as low-relevance in the retrieval log).
+
+**Size cap — compress large files:** If a file exceeds 150 lines, do NOT dump the full content into STM. Instead:
+1. Read the full file
+2. Extract and write only: the frontmatter/title, section headings, and any paragraphs containing task keywords
+3. Add a note: `<!-- Compressed: original N lines → M lines extracted. Full file at <path> -->`
+
+```bash
+# Count lines before deciding to compress
+wc -l "$BRAIN/01 - Services/some-service.md"
+
+# Extract headings + keyword-containing lines from a large file
+grep -n "^#\|KEYWORD1\|KEYWORD2" "$BRAIN/01 - Services/some-service.md"
+```
+
 ### Step 4 — Fetch and Write to STM
 
-For each relevant file **not already in the fetch manifest**:
+For each **passing** candidate (score ≥ 2, not already in fetch manifest):
 
-1. Read the file content
-2. Append it to the STM under `## [STM] Brain Data`
-3. Add the file path to the `## [STM] Fetch Manifest`
+1. If file ≤ 150 lines: write full content
+2. If file > 150 lines: write compressed extract (headings + relevant lines)
+3. Append to `## [STM] Brain Data`
+4. Add the file path to `## [STM] Fetch Manifest`
 
 ```bash
 # Append a fetched document to STM
 cat >> "$STM_PATH" << EOF
 
 ### Source: Brain/01 - Services/replay-service.md
-<!-- Fetched: $(date -u +%Y-%m-%dT%H:%M:%SZ) -->
+<!-- Fetched: $(date -u +%Y-%m-%dT%H:%M:%SZ) | Score: 4/4 | Lines: 87 -->
 $(cat "$BRAIN/01 - Services/replay-service.md")
 
 ---
@@ -97,6 +132,28 @@ EOF
 
 # Update the fetch manifest
 echo "- \`01 - Services/replay-service.md\` — $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$STM_PATH"
+```
+
+### Step 4.5 — Write Negative Context
+
+After all fetching, write a `## [STM] Negative Context` section. This tells downstream agents what is **not** in the brain — preventing hallucination by filling gaps with explicit absence rather than silence.
+
+```bash
+cat >> "$STM_PATH" << 'EOF'
+
+---
+
+## [STM] Negative Context
+<!-- Brain Data Retrieval Agent writes this. DO NOT delete. Agents must read this to avoid hallucinating missing context. -->
+
+**Topics searched but NOT found in brain:**
+- <list every topic that returned no results>
+
+**Known gaps (agent inference):**
+- <any domain areas where vault coverage is thin based on search results>
+
+**Do not speculate on these topics** — if they are relevant to the task, raise a PIPELINE_SIGNAL: NEED_DATA request.
+EOF
 ```
 
 ### Step 5 — Write a Retrieval Summary
@@ -108,12 +165,14 @@ After fetching, append a summary to the STM `## [STM] Retrieval Log` section:
 **Trigger:** start-of-pipeline | mid-pipeline request from <agent>
 **Query terms:** <what you searched for>
 **Files fetched:**
-- `01 - Services/replay-service.md` — service overview, dependencies
-- `Brain/Learnings/Domain_Safety/Learnings - Safety.md` — domain patterns
+- `01 - Services/replay-service.md` — score 4/4, 87 lines, service overview + dependencies
+- `Brain/Learnings/Domain_Safety/Learnings - Safety.md` — score 3/4, compressed (210→44 lines), domain patterns
 **Files skipped (already in manifest):**
 - `01 - Services/media-service.md`
-**Files considered but not fetched (low relevance):**
-- `01 - Services/asset-service.md` — unrelated to task
+**Files considered but not fetched (score < 2):**
+- `01 - Services/asset-service.md` — score 1/4, unrelated to task
+**Topics with no brain coverage (→ Negative Context):**
+- "SQS retry policy for X" — not found
 ```
 
 ---
@@ -198,12 +257,20 @@ This file is the shared in-session context for all agents working on this task.
 
 ## [STM] Fetch Manifest
 <!-- Brain Data Retrieval Agent updates this list. One entry per fetched file. -->
-<!-- Format: - `relative/path/from/brain-root.md` — ISO timestamp -->
+<!-- Format: - `relative/path/from/brain-root.md` — ISO timestamp | score N/4 -->
 
 ---
 
 ## [STM] Brain Data
 <!-- Brain Data Retrieval Agent writes fetched content here -->
+<!-- Large files (>150 lines) are compressed: headings + keyword-relevant lines only -->
+
+---
+
+## [STM] Negative Context
+<!-- Brain Data Retrieval Agent writes topics searched but NOT found in brain. -->
+<!-- ALL agents must read this section. Do NOT speculate on topics listed here. -->
+<!-- Raise PIPELINE_SIGNAL: NEED_DATA if any listed topic is critical to the task. -->
 
 ---
 
