@@ -97,6 +97,15 @@ stat -f "%Sm" -t "%Y-%m-%d" "$BRAIN/01 - Services/some-service.md"
 
 **Fetch threshold:** Only fetch files scoring **2 or higher**. Skip files scoring 0–1 (note them as low-relevance in the retrieval log).
 
+**Freshness degradation — stale dynamic content:**
+Some brain content becomes misleading when outdated. For files covering **dynamic topics** (service APIs, endpoints, DB schemas, external integrations, deployment configs, infra):
+- Check modification date: `stat -f "%Sm" -t "%Y-%m-%d" <file>`
+- If last modified **>90 days ago**: do NOT include in `## [STM] Brain Data`
+- Instead: move it to `## [STM] Negative Context` with the note:
+  `⚠️ Stale (>90 days): <path> — may no longer reflect current state. Verify before relying on.`
+
+**Static topic files are exempt** from degradation: architecture decisions (ADRs), onboarding docs, glossaries, historical context, stable domain model notes.
+
 **Size cap — compress large files:** If a file exceeds 150 lines, do NOT dump the full content into STM. Instead:
 1. Read the full file
 2. Extract and write only: the frontmatter/title, section headings, and any paragraphs containing task keywords
