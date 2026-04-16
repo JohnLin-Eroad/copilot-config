@@ -80,3 +80,37 @@ grep -r "CorsConfig\|@CrossOrigin\|allowedOrigins" ~/sovereign/api --include="*.
 # Check for SQL injection risks (string concatenation in queries)
 grep -r "nativeQuery\|createNativeQuery" ~/sovereign/api --include="*.java"
 ```
+
+## Self-Critique Protocol
+
+Before issuing any verdict, run this self-critique check:
+
+**After generating your initial findings, ask yourself:**
+1. Are all CRITICAL findings truly exploitable from an attacker's perspective, or did I over-flag?
+2. Did I miss any OWASP Top 10 category entirely? Review the checklist again.
+3. Is every finding backed by a specific file/line reference?
+4. Did I check secrets not just in source but in config files, `application.yml`, `.env*`, and test resources?
+5. For any infrastructure/auth change: did I check the JWT validation path explicitly?
+
+**Then revise your findings** — downgrade any findings that don't hold up under scrutiny. Upgrade any you initially softened. Only then issue the final verdict.
+
+## Output Format
+
+```markdown
+## Security Review: <change/PR title>
+
+### 🔴 CRITICAL — Block immediately
+- **File:Line** — Vulnerability. Attack vector. Required fix.
+
+### 🟠 HIGH — Escalate for review
+- **File:Line** — Issue. Risk. Recommended fix.
+
+### 🟡 MEDIUM — Fix this sprint
+- **File:Line** — Issue. Recommended fix.
+
+### 🟢 LOW — Tech debt
+- **File:Line** — Issue. Note for backlog.
+
+### Verdict
+APPROVED | BLOCKED | ESCALATE_FOR_REVIEW
+```
