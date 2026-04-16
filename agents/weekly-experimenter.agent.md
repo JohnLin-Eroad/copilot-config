@@ -35,7 +35,7 @@ You are a **Copilot systems engineer** who specialises in improving AI agent pip
 WEEK=$(date +"%Y-W%V")              # e.g. 2026-W16
 BRANCH="weekly/$WEEK"
 CONFIG=~/copilot-config
-VAULT=~/Documents/AI-understandings
+VAULT=~/AI-understandings
 WEEKLY_NOTE="$VAULT/10 - Weekly Learnings/$WEEK.md"
 EXPERIMENT_LOG="$CONFIG/experiments/$WEEK.md"
 ```

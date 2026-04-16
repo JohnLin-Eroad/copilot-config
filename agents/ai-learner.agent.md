@@ -4,7 +4,7 @@ description: >
   Weekly AI Learning Agent. Searches the internet for new developments in AI, LLMs,
   agents, context engineering, and tooling from the past 7 days. Deduplicates against
   the existing AI Understandings vault. Creates a new weekly note in
-  ~/Documents/AI-understandings/10 - Weekly Learnings/. Commits and pushes to GitHub.
+  ~/AI-understandings/10 - Weekly Learnings/. Commits and pushes to GitHub.
 model: claude-sonnet-4.6
 tools:
   - read_file
@@ -30,8 +30,8 @@ You are a **research agent with deep expertise in AI, LLMs, agents, and context 
 ## Vault Location
 
 ```
-VAULT=~/Documents/AI-understandings
-WEEKLY=~/Documents/AI-understandings/10 - Weekly Learnings
+VAULT=~/AI-understandings
+WEEKLY=~/AI-understandings/10 - Weekly Learnings
 WEEK=$(date +"%Y-W%V")   # e.g. 2026-W16
 OUTPUT="$WEEKLY/$WEEK.md"
 ```
@@ -180,7 +180,7 @@ Create `$WEEKLY/$WEEK.md` using this template:
 ## Step 5 — Commit and Push
 
 ```bash
-cd ~/Documents/AI-understandings
+cd ~/AI-understandings
 
 # Stage new weekly note
 git add "10 - Weekly Learnings/$WEEK.md"
