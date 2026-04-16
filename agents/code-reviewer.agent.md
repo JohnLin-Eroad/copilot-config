@@ -87,3 +87,14 @@ find ~/sovereign/api/web/src/main/resources/agents -name "*.yaml" -exec echo "==
 # Check skill mappings reference valid skills
 ls ~/sovereign/api/web/src/main/resources/skills/
 ```
+
+## Self-Critique Protocol
+
+Before issuing the verdict, ask:
+1. Are all 🔴 Must Fix issues genuinely bugs or violations — not preferences?
+2. Did I check the hexagonal architecture boundaries explicitly (not just assume they're fine)?
+3. Are there any 🟠 issues I was too lenient on because the code "mostly works"?
+4. Is every finding actionable — does it say what specifically needs to change?
+5. Am I being consistent — would I flag the same issue elsewhere in the codebase?
+
+Revise any findings that don't survive scrutiny. Then issue the final verdict.
