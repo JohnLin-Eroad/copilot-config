@@ -53,7 +53,81 @@ case "$MODULE" in
 esac
 
 # ─────────────────────────────────────────────────────────────
-# 3. OpenAPI spec within submodule
+# 3. README and pom description for real human-readable description
+# ─────────────────────────────────────────────────────────────
+DESCRIPTION=""
+
+# Write README extractor to temp file (avoids backtick bash-interpolation in -c strings)
+cat > "$TMP/readme_extract.py" << 'PYEOF'
+import sys, re
+lines = sys.stdin.read().splitlines()
+text = []
+for l in lines:
+    stripped = l.strip()
+    if stripped.startswith('#') or stripped.startswith('```') or stripped.startswith('|'):
+        if text: break
+        continue
+    # Skip badge/image lines (start with [ or ![ or contain shield.io/badge URLs)
+    if stripped.startswith('[!') or stripped.startswith('[![') or stripped.startswith('!['):
+        continue
+    if stripped:
+        text.append(stripped)
+    elif text:
+        break
+print(' '.join(text)[:400])
+PYEOF
+
+# Try submodule README first
+README_PATH=$(grep -E "^${MODULE}/README(\.[Mm][Dd])?$" "$TREE_FILE" | head -1 || true)
+if [[ -n "$README_PATH" ]]; then
+  DESCRIPTION=$(gh api "repos/$REPO/contents/$README_PATH" --jq '.content' 2>/dev/null \
+    | base64 -d 2>/dev/null | head -20 | python3 "$TMP/readme_extract.py" 2>/dev/null || true)
+fi
+
+# Fall back to pom.xml <description>
+if [[ -z "$DESCRIPTION" ]]; then
+  POM_PATH2=$(grep -E "^${MODULE}/pom\.xml$" "$TREE_FILE" | head -1 || true)
+  if [[ -n "$POM_PATH2" ]]; then
+    DESCRIPTION=$(gh api "repos/$REPO/contents/$POM_PATH2" --jq '.content' 2>/dev/null | base64 -d 2>/dev/null \
+      | python3 -c 'import sys,re; m=re.search(r"<description>([^<]{10,})</description>",sys.stdin.read()); print(m.group(1).strip()[:300]) if m else print("")' \
+      2>/dev/null || true)
+  fi
+fi
+
+# Fall back to Javadoc on the main service/handler/lambda class
+if [[ -z "$DESCRIPTION" ]]; then
+  cat > "$TMP/javadoc_extract.py" << 'PYEOF'
+import sys, re
+src = sys.stdin.read()
+# Find class-level Javadoc: /** ... */ immediately before public class/interface
+matches = re.findall(r'/\*\*(.*?)\*/\s*(?:@\w+[^\n]*\n)*\s*(?:public|abstract)\s+(?:class|interface|enum)\s+\w', src, re.S)
+if matches:
+    doc = matches[0]
+    # Strip leading * from each line, collapse whitespace
+    lines = [re.sub(r'^\s*\*\s?', '', l).strip() for l in doc.splitlines()]
+    text = ' '.join(l for l in lines if l and not l.startswith('@'))
+    print(text[:350])
+else:
+    print('')
+PYEOF
+  MAIN_JAVA=$(grep -E "^${MODULE}/src/main/java/.*/(Service|Handler|Lambda|Processor|Consumer|Adapter|Resource|Controller)\w*\.java$" \
+    "$TREE_FILE" | head -1 || \
+    grep -E "^${MODULE}/src/main/java/.*\w+(Service|Handler|Lambda|Processor|Consumer|Adapter|Resource|Controller)\.java$" \
+    "$TREE_FILE" | head -1 || true)
+  if [[ -n "$MAIN_JAVA" ]]; then
+    DESCRIPTION=$(gh api "repos/$REPO/contents/$MAIN_JAVA" --jq '.content' 2>/dev/null \
+      | base64 -d 2>/dev/null | python3 "$TMP/javadoc_extract.py" 2>/dev/null || true)
+  fi
+fi
+
+# Final fallback: root README first paragraph (relevant to whole repo, still useful)
+if [[ -z "$DESCRIPTION" ]]; then
+  DESCRIPTION=$(gh api "repos/$REPO/readme" --jq '.content' 2>/dev/null \
+    | base64 -d 2>/dev/null | head -30 | python3 "$TMP/readme_extract.py" 2>/dev/null || true)
+fi
+
+# ─────────────────────────────────────────────────────────────
+# 4. OpenAPI spec within submodule
 # ─────────────────────────────────────────────────────────────
 ENDPOINTS_JSON="[]"
 SCHEMAS_JSON="{}"
@@ -169,11 +243,20 @@ print(json.dumps(deps[:15]))
 " 2>/dev/null || echo "[]")
 fi
 
+# Write description to temp file to avoid heredoc special-char issues
+echo "$DESCRIPTION" > "$TMP/description.txt"
+
 # ─────────────────────────────────────────────────────────────
 # 7. Output JSON
 # ─────────────────────────────────────────────────────────────
-python3 << PYEOF
+python3 - "$TMP/description.txt" << PYEOF
 import json, sys
+
+desc_file = sys.argv[1]
+try:
+    description = open(desc_file).read().strip()
+except:
+    description = ""
 
 endpoints = $ENDPOINTS_JSON
 schemas   = $SCHEMAS_JSON
@@ -182,9 +265,10 @@ classes   = $SVC_CLASSES_JSON
 deps      = $DEPS_JSON
 
 out = {
-    "repo":     "$REPO_NAME",
-    "module":   "$MODULE",
-    "role":     "$ROLE",
+    "repo":        "$REPO_NAME",
+    "module":      "$MODULE",
+    "role":        "$ROLE",
+    "description": description,
     "openapi": {
         "endpoint_count": len(endpoints),
         "endpoints":      endpoints,

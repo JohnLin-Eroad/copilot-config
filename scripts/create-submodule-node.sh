@@ -47,13 +47,14 @@ with open(data_path) as f:
     d = json.load(f)
 
 role        = d.get("role", "submodule")
+description = d.get("description", "").strip()
 endpoints   = d.get("openapi", {}).get("endpoints", [])
 schemas     = d.get("openapi", {}).get("schemas", {})
 tables      = d.get("tables", [])
 classes     = d.get("service_classes", [])
 deps        = d.get("dependencies", [])
 
-# ── Module role descriptions ───────────────────────────────────────────────
+# ── Module role descriptions (fallback only) ───────────────────────────────
 ROLE_DESC = {
     "HTTP API / Entry Point":          "Exposes REST endpoints; the public-facing layer of the service.",
     "Business Logic (EJB)":            "Contains core business logic, transaction management, and domain services.",
@@ -71,7 +72,8 @@ ROLE_DESC = {
     "Data Persistence Layer":          "JPA entities, repositories, and ORM configuration.",
     "submodule":                       "Submodule within the monorepo.",
 }
-role_desc = ROLE_DESC.get(role, "Submodule within the monorepo.")
+# Use real description from README/pom if available, otherwise fall back to role description
+role_desc = description if description else ROLE_DESC.get(role, "Submodule within the monorepo.")
 
 # ── If node exists, read and preserve existing content ─────────────────────
 existing = ""
@@ -82,14 +84,13 @@ if os.path.exists(node_path):
 # ── Build sections ─────────────────────────────────────────────────────────
 lines = []
 
-# Header (only if new file)
-if not existing:
-    lines.append(f"# {module}")
-    lines.append("")
-    lines.append(f"**Parent Repo:** [[{repo}]]  ")
-    lines.append(f"**Role:** {role}  ")
-    lines.append(f"**Description:** {role_desc}")
-    lines.append("")
+# Always write header (we always rewrite the full file)
+lines.append(f"# {module}")
+lines.append("")
+lines.append(f"**Parent Repo:** [[{repo}]]  ")
+lines.append(f"**Role:** {role}  ")
+lines.append(f"**Description:** {role_desc}")
+lines.append("")
 
 # Domain Entities section
 lines.append("## Domain Entities")
