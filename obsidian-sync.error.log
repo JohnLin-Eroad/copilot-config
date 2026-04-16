@@ -49,3 +49,5 @@
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54366 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54391 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54421 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54508 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54651 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
