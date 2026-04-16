@@ -24,7 +24,7 @@ if [[ -z "$SERVICE" ]]; then
   exit 1
 fi
 
-BRAIN_DIR="$HOME/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain"
+BRAIN_DIR="$HOME/eroad-brain"
 VAULT_NODE="$BRAIN_DIR/01 - Services/${SERVICE}.md"
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT

@@ -51,3 +51,35 @@
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54421 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54508 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
 /Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54651 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54772 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54795 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54807 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54886 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54971 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 54983 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55019 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55074 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55128 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55182 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55230 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55276 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55509 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55533 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55563 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55673 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55685 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55715 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55787 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55799 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 56116 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+fatal: unable to read 926a84abcf4cb7a02dca75232a6107cca7a90360
+error: bad tree object HEAD
+fatal: No configured push destination.
+Either specify the URL from the command-line or configure a remote repository using
+
+    git remote add <name> <url>
+
+and then push using the remote name
+
+    git push <name>
+

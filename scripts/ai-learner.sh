@@ -24,7 +24,7 @@ if ! gh auth status > /dev/null 2>&1; then
 fi
 
 # Verify vault exists
-VAULT=~/Documents/AI-understandings
+VAULT=~/AI-understandings
 if [ ! -d "$VAULT" ]; then
   echo "ERROR: AI Understandings vault not found at $VAULT"
   exit 1

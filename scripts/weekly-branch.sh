@@ -17,7 +17,7 @@ echo "========================================="
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
 WEEK=$(date +%Y-W%V)
-VAULT=~/Documents/AI-understandings
+VAULT=~/AI-understandings
 WEEKLY_NOTE="$VAULT/10 - Weekly Learnings/$WEEK.md"
 
 # Check the weekly note exists (ai-learner must have run first)
