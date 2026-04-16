@@ -1,0 +1,61 @@
+{
+  "week": "baseline",
+  "date": "2026-04-16",
+  "note": "Week 0 baseline — captured before weekly learning experiments begin. Use this as the reference point for all trend analysis.",
+  "scores": {
+    "code_generation": {
+      "score": null,
+      "dimensions": {
+        "correctness": null,
+        "hexagonal_compliance": null,
+        "java21_idioms": null,
+        "javadoc": null,
+        "test_quality": null
+      },
+      "notes": "Baseline not yet run — execute benchmark-runner manually to populate: copilot agent run benchmark-runner"
+    },
+    "context_retrieval": {
+      "score": null,
+      "brain_data_used": null,
+      "accuracy": null,
+      "gaps_handled": null,
+      "no_hallucination": null,
+      "files_fetched": null,
+      "notes": "Baseline not yet run"
+    },
+    "security_review": {
+      "score": null,
+      "recall": null,
+      "precision": null,
+      "true_positives": null,
+      "false_positives": null,
+      "vulnerabilities_found": [],
+      "vulnerabilities_missed": [],
+      "notes": "Baseline not yet run"
+    },
+    "planning": {
+      "score": null,
+      "dimensions": {
+        "domain_understanding": null,
+        "hexagonal_architecture": null,
+        "blast_radius": null,
+        "edge_cases": null,
+        "dependency_ordering": null,
+        "acceptance_criteria": null
+      },
+      "notes": "Baseline not yet run"
+    },
+    "learning_retention": {
+      "score": 3,
+      "result": "NEUTRAL",
+      "experiment_branch": null,
+      "baseline_score": null,
+      "experiment_score": null,
+      "delta": 0,
+      "notes": "No experiments exist yet — Week 0 baseline"
+    }
+  },
+  "overall": null,
+  "vs_previous": null,
+  "experiment_branch": null
+}
