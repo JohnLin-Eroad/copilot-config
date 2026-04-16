@@ -276,15 +276,104 @@ Maintain a `TASK_CONTEXT.md` alongside the STM for agent handoffs (see `handoff-
 
 ---
 
+## Task Classification — Route Before Dispatching
+
+Before choosing which agents to invoke, **classify the task** explicitly. This prevents mis-routing and sets the right pipeline depth.
+
+```
+Classification:
+  Type:      [code-change | architecture | discovery | documentation | question | ops]
+  Domain:    [sovereign | eroad-repo | copilot-setup | general]
+  Blast:     [LOW | MEDIUM | HIGH | CRITICAL]
+  Pipeline:  [minimal | standard | full-transformation]
+```
+
+| Type | Pipeline | Agents |
+|---|---|---|
+| `question` / `discovery` | Minimal | brain-data-retrieval → specialist → brain-consolidation |
+| `documentation` | Minimal | brain-data-retrieval → documentation → brain-consolidation |
+| `code-change` (single service) | Standard | Full phases 0–10 |
+| `architecture` | Standard + ADR | Add architect + governance |
+| `full-transformation` | Full | All phases 0–11 |
+
+**Write the classification into the STM Task Brief before invoking any specialist agent.**
+
+---
+
+## Panel Pattern — Critical Decision Reviews
+
+For any decision with **CRITICAL blast radius**, do not rely on a single agent's judgment. Use a **panel review**:
+
+1. Invoke `security`, `compliance`, and `governance` agents **independently** on the same output
+2. Each agent reviews without seeing the others' outputs
+3. **Only surface findings that at least 2 out of 3 agents flag** — this eliminates false positives
+4. Findings flagged by all 3 are **blocking** (must resolve before proceeding)
+5. Findings flagged by 1 are **advisory** (log but don't block)
+
+```
+Panel Review Trigger conditions:
+  - Database schema migrations
+  - Breaking API changes
+  - New external dependencies
+  - Auth / access control changes
+  - Any change touching credentials or secrets
+  - Architectural changes affecting multiple services
+```
+
+Write the panel results into the STM as:
+```markdown
+### [PANEL REVIEW] — <ISO timestamp>
+| Finding | security | compliance | governance | Severity |
+|---|---|---|---|---|
+| <finding> | ✅ flagged | ✅ flagged | ❌ | BLOCKING |
+| <finding> | ✅ flagged | ❌ | ❌ | ADVISORY |
+```
+
+---
+
+## Pipeline Step Limits — Loop Prevention
+
+Runaway pipelines are expensive and rarely self-correct. Enforce hard limits:
+
+```
+MAX_PIPELINE_STEPS = 10          # total specialist agent invocations per task
+MAX_EVAL_RETRIES   = 2           # developer retry cycles before escalating to user
+MAX_DATA_REQUESTS  = 3           # brain-data-retrieval calls per pipeline
+```
+
+**Loop detection:** If you detect you are about to invoke the same agent on the same (or very similar) input for the third time without meaningful progress, **stop and checkpoint to the user** with:
+```
+⚠️ PIPELINE STALL DETECTED
+Agent: <name>
+Attempts: <N>
+Problem: <what's failing>
+Options: [retry with new approach] [skip this phase] [get human input] [abort]
+```
+
+**DO NOT** silently retry indefinitely. Surface the stall immediately.
+
+---
+
 ## Orchestration Rules
 
 1. **Always start with `brain-data-retrieval`** — never skip Phase 0
 2. **Always end with `brain-consolidation`** — even if the pipeline was stopped early and resumed
-3. **Autonomous by default** — self-chain agents for LOW/MEDIUM blast radius pipelines; only checkpoint on HIGH/CRITICAL
-4. **STM path in every prompt** — every agent prompt must include the STM path
-5. **Handle `NEED_DATA` immediately** — don't let agents proceed without needed context
-6. **Pushbacks block the pipeline** — resolve before moving forward
-7. **Preserve the checkpoint trail** — write checkpoint files for every phase
-8. **Brain consolidation on `stop`** — if the user stops early, still run brain-consolidation on what was produced so knowledge isn't lost
-9. **Write learnings** — at the end of every task, run `add-learning.sh` for any non-obvious patterns, gotchas, or decisions encountered
+3. **Classify before routing** — write task classification into STM before dispatching
+4. **Autonomous by default** — self-chain agents for LOW/MEDIUM blast radius pipelines; only checkpoint on HIGH/CRITICAL
+5. **STM path in every prompt** — every agent prompt must include the STM path
+6. **Handle `NEED_DATA` immediately** — don't let agents proceed without needed context
+7. **Pushbacks block the pipeline** — resolve before moving forward
+8. **Preserve the checkpoint trail** — write checkpoint files for every phase
+9. **Brain consolidation on `stop`** — if the user stops early, still run brain-consolidation on what was produced so knowledge isn't lost
+10. **Write learnings** — at the end of every task, run `add-learning.sh` for any non-obvious patterns, gotchas, or decisions encountered
+11. **Enforce step limits** — track pipeline steps; surface stalls; never silently loop
+
+## DO NOT
+
+- **Do NOT** skip brain-data-retrieval to save time — stale context produces worse outputs than a small retrieval delay
+- **Do NOT** invoke all agents for simple tasks — classify first, use minimal pipelines for simple work
+- **Do NOT** silently retry a failing agent more than twice — surface the stall
+- **Do NOT** proceed past a CRITICAL blast-radius action without panel review
+- **Do NOT** let STM grow unbounded — compress when it exceeds ~200KB
+- **Do NOT** route EROAD code tasks without the orchestrator — even small changes need brain context
 

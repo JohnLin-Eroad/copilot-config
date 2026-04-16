@@ -1,0 +1,3 @@
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 31: 60615 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 31: 61176 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 31: 62947 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
