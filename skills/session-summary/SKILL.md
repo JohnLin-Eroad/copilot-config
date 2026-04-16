@@ -11,7 +11,7 @@ description: >
 ## Vault Location
 
 ```
-/Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/copilot-sessions
+~/copilot-sessions
 ```
 
 Shorthand: `$SESSIONS_VAULT`

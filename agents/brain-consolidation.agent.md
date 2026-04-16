@@ -30,7 +30,7 @@ You are the Brain Consolidation Agent. You run at the **end of every pipeline**.
 ## Brain Location
 
 ```bash
-BRAIN="$HOME/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain"
+BRAIN="$HOME/eroad-brain"
 ```
 
 ---

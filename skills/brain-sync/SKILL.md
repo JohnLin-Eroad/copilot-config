@@ -12,7 +12,7 @@ description: >
 ## Vault Location
 
 ```
-/Users/johnlin/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain
+~/eroad-brain
 ```
 
 Shorthand: `$BRAIN`

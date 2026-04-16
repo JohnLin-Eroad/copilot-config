@@ -5,6 +5,7 @@
 VAULTS=(
   "/Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/eroad-brain"
   "/Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/copilot-sessions"
+  "/Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/john-brain"
 )
 
 DEBOUNCE=10

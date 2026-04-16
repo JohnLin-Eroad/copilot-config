@@ -29,7 +29,7 @@ of `brain-consolidation`. It only syncs facts derived from code.
 ## Vault & Variables
 
 ```bash
-BRAIN="$HOME/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain"
+BRAIN="$HOME/eroad-brain"
 SERVICES_DIR="$BRAIN/01 - Services"
 OUTPUTS_DIR="$BRAIN/06 - AI Agent Outputs"
 TODAY=$(date +%Y-%m-%d)

@@ -22,7 +22,7 @@ You are the Brain Data Retrieval Agent. Your sole responsibility is to fetch rel
 ## Brain Location
 
 ```bash
-BRAIN="$HOME/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain"
+BRAIN="$HOME/eroad-brain"
 ```
 
 ## Short-Term Memory (STM) Location
@@ -55,7 +55,7 @@ Read the task description and any specific data needs passed to you. Identify th
 Use targeted searches to find relevant files. Do NOT fetch everything — be selective:
 
 ```bash
-BRAIN="$HOME/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain"
+BRAIN="$HOME/eroad-brain"
 
 # Find service documentation
 find "$BRAIN/01 - Services" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
