@@ -58,6 +58,29 @@ has_changes=$(gh api "repos/eroad/$name/commits?since=${last_synced}T00:00:00Z&p
 [ "$has_changes" = "0" ] && continue
 ```
 
+### Phase 0 — Full Enrichment (for new or stale nodes)
+
+Before running the diff-based sync, check if a service node needs **full enrichment** (new service or node is a stub with no `## Domain Entities` section):
+
+```bash
+ENRICH_SCRIPT="$HOME/.copilot/scripts/enrich-service-node.sh"
+
+# Run full enrichment for services that are stubs
+grep -rL "## Domain Entities" "$SERVICES_DIR"/*.md | while read node; do
+  svc=$(basename "$node" .md)
+  echo "Enriching stub: $svc"
+  bash "$ENRICH_SCRIPT" "$svc" 2>/dev/null || echo "  ⚠ Could not enrich $svc (repo may not be accessible)"
+done
+```
+
+Full enrichment runs `extract-service-data.sh` which:
+1. Fetches the OpenAPI spec (`api.json`) → endpoint list with descriptions
+2. Parses Flyway migration SQL → domain entity tables and columns
+3. Reads service layer Java → downstream calls and workflow signals
+4. Reads `catalog-info.yaml` → owner/system metadata
+
+Full enrichment **replaces** the `## Domain Entities`, `## API Endpoints`, and `## Key Dependencies` sections entirely. All other sections (Architecture, Local Setup, etc.) are preserved.
+
 ### Phase 1 — Sync Endpoints
 
 For each service with recent changes:
