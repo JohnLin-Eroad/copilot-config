@@ -36,6 +36,12 @@ This system operates as an **autonomous agent** with governance guardrails. Defa
 - Any action exposing credentials or secrets
 - Irreversible infrastructure changes
 
+### FORBIDDEN — never do these under any circumstances
+- **Writing to remote databases** (INSERT, UPDATE, DELETE) directly via psql, a DB client, or any tool — remote DBs are read-only for agents
+- **Modifying remote database schemas** (ALTER TABLE, DROP TABLE, CREATE TABLE, DROP COLUMN, etc.)
+- **Dropping or truncating any table** on any remote database
+- This applies to all EROAD remote databases including test RDS instances (e.g. test-media-service-rds, any AWS RDS endpoint). Read-only SELECT queries are fine.
+
 **Rule of thumb:** If you could undo it within 60 seconds, proceed. If you can't, explain first.
 
 ---
@@ -259,6 +265,99 @@ brain-data-retrieval → [specialist agents] → brain-consolidation
 - Quick lookups, explanations, or questions that don't result in code changes
 
 **How to trigger:** John will say *"orchestrator:"* at the start of a message, or otherwise make clear it's an EROAD engineering task. When in doubt, ask.
+
+---
+
+## Know Your Limits — Jagged Intelligence
+
+LLMs have a **jagged capability profile**: superhuman at some tasks, surprisingly bad at others. Route around weaknesses by delegating to the right tool.
+
+**Always use `bash` / code execution — never rely on raw LLM reasoning — for:**
+- Counting anything (characters, words, lines, occurrences)
+- Arithmetic and calculations (use `python3 -c "print(...)"`)
+- Tracking a specific counter or running total across many steps
+- Sorting or de-duplicating large lists precisely
+- Checking exact string equality or regex matches
+- Anything requiring deterministic correctness
+
+**Examples:**
+```bash
+# WRONG: ask LLM "how many lines does this file have?"
+# RIGHT: wc -l ~/file.md
+
+# WRONG: ask LLM "what is 23.7 × 0.894 × 1000?"
+# RIGHT: python3 -c "print(23.7 * 0.894 * 1000)"
+
+# WRONG: ask LLM "are these two strings identical?"
+# RIGHT: [ "$a" = "$b" ] && echo "equal" || echo "different"
+```
+
+**LLM strengths to lean into:**
+- Synthesising information across many sources
+- Generating diverse options and creative output
+- Understanding intent and nuance in natural language
+- Writing first drafts of structured content
+- Code scaffolding and architectural reasoning
+
+---
+
+## Context Window Budget Awareness
+
+The context window is finite, expensive real estate. Every low-value token displaces a high-value one.
+
+### STM size discipline
+- Target STM size: **under 50k tokens** (~200KB of text)
+- When STM approaches 50k tokens, trigger compression:
+  1. Summarise the `## [STM] Agent Contributions` section: "Compress these contributions into a 200-word summary preserving all decisions, file paths, and action items"
+  2. Replace verbose tool output with key findings only
+  3. Drop superseded drafts — keep only the latest version
+
+### What to include vs. exclude
+| Include | Exclude |
+|---|---|
+| Task brief and acceptance criteria | Verbose build logs (extract errors only) |
+| Relevant brain excerpts (compressed) | Full file contents if >150 lines |
+| Decisions and their rationale | Intermediate drafts once superseded |
+| Error messages and stack traces | Successful command output that adds no signal |
+| Current file paths and schemas | Repeated context already stated earlier |
+
+### Compression command
+```bash
+# Check current STM size
+wc -c "$STM_PATH" | awk '{print $1/1024 " KB"}'
+
+# If >200KB, compress Agent Contributions section
+grep -n "\[STM\] Agent Contributions" "$STM_PATH"
+```
+
+---
+
+## ACI — Tool Documentation Standard
+
+Every tool used in agent prompts must be documented with the **Agent-Computer Interface (ACI)** standard. Good tool docs are as important as the model itself.
+
+**Required elements for any tool guidance written in agent prompts:**
+
+```
+Tool: <name>
+Purpose: What it does (not how it does it)
+Use when: Specific conditions that make this the right choice
+Do NOT use when: Equally important — prevents misuse
+Returns: Format and content of the return value
+Errors: What errors can occur and what they mean
+```
+
+**Bad (what NOT to write):**
+> `search(query)` — searches for stuff
+
+**Good (what TO write):**
+> `web_search(query)` — Searches live web for current information
+> Use when: asking about events/facts that may have changed since training, verifying claims
+> Do NOT use when: the answer is in documents already in context, or the question is about stable historical facts
+> Returns: Top 5 results with titles, snippets, and URLs
+> Errors: "No results" for very specific queries — broaden the search term
+
+Apply this standard when writing or updating agent tool documentation.
 
 ---
 
