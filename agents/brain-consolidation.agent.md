@@ -252,6 +252,18 @@ Written to: `06 - AI Agent Outputs/<date>-<task-slug>/session-log.md`
 
 ---
 
+## Step 7 — Push Brain to GitHub
+
+After all writes and the consolidation report are complete, push the brain vault to GitHub:
+
+```bash
+bash ~/.copilot/scripts/brain-git-push.sh "chore: brain consolidation — <task-slug> — $(date +%Y-%m-%d)"
+```
+
+This is always the **final step**. It is a no-op if nothing changed (clean vault).
+
+---
+
 ## Output Signal
 
 ```
@@ -260,4 +272,5 @@ BRAIN_CONSOLIDATION: COMPLETE
 DOCUMENTS_WRITTEN: <count>
 LEARNINGS_ADDED: <count>
 SESSION_LOG: $BRAIN/06 - AI Agent Outputs/<date>-<slug>/session-log.md
+BRAIN_PUSHED: true
 ```
