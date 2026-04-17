@@ -393,3 +393,39 @@ Apply this standard when writing or updating agent tool documentation.
 - At the end of every task: write learnings, run `brain-consolidation` if domain knowledge was gained.
 - **Code is cheap, knowledge is expensive.** Invest time in data schemas, interfaces, tests, and domain understanding. Scripts, glue code, and one-off tools can be regenerated — don't over-engineer them.
 - **Read the `## [STM] Negative Context` section** in the STM before working. Do NOT speculate on topics listed there. Raise `PIPELINE_SIGNAL: NEED_DATA` if a listed gap is critical to your work.
+
+---
+
+## Session End — Automatic Post-Session Syncs
+
+At the end of **every session**, automatically run the post-session syncs **without waiting to be asked**. Trigger on any of these signals:
+- User says they are done, closing, leaving, finishing, or wrapping up
+- User says "save session", "end session", "I'm out", "good job", or similar
+- The conversation has reached a natural stopping point after completing work
+
+### What to run automatically:
+
+1. **Session summary** — generate a 2–5 sentence prose summary of what was accomplished and call:
+   ```bash
+   python3 ~/.copilot/scripts/summarize-session.py <session-id> \
+     --prose "Your summary here" \
+     --learnings "learning 1\nlearning 2\n..."
+   ```
+   Get the current session ID from:
+   ```bash
+   ls -t ~/.copilot/session-state/ | head -1
+   ```
+
+2. **Global learnings** — write any non-obvious patterns, gotchas, decisions, or preferences to:
+   ```bash
+   bash ~/.copilot/scripts/add-learning.sh --global "[TYPE] Learning text"
+   ```
+
+3. **Brain consolidation** — if the session involved EROAD code, architecture, or domain knowledge, launch the `brain-consolidation` agent in background to update the eroad-brain vault.
+
+4. **Brain push** — the `copilot()` zsh wrapper handles this automatically on exit. No action needed.
+
+### What counts as "session ending"
+The zsh wrapper handles mechanical steps after exit. Your job is the AI-generated content (prose + learnings + brain consolidation) that must happen **before** the session closes.
+
+If the session ends without syncing (e.g. terminal killed), the NEXT session should check for any un-synced sessions and run the syncs at the start.
