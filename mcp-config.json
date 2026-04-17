@@ -16,15 +16,15 @@
     },
     "microsoft-teams": {
       "type": "http",
-      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/YOUR_TENANT_ID/servers/mcp_TeamsServer"
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_TeamsServer"
     },
     "microsoft-mail": {
       "type": "http",
-      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/YOUR_TENANT_ID/servers/mcp_MailTools"
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_MailTools"
     },
     "microsoft-calendar": {
       "type": "http",
-      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/YOUR_TENANT_ID/servers/mcp_CalendarTools"
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_CalendarTools"
     },
     "slack": {
       "command": "npx",
