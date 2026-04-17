@@ -34,7 +34,7 @@ except ImportError:
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-VAULT_PATH   = Path.home() / "Documents" / "john-brain"
+VAULT_PATH   = Path.home() / "john-brain"
 STATE_DB     = VAULT_PATH / ".brain" / "state.db"
 CLUSTERS_DIR = VAULT_PATH / "clusters"
 INDEX_FILE   = VAULT_PATH / "index.md"
@@ -110,6 +110,28 @@ def chunk_text(text: str, size: int = CHUNK_SIZE) -> Iterator[str]:
         yield "\n\n".join(current)
 
 
+def _is_worth_analyzing(text: str) -> bool:
+    """Fast heuristic: skip chunks that are mostly code or too short to contain ideas."""
+    if len(text.strip()) < 120:
+        return False
+    lines = text.splitlines()
+    if not lines:
+        return False
+    # Count lines that are inside code blocks or look like code
+    code_lines = sum(
+        1 for l in lines
+        if l.startswith("    ") or l.startswith("\t") or l.strip().startswith("```")
+    )
+    # Count lines that look like prose sentences
+    prose_lines = sum(1 for l in lines if len(l.strip()) > 40 and not l.strip().startswith(("```", "#", "|", "-", "*", ">")))
+    # Skip if overwhelmingly code with no prose
+    if code_lines > 0 and prose_lines == 0:
+        return False
+    if len(lines) > 5 and (code_lines / len(lines)) > 0.7:
+        return False
+    return True
+
+
 def clean_markdown(text: str) -> str:
     """Strip frontmatter, metadata tables, and HTML comments from session markdown."""
     # Remove YAML frontmatter
@@ -126,13 +148,40 @@ def clean_markdown(text: str) -> str:
 
 # ── LLM calls ────────────────────────────────────────────────────────────────
 
-def _llm_json(client: OpenAI, model: str, prompt: str, max_tokens: int = 1200, retries: int = 3) -> dict | list:
+SYSTEM_EXTRACT = (
+    "You are a precise knowledge analyst. Your job is to surface the genuine thoughts, "
+    "values, and beliefs of a specific person from their conversation history. "
+    "Be thorough and specific — surface nuanced opinions, not just surface-level topics. "
+    "Never invent ideas; only extract what is actually present. "
+    "Always respond with valid JSON."
+)
+
+SYSTEM_CLUSTER = (
+    "You are a cognitive cartographer building a detailed map of one person's mind. "
+    "Your clusters should reveal patterns in how this person thinks — their recurring concerns, "
+    "their values, their aesthetic preferences, and their intellectual interests. "
+    "Be specific and insightful. Prefer depth over breadth. "
+    "Always respond with valid JSON."
+)
+
+
+def _llm_json(
+    client: OpenAI,
+    model: str,
+    prompt: str,
+    max_tokens: int = 1200,
+    retries: int = 3,
+    system: str = SYSTEM_EXTRACT,
+) -> dict | list:
     """Call LLM and parse JSON, with retry on rate limit."""
     for attempt in range(retries):
         try:
             resp = client.chat.completions.create(
                 model=model,
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": prompt},
+                ],
                 response_format={"type": "json_object"},
                 max_tokens=max_tokens,
             )
@@ -206,6 +255,8 @@ def ingest_copilot_sessions(conn: sqlite3.Connection, client: OpenAI, source_dir
         chunks = list(chunk_text(clean))
         for i, chunk in enumerate(chunks):
             if len(chunk.strip()) < 100:
+                continue
+            if not _is_worth_analyzing(chunk):
                 continue
             ideas = extract_ideas_from_chunk(client, chunk, f"Copilot session {date}")
             all_ideas.extend(ideas)
@@ -296,6 +347,8 @@ def ingest_chatgpt(conn: sqlite3.Connection, client: OpenAI, export_path: Path):
         chunks = list(chunk_text(combined))
         for i, chunk in enumerate(chunks):
             if len(chunk.strip()) < 80:
+                continue
+            if not _is_worth_analyzing(chunk):
                 continue
             ideas = extract_ideas_from_chunk(client, chunk, f"ChatGPT conversation '{title}' ({date})")
             all_ideas.extend(ideas)
@@ -391,6 +444,8 @@ def ingest_claude(conn: sqlite3.Connection, client: OpenAI, export_path: Path):
         for i, chunk in enumerate(chunks):
             if len(chunk.strip()) < 80:
                 continue
+            if not _is_worth_analyzing(chunk):
+                continue
             ideas = extract_ideas_from_chunk(client, chunk, f"Claude conversation '{title}' ({date})")
             all_ideas.extend(ideas)
             if ideas:
@@ -450,7 +505,7 @@ Every idea should belong to exactly one cluster.
 
 Respond with JSON: {{"clusters": [{{"name": "...", "summary": "...", "idea_indices": [...], "related": [...]}}]}}"""
 
-    data = _llm_json(client, HEAVY_MODEL, prompt, max_tokens=4000)
+    data = _llm_json(client, HEAVY_MODEL, prompt, max_tokens=4000, system=SYSTEM_CLUSTER)
     raw = data.get("clusters", [])
 
     result = []

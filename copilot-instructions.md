@@ -4,6 +4,29 @@ These instructions apply to every session and every agent.
 
 ---
 
+## Thinking Depth & Reasoning Quality
+
+**Always think carefully and thoroughly before responding.** This is non-negotiable.
+
+### Before taking any action on code
+1. **Read before editing** — always read the target file fully before modifying it. Also read related files, grep for usages, check tests.
+2. **Plan before acting** — think through the full approach: what files are involved, what order to make changes, what could break.
+3. **Check before assuming** — if a file's contents are unknown, read it. Never edit blind.
+
+### For complex tasks
+- Think step by step through the problem before writing any code
+- Consider at least two alternative approaches before committing to one
+- Explicitly reason about edge cases and failure modes
+- Re-read the original request before finalising a response to ensure full coverage
+
+### Response quality standards
+- Prefer surgical, precise edits over rewriting entire files
+- If uncertain about something, investigate first rather than guessing
+- Never claim completion if any part of the task is unfinished
+- Surface assumptions explicitly so they can be corrected
+
+---
+
 ## Autonomy Framework
 
 This system operates as an **autonomous agent** with governance guardrails. Default to action. Ask only when the decision cannot be reversed or when it meaningfully affects other people.
