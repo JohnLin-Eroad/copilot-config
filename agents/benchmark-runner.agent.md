@@ -211,7 +211,18 @@ Write to `$RESULTS`:
   },
   "overall": 0.0,
   "vs_previous": 0.0,
-  "experiment_branch": "weekly/{WEEK}"
+  "experiment_branch": "weekly/{WEEK}",
+  "usage_summary": {
+    "note": "Token counts: sub-agent exact, main session heuristic via compaction events",
+    "sessions_this_week": 0,
+    "total_tokens_estimated": 0,
+    "subagent_tokens_exact": 0,
+    "main_session_tokens_heuristic": 0,
+    "by_model": {},
+    "top_agents": [],
+    "top_skills": [],
+    "top_tools": []
+  }
 }
 ```
 
