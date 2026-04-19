@@ -53,3 +53,4 @@ copilot-usage --json             # JSON output
 
 | Week | Sessions | Sub-agent Tokens | Main (est.) | Total (est.) | Top Agent | Top Skill |
 |---|---|---|---|---|---|---|
+| 2026-W16 | 15 | 63.3M | 5.4M | 68.7M | general-purpose | session-summary |
