@@ -124,6 +124,30 @@ Load previous week's JSON and compute `vs_previous = overall - prev_overall`.
 
 ---
 
+## Step 7b — Collect Usage Stats
+
+Before writing results, run the usage stats aggregator for the current week:
+
+```bash
+USAGE_JSON=$(python3 ~/.copilot/scripts/usage-stats.py --json --week $WEEK)
+```
+
+Extract the weekly bucket for `$WEEK` from the output. This gives you:
+- `subagent_tokens` — exact sub-agent token consumption for this week
+- `main_session_tokens_heuristic` — estimated main session tokens
+- `total_tokens_estimated` — combined estimate
+- `by_model` — model distribution %
+- `agents` — agent call table
+- `skills` — skill call counts
+- `tools` — top tools
+
+Also write the full human-readable usage report:
+```bash
+python3 ~/.copilot/scripts/usage-stats.py --week $WEEK > ~/copilot-config/benchmarks/usage/$WEEK.md
+```
+
+---
+
 ## Step 8 — Write JSON Results
 
 Write to `$RESULTS`:
