@@ -287,7 +287,7 @@ Write to `$REPORT`:
 ```bash
 cd ~/copilot-config
 
-git add "benchmarks/results/$WEEK.json" "benchmarks/reports/$WEEK.md"
+git add "benchmarks/results/$WEEK.json" "benchmarks/reports/$WEEK.md" "benchmarks/usage/$WEEK.md"
 git commit -m "Benchmark results: $WEEK
 
 Overall: {overall}/5.0 (vs prev: {delta})
