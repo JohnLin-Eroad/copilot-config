@@ -384,6 +384,35 @@ Apply this standard when writing or updating agent tool documentation.
 
 ---
 
+## Skill Dispatch Rules
+
+Skills are shared instruction sets loaded via the `skill` tool. They are **not invoked automatically** — you must call them explicitly. Use this table to know when to invoke each skill:
+
+| Trigger condition | Invoke skill |
+|---|---|
+| Evaluating any plan, proposal, or architecture before committing | `critical-thinker` |
+| Architecture decision with HIGH/CRITICAL blast radius, hard to reverse | `dual-critique` |
+| Strategic or directional decision needing diverse perspectives (what to build, which approach) | `advisor` |
+| Starting a task in a repo — fetch context from brain / write back at end | `brain-sync` |
+| Handing off work between agents in a pipeline | `handoff-protocol` |
+| Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` |
+| Saving or reviewing a session log | `session-summary` |
+
+### When to auto-invoke (no user prompt needed)
+
+These skills should fire **automatically** based on context — you do not need to be asked:
+
+- **`critical-thinker`** — invoke on your own output whenever you've produced an architectural proposal, a significant design choice, or a multi-service plan. Self-critique before presenting.
+- **`brain-sync`** — invoke at the START of any task in an EROAD or Sovereign repo (fetch), and at the END (write back). The orchestrator handles this via `brain-data-retrieval` and `brain-consolidation` agents, but for direct Copilot sessions without the orchestrator, do it yourself.
+- **`advisor`** — invoke when the user is facing a directional decision and hasn't explicitly asked for a particular analysis style. Offer it proactively: *"This looks like a strategic decision — want me to run the advisor panel?"*
+
+### When NOT to invoke skills
+- Routine code changes, bug fixes, single-file edits → no skill needed
+- When the user has already framed the analysis approach clearly → follow their framing
+- When speed matters and the decision is LOW blast radius → proceed directly
+
+---
+
 ## General Behaviour
 
 - Always check `.github/copilot-instructions.md` in the current repo for project-specific instructions.

@@ -288,13 +288,19 @@ Classification:
   Pipeline:  [minimal | standard | full-transformation]
 ```
 
-| Type | Pipeline | Agents |
-|---|---|---|
-| `question` / `discovery` | Minimal | brain-data-retrieval → specialist → brain-consolidation |
-| `documentation` | Minimal | brain-data-retrieval → documentation → brain-consolidation |
-| `code-change` (single service) | Standard | Full phases 0–10 |
-| `architecture` | Standard + ADR | Add architect + governance |
-| `full-transformation` | Full | All phases 0–11 |
+| Type | Pipeline | Agents | Auto-invoke skill? |
+|---|---|---|---|
+| `question` / `discovery` | Minimal | brain-data-retrieval → specialist → brain-consolidation | — |
+| `documentation` | Minimal | brain-data-retrieval → documentation → brain-consolidation | — |
+| `code-change` (single service) | Standard | Full phases 0–10 | — |
+| `architecture` | Standard + ADR | Add architect + governance | `critical-thinker` on architect output |
+| `strategy` / `directional` | Standard | Add product-manager + erd agents as needed | `advisor` before committing to direction |
+| `full-transformation` | Full | All phases 0–11 | `dual-critique` on the transformation plan |
+
+**Skill dispatch rules for the orchestrator:**
+- **`critical-thinker`** — run on the architect's proposed solution for any `architecture` task before proceeding to implementation
+- **`advisor`** — run when the task is `strategy` or `directional` (what to build, which approach, trade-off decisions). Present the advisory panel output to the user before routing to specialist agents.
+- **`dual-critique`** — run on the plan for any `full-transformation` or HIGH/CRITICAL blast-radius architecture task
 
 **Write the classification into the STM Task Brief before invoking any specialist agent.**
 
