@@ -51,3 +51,4 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 | Week | Overall | Code | Context | Security | Planning | Retention | vs Prev |
 |---|---|---|---|---|---|---|---|
 | **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | 3.0 (N) | baseline |
+| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | 3.0 (N) | +0.265 |
