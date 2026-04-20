@@ -90,6 +90,14 @@ def parse_session(events_path: Path) -> dict:
         "total_subagent_calls": 0,
         # Total tool calls (excluding report_intent which is meta)
         "total_tool_calls": 0,
+        # Agent failures (subagent.failed events)
+        "agent_failures": defaultdict(lambda: {"count": 0, "tokens_lost": 0, "errors": []}),
+        # Session-level errors
+        "session_error_count": 0,
+        "session_errors_by_type": defaultdict(int),
+        # Aborts
+        "abort_count": 0,
+        "abort_user_count": 0,
     }
 
     try:
