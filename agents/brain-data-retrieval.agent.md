@@ -70,7 +70,9 @@ Read the task description and any specific data needs passed to you. Identify th
 
 ### Step 3 — Search the Brain
 
-Use targeted searches to find relevant files. Do NOT fetch everything — be selective:
+Use targeted searches to find relevant files. Do NOT fetch everything — be selective.
+
+**For eroad-brain (`BRAIN_TYPE: eroad`):**
 
 ```bash
 BRAIN="$HOME/eroad-brain"
@@ -93,6 +95,26 @@ find "$BRAIN" -iname "*service-name*" -type f
 # Broad keyword search across all brain content
 grep -r --include="*.md" -l "KEYWORD" "$BRAIN" 2>/dev/null
 ```
+
+**For john-brain (`BRAIN_TYPE: personal`):**
+
+```bash
+BRAIN="$HOME/john-brain"
+
+# Find relevant knowledge clusters (john-brain's primary structure)
+find "$BRAIN/clusters" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
+
+# Search the brain index for matching clusters
+grep -i "KEYWORD" "$BRAIN/index.md"
+
+# Find learnings
+find "$BRAIN/Learnings" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
+
+# Broad search
+grep -r --include="*.md" -l "KEYWORD" "$BRAIN" 2>/dev/null
+```
+
+For john-brain, always fetch the `index.md` first — it summarises all 30 clusters and helps you pick the most relevant ones without reading everything.
 
 Track topics you searched for that returned **no results** — these go into `## [STM] Negative Context` later.
 
