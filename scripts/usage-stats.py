@@ -6,6 +6,8 @@ Parses all session events.jsonl files and aggregates:
   - Token usage: sub-agent (exact) + main session (heuristic via compaction events)
   - Model distribution % (sub-agents + model change tracking)
   - Agent call frequency (count, avg tokens, avg duration)
+  - Agent failure tracking (subagent.failed events with error categorisation)
+  - Session error and abort tracking
   - Skill call frequency (by skill name)
   - Tool call frequency
 
