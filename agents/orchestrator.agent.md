@@ -233,7 +233,7 @@ echo "STM created at: $STM_PATH"
 
 Every agent prompt you write must include:
 ```
-STM: /tmp/sov-task-<slug>/short-term-memory.md
+STM: $STM_PATH
 
 Read the STM before starting your work. Append your key outputs and findings to
 ## [STM] Agent Contributions under ### [your-agent-name] — <ISO timestamp>
