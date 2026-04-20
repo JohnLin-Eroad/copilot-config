@@ -1,0 +1,784 @@
+#!/usr/bin/env python3
+"""
+STM Live Dashboard
+
+Watches a Short-Term Memory (STM) .md file and renders it as a live-updating
+HTML dashboard in the browser. Sections are colour-coded by type.
+
+Usage:
+  python3 ~/.copilot/scripts/stm-dashboard.py <path-to-short-term-memory.md>
+  python3 ~/.copilot/scripts/stm-dashboard.py --latest   # opens most recent STM
+"""
+
+import argparse
+import http.server
+import json
+import os
+import re
+import sys
+import threading
+import time
+import webbrowser
+from datetime import datetime
+from pathlib import Path
+
+STM_DIR = Path.home() / ".copilot" / "stm"
+
+# ─────────────────────────────────────────────
+# Section metadata: colour + icon per STM key
+# ─────────────────────────────────────────────
+SECTION_META = {
+    "Task Brief":       {"color": "#4f9cf9", "icon": "📋", "order": 0},
+    "Fetch Manifest":   {"color": "#a78bfa", "icon": "📚", "order": 1},
+    "Brain Data":       {"color": "#34d399", "icon": "🧠", "order": 2},
+    "Negative Context": {"color": "#f87171", "icon": "⛔", "order": 3},
+    "Retrieval Log":    {"color": "#fb923c", "icon": "🔍", "order": 4},
+    "Agent Contributions": {"color": "#facc15", "icon": "🤖", "order": 5},
+}
+
+DEFAULT_META = {"color": "#94a3b8", "icon": "📄", "order": 99}
+
+
+def find_latest_stm() -> Path | None:
+    if not STM_DIR.exists():
+        return None
+    candidates = sorted(
+        [p for p in STM_DIR.rglob("short-term-memory.md")],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def parse_stm(content: str) -> dict:
+    """Parse STM markdown into sections dict."""
+    sections = {}
+    frontmatter = {}
+
+    # Extract YAML frontmatter
+    fm_match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+    if fm_match:
+        for line in fm_match.group(1).splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                frontmatter[k.strip()] = v.strip().strip('"')
+        content = content[fm_match.end():]
+
+    # Split on ## [STM] headers
+    parts = re.split(r"\n## \[STM\] (.+?)(?:\n|$)", content)
+
+    # parts[0] is the title block
+    title_block = parts[0].strip()
+
+    i = 1
+    while i < len(parts) - 1:
+        section_name = parts[i].strip()
+        section_body = parts[i + 1].strip() if i + 1 < len(parts) else ""
+        # Strip HTML comments that are just placeholders
+        body = re.sub(r"<!--.*?-->", "", section_body, flags=re.DOTALL).strip()
+        sections[section_name] = body
+        i += 2
+
+    return {
+        "frontmatter": frontmatter,
+        "title_block": title_block,
+        "sections": sections,
+    }
+
+
+def extract_classification(task_brief: str) -> dict:
+    """Pull Classification block out of Task Brief."""
+    fields = {}
+    block_match = re.search(r"Classification:(.*?)(?:\n\n|\Z)", task_brief, re.DOTALL)
+    if block_match:
+        for line in block_match.group(1).splitlines():
+            m = re.match(r"\s+(\w+):\s+(.+)", line)
+            if m:
+                fields[m.group(1)] = m.group(2).strip()
+    return fields
+
+
+def extract_agents(contributions: str) -> list[dict]:
+    """Parse agent contribution entries."""
+    agents = []
+    blocks = re.split(r"\n###\s+", contributions)
+    for block in blocks[1:]:
+        lines = block.strip().splitlines()
+        name = lines[0].strip() if lines else "Unknown"
+        body = "\n".join(lines[1:]).strip()
+        # Detect status
+        status = "running"
+        if re.search(r"status.*?✅|complete|done", body, re.IGNORECASE):
+            status = "done"
+        elif re.search(r"status.*?❌|failed|error", body, re.IGNORECASE):
+            status = "failed"
+        elif re.search(r"status.*?⚠️|warning|blocked", body, re.IGNORECASE):
+            status = "warning"
+        agents.append({"name": name, "body": body, "status": status})
+    return agents
+
+
+def md_to_html(text: str) -> str:
+    """Minimal markdown → HTML converter for dashboard display."""
+    if not text:
+        return "<em class='empty'>—</em>"
+
+    lines = text.split("\n")
+    output = []
+    in_code = False
+    code_lines = []
+    in_list = False
+
+    for line in lines:
+        if line.startswith("```"):
+            if in_code:
+                output.append(
+                    "<pre><code>"
+                    + "\n".join(html_escape(l) for l in code_lines)
+                    + "</code></pre>"
+                )
+                code_lines = []
+                in_code = False
+            else:
+                in_code = True
+                if in_list:
+                    output.append("</ul>")
+                    in_list = False
+            continue
+
+        if in_code:
+            code_lines.append(line)
+            continue
+
+        # Headings
+        hm = re.match(r"^(#{1,4})\s+(.+)", line)
+        if hm:
+            if in_list:
+                output.append("</ul>")
+                in_list = False
+            lvl = len(hm.group(1)) + 1  # shift h1→h2 etc
+            output.append(f"<h{lvl}>{inline_md(hm.group(2))}</h{lvl}>")
+            continue
+
+        # List items
+        lm = re.match(r"^[-*]\s+(.+)", line)
+        if lm:
+            if not in_list:
+                output.append("<ul>")
+                in_list = True
+            output.append(f"<li>{inline_md(lm.group(1))}</li>")
+            continue
+
+        # Numbered list
+        nlm = re.match(r"^\d+\.\s+(.+)", line)
+        if nlm:
+            if not in_list:
+                output.append("<ul>")
+                in_list = True
+            output.append(f"<li>{inline_md(nlm.group(1))}</li>")
+            continue
+
+        # End list on blank line
+        if not line.strip() and in_list:
+            output.append("</ul>")
+            in_list = False
+
+        if line.strip():
+            output.append(f"<p>{inline_md(line)}</p>")
+        else:
+            output.append("<br>")
+
+    if in_list:
+        output.append("</ul>")
+    if in_code and code_lines:
+        output.append(
+            "<pre><code>"
+            + "\n".join(html_escape(l) for l in code_lines)
+            + "</code></pre>"
+        )
+
+    return "\n".join(output)
+
+
+def inline_md(text: str) -> str:
+    text = html_escape(text)
+    # Bold
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    # Italic
+    text = re.sub(r"\*(.+?)\*", r"<em>\1</em>", text)
+    # Inline code
+    text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
+    # Emoji status markers kept as-is
+    return text
+
+
+def html_escape(text: str) -> str:
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
+    fm = parsed["frontmatter"]
+    sections = parsed["sections"]
+    task_name = fm.get("task", stm_path.parent.name)
+    created = fm.get("created", "—")
+    mod_str = datetime.fromtimestamp(last_modified).strftime("%H:%M:%S")
+
+    task_brief = sections.get("Task Brief", "")
+    classification = extract_classification(task_brief)
+    contributions = sections.get("Agent Contributions", "")
+    agents = extract_agents(contributions)
+
+    brain_type = classification.get("BRAIN_TYPE", "—")
+    domain = classification.get("Domain", "—")
+    blast = classification.get("Blast", "—")
+    pipeline = classification.get("Pipeline", "—")
+    task_type = classification.get("Type", "—")
+
+    blast_colors = {
+        "LOW": "#34d399", "MEDIUM": "#facc15",
+        "HIGH": "#fb923c", "CRITICAL": "#f87171"
+    }
+    brain_colors = {"eroad": "#4f9cf9", "personal": "#a78bfa"}
+    blast_color = blast_colors.get(blast, "#94a3b8")
+    brain_color = brain_colors.get(brain_type, "#94a3b8")
+
+    # Agent progress timeline
+    phase_colors = {"done": "#34d399", "failed": "#f87171", "warning": "#fb923c", "running": "#facc15"}
+    phase_icons = {"done": "✅", "failed": "❌", "warning": "⚠️", "running": "⏳"}
+
+    agent_timeline_html = ""
+    if agents:
+        items = []
+        for i, ag in enumerate(agents):
+            sc = phase_colors.get(ag["status"], "#94a3b8")
+            ic = phase_icons.get(ag["status"], "❓")
+            items.append(
+                f"""<div class="phase-item">
+                  <div class="phase-dot" style="background:{sc}">{ic}</div>
+                  <div class="phase-label">{html_escape(ag['name'])}</div>
+                </div>"""
+            )
+        agent_timeline_html = "\n".join(items)
+    else:
+        agent_timeline_html = "<div class='empty-state'>No agents dispatched yet</div>"
+
+    # Build section cards (excluding Agent Contributions — rendered separately)
+    section_cards_html = ""
+    ordered = sorted(
+        [(k, v) for k, v in sections.items() if k != "Agent Contributions"],
+        key=lambda kv: SECTION_META.get(kv[0], DEFAULT_META)["order"],
+    )
+    for sec_name, sec_body in ordered:
+        meta = SECTION_META.get(sec_name, DEFAULT_META)
+        empty = not sec_body.strip()
+        card_class = "section-card" + (" section-empty" if empty else "")
+        section_cards_html += f"""
+        <div class="{card_class}">
+          <div class="section-header" style="border-left:3px solid {meta['color']}">
+            <span class="section-icon">{meta['icon']}</span>
+            <span class="section-title">{html_escape(sec_name)}</span>
+            {'<span class="badge-empty">empty</span>' if empty else ''}
+          </div>
+          <div class="section-body">{md_to_html(sec_body)}</div>
+        </div>"""
+
+    # Agent contributions full detail
+    agent_detail_html = ""
+    if agents:
+        for ag in agents:
+            sc = phase_colors.get(ag["status"], "#94a3b8")
+            ic = phase_icons.get(ag["status"], "❓")
+            agent_detail_html += f"""
+            <div class="agent-card" style="border-left:3px solid {sc}">
+              <div class="agent-header">
+                <span class="agent-icon">{ic}</span>
+                <span class="agent-name">{html_escape(ag['name'])}</span>
+                <span class="agent-status" style="color:{sc}">{ag['status'].upper()}</span>
+              </div>
+              <div class="agent-body">{md_to_html(ag['body'])}</div>
+            </div>"""
+    else:
+        agent_detail_html = "<div class='empty-state'>Waiting for agent contributions…</div>"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STM — {html_escape(task_name)}</title>
+  <meta http-equiv="refresh" content="3">
+  <style>
+    :root {{
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-bright: #f8fafc;
+      --green: #34d399;
+      --blue: #4f9cf9;
+      --purple: #a78bfa;
+      --yellow: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }}
+
+    /* ── Header ── */
+    .header {{
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }}
+    .header-logo {{ font-size: 24px; }}
+    .header-title {{
+      flex: 1;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }}
+    .header-title span {{
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 13px;
+      margin-left: 8px;
+    }}
+    .live-badge {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 600;
+    }}
+    .live-dot {{
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s infinite;
+    }}
+    @keyframes pulse {{
+      0%, 100% {{ opacity: 1; }}
+      50% {{ opacity: 0.3; }}
+    }}
+    .last-updated {{
+      color: var(--text-dim);
+      font-size: 12px;
+    }}
+
+    /* ── Layout ── */
+    .container {{
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 24px;
+    }}
+    .sidebar {{ display: flex; flex-direction: column; gap: 16px; }}
+    .main {{ display: flex; flex-direction: column; gap: 16px; }}
+
+    /* ── Cards ── */
+    .card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .card-header {{
+      padding: 12px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }}
+    .card-body {{ padding: 16px; }}
+
+    /* ── Classification pills ── */
+    .meta-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }}
+    .meta-item {{
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+    }}
+    .meta-label {{
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }}
+    .meta-value {{
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }}
+    .meta-value.brain {{ color: {brain_color}; }}
+    .meta-value.blast {{ color: {blast_color}; }}
+
+    /* ── Agent timeline ── */
+    .phase-list {{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }}
+    .phase-item {{
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }}
+    .phase-dot {{
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }}
+    .phase-label {{
+      font-size: 13px;
+      color: var(--text);
+      font-family: monospace;
+    }}
+
+    /* ── STM file path ── */
+    .stm-path {{
+      font-family: monospace;
+      font-size: 11px;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 8px 12px;
+      word-break: break-all;
+      border: 1px solid var(--border);
+    }}
+
+    /* ── Section cards ── */
+    .section-card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .section-empty {{ opacity: 0.5; }}
+    .section-header {{
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-left: 16px;
+    }}
+    .section-icon {{ font-size: 16px; }}
+    .section-title {{
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-bright);
+      flex: 1;
+    }}
+    .badge-empty {{
+      font-size: 11px;
+      padding: 2px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text-dim);
+    }}
+    .section-body {{
+      padding: 14px 16px;
+      max-height: 400px;
+      overflow-y: auto;
+    }}
+
+    /* ── Agent detail cards ── */
+    .agent-card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      padding-left: 3px;
+    }}
+    .agent-header {{
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }}
+    .agent-icon {{ font-size: 18px; }}
+    .agent-name {{
+      flex: 1;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-bright);
+      font-family: monospace;
+    }}
+    .agent-status {{
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+    }}
+    .agent-body {{
+      padding: 14px 16px;
+      max-height: 500px;
+      overflow-y: auto;
+    }}
+
+    /* ── Markdown rendering ── */
+    code {{
+      background: var(--surface2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--purple);
+    }}
+    pre {{
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }}
+    pre code {{
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 12px;
+    }}
+    p {{ margin: 4px 0; color: var(--text); }}
+    h2 {{ font-size: 16px; color: var(--text-bright); margin: 12px 0 6px; }}
+    h3 {{ font-size: 14px; color: var(--text-bright); margin: 10px 0 4px; }}
+    h4 {{ font-size: 13px; color: var(--text-dim); margin: 8px 0 4px; }}
+    ul {{ padding-left: 20px; margin: 4px 0; }}
+    li {{ margin: 2px 0; }}
+    strong {{ color: var(--text-bright); }}
+    em {{ color: var(--text-dim); font-style: italic; }}
+    .empty {{ color: var(--text-dim); font-style: italic; }}
+    .empty-state {{
+      color: var(--text-dim);
+      font-style: italic;
+      text-align: center;
+      padding: 20px;
+      font-size: 13px;
+    }}
+
+    /* ── Scrollbars ── */
+    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+    ::-webkit-scrollbar-track {{ background: var(--surface); }}
+    ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 3px; }}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-logo">🧠</div>
+    <div class="header-title">
+      STM — {html_escape(task_name)}
+      <span>created {html_escape(created)}</span>
+    </div>
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <div class="last-updated">last update: {mod_str}</div>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+
+      <!-- Classification -->
+      <div class="card">
+        <div class="card-header">🏷️ Classification</div>
+        <div class="card-body">
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-label">Brain</div>
+              <div class="meta-value brain">{html_escape(brain_type)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Domain</div>
+              <div class="meta-value">{html_escape(domain)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Blast</div>
+              <div class="meta-value blast">{html_escape(blast)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Type</div>
+              <div class="meta-value">{html_escape(task_type)}</div>
+            </div>
+          </div>
+          <div style="margin-top:10px">
+            <div class="meta-item" style="grid-column:span 2">
+              <div class="meta-label">Pipeline</div>
+              <div class="meta-value">{html_escape(pipeline)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Timeline -->
+      <div class="card">
+        <div class="card-header">⚡ Agent Timeline</div>
+        <div class="card-body">
+          <div class="phase-list">
+            {agent_timeline_html}
+          </div>
+        </div>
+      </div>
+
+      <!-- STM File Path -->
+      <div class="card">
+        <div class="card-header">📁 STM File</div>
+        <div class="card-body">
+          <div class="stm-path">{html_escape(str(stm_path))}</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      {section_cards_html}
+
+      <!-- Agent Contributions -->
+      <div class="card">
+        <div class="card-header">🤖 Agent Contributions</div>
+        <div class="card-body" style="padding:0">
+          <div style="display:flex;flex-direction:column;gap:0">
+            {agent_detail_html}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+class DashboardHandler(http.server.BaseHTTPRequestHandler):
+    stm_path: Path = None
+    html_cache: str = ""
+    cache_mtime: float = 0
+
+    def log_message(self, format, *args):
+        pass  # suppress server logs
+
+    def do_GET(self):
+        if self.path not in ("/", "/index.html"):
+            self.send_error(404)
+            return
+
+        stm_path = DashboardHandler.stm_path
+        if not stm_path or not stm_path.exists():
+            body = b"<html><body><h2>STM file not found.</h2></body></html>"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        mtime = stm_path.stat().st_mtime
+        if mtime != DashboardHandler.cache_mtime:
+            content = stm_path.read_text(encoding="utf-8")
+            parsed = parse_stm(content)
+            DashboardHandler.html_cache = build_html(stm_path, parsed, mtime)
+            DashboardHandler.cache_mtime = mtime
+
+        body = DashboardHandler.html_cache.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def find_free_port(start=7700) -> int:
+    import socket
+    for port in range(start, start + 100):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError("No free port found")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="STM Live Dashboard")
+    parser.add_argument("stm_file", nargs="?", help="Path to short-term-memory.md")
+    parser.add_argument("--latest", action="store_true", help="Open most recent STM")
+    parser.add_argument("--port", type=int, default=0, help="Port (default: auto)")
+    parser.add_argument("--no-open", action="store_true", help="Don't open browser")
+    args = parser.parse_args()
+
+    if args.latest or not args.stm_file:
+        stm_path = find_latest_stm()
+        if not stm_path:
+            print("No STM files found in ~/.copilot/stm/", file=sys.stderr)
+            sys.exit(1)
+    else:
+        stm_path = Path(args.stm_file).expanduser().resolve()
+        if not stm_path.exists():
+            print(f"STM file not found: {stm_path}", file=sys.stderr)
+            sys.exit(1)
+
+    port = args.port if args.port else find_free_port()
+    DashboardHandler.stm_path = stm_path
+
+    server = http.server.HTTPServer(("", port), DashboardHandler)
+    url = f"http://localhost:{port}"
+
+    print(f"🧠 STM Dashboard — {stm_path.parent.name}")
+    print(f"   Serving: {url}")
+    print(f"   Watching: {stm_path}")
+    print(f"   Auto-refreshes every 3 seconds")
+    print(f"   Ctrl+C to stop")
+
+    if not args.no_open:
+        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nDashboard stopped.")
+
+
+if __name__ == "__main__":
+    main()
