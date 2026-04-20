@@ -301,6 +301,19 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') benchmark-runner completed for $WEEK — over
 
 ---
 
+## Step 11 — Generate Usage Dashboard
+
+After committing, regenerate the HTML dashboard so it reflects the latest benchmark week:
+
+```bash
+python3 ~/.copilot/scripts/usage-stats.py --update-only \
+  && python3 ~/.copilot/scripts/usage-dashboard.py
+```
+
+This opens the dashboard in the browser automatically. If running headless (no browser available), append `--no-open` to suppress it.
+
+---
+
 ## Update Score History Table
 
 After committing, update the score history table in `benchmarks/README.md`:
