@@ -202,11 +202,14 @@ Use the cheapest model that can reliably do the job. Escalate to a more powerful
 
 | Task type | Use | Why |
 |---|---|---|
-| Architecture, ADRs, complex reasoning | Sonnet (or Opus for critical decisions) | Deep reasoning chains needed |
-| Code implementation, test writing | Sonnet | Quality + speed balance |
-| Discovery, file reading, status checks | Haiku | Fast, cheap, sufficient |
-| Security review, compliance | Sonnet | Precision required |
-| Simple searches, grep, lookups | Haiku | Minimal task |
+| Architecture, ADRs, blast radius, orchestration | **Opus** (`claude-opus-4.7`) | Deep multi-step reasoning, high-stakes decisions |
+| Security review, compliance, governance | **Opus** (`claude-opus-4.7`) | Precision and depth required |
+| Adversarial analysis, critical evaluation | **Opus** (`claude-opus-4.7`) | Must surface non-obvious failure modes |
+| Code implementation, test writing, code review | **Codex** (`gpt-5.3-codex`) | Optimised for code generation and analysis |
+| Discovery, file reading, brain fetches | **Haiku** (`claude-haiku-4.5`) | Fast, cheap, sufficient for navigation |
+| Simple searches, sprint tracking, routine ops | **Haiku** (`claude-haiku-4.5`) | Minimal task — don't over-invest |
+| Documentation, integration, devops, product specs | **Sonnet** (`claude-sonnet-4.6`) | Quality + speed balance |
+| ERD strategy/executive/engineering analysis | **Sonnet** (`claude-sonnet-4.6`) | Good reasoning without premium cost |
 
 **Thinking time is a knob.** Complex reasoning tasks benefit from extended thinking / chain-of-thought. Simple factual tasks don't. Don't waste tokens on unnecessary reasoning traces.
 
