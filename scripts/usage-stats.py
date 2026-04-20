@@ -186,6 +186,32 @@ def parse_session(events_path: Path) -> dict:
             # Clean up pending
             stats["_pending_agents"].pop(tc_id, None)
 
+        elif t == "subagent.failed":
+            agent_name = d.get("agentName", "unknown")
+            tokens_lost = d.get("totalTokens", 0)
+            error_msg = d.get("error", "")
+            category = categorise_error(error_msg)
+            stats["agent_failures"][agent_name]["count"] += 1
+            stats["agent_failures"][agent_name]["tokens_lost"] += tokens_lost
+            stats["agent_failures"][agent_name]["errors"].append({
+                "category": category,
+                "message": error_msg[:200],
+                "timestamp": ts,
+            })
+            stats["total_subagent_calls"] += 1  # count attempt
+
+        elif t == "session.error":
+            stats["session_error_count"] += 1
+            err_type = d.get("errorType", "unknown")
+            msg = d.get("message", "")
+            category = categorise_error(msg)
+            stats["session_errors_by_type"][category] += 1
+
+        elif t == "abort":
+            stats["abort_count"] += 1
+            if d.get("reason", "").lower() == "user initiated":
+                stats["abort_user_count"] += 1
+
     # If no compaction_complete but we have a context snapshot, use it as heuristic
     if stats["main_session_tokens_heuristic"] == 0 and stats["_last_context_snapshot"] > 0:
         stats["main_session_tokens_heuristic"] = stats["_last_context_snapshot"]
