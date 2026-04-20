@@ -270,24 +270,50 @@ All agents live in `~/.copilot/agents/` (no `sov-` prefix). Specialist agents in
 
 ## Orchestrator Pipeline
 
-For **EROAD code tasks** (any task involving code changes, architecture decisions, or engineering work in an EROAD repository or the Sovereign platform), route through the orchestrator pipeline:
+Route through the orchestrator pipeline for any task that involves **code changes, architecture decisions, or engineering work** — not just EROAD repos.
 
 ```
 brain-data-retrieval → [specialist agents] → brain-consolidation
 ```
 
-**Invoke the orchestrator when the task:**
-- Involves writing or changing code in an EROAD repo (eroad/, sovereign/, or any `github.com/eroad/*` repo)
-- Involves writing or changing code in the Sovereign platform (`~/sovereign/`)
-- Requires an architectural decision or ADR
-- Touches EROAD infrastructure, CI/CD, or deployments
+### ✅ Always invoke the orchestrator when the task:
+- Involves writing or changing code in **any repo** (eroad/, sovereign/, copilot-config/, or any `github.com/eroad/*` repo)
+- Involves changes to copilot scripts, agents, skills, or system configuration
+- Requires an architectural decision, ADR, or design choice
+- Touches infrastructure, CI/CD, or deployments
+- Spans multiple files across different modules or services
+- Involves creating or significantly restructuring a system (dashboards, pipelines, vaults)
 
-**Do NOT invoke the orchestrator for:**
-- General coding questions unrelated to EROAD (e.g. "how does X work in Python")
-- Personal/non-work projects outside the eroad org
-- Quick lookups, explanations, or questions that don't result in code changes
+### ❌ Do NOT invoke the orchestrator for:
+- General coding questions with no file changes (e.g. "how does X work in Python")
+- Quick lookups, explanations, or status checks with no output
+- Single-file edits that are clearly low blast-radius and scoped
 
-**How to trigger:** John will say *"orchestrator:"* at the start of a message, or otherwise make clear it's an EROAD engineering task. When in doubt, ask.
+### ⚡ Default routing — do not wait to be asked
+
+**Do not wait for John to say "orchestrator:".** Classify the task yourself on every turn:
+
+```
+Is this task making code/config changes to a repo? → YES → invoke orchestrator
+Is this spanning multiple files or modules?        → YES → invoke orchestrator
+Is this a question or single-line lookup?          → NO  → answer directly
+```
+
+**And within every pipeline, NEVER use `general-purpose` as a fallback. Route to the specific agent:**
+
+| Task type | Use agent |
+|---|---|
+| Exploring / understanding a codebase | `sov-discovery` or `explore` |
+| Implementing code changes | `sov-developer` |
+| Architecture / design decisions | `sov-architect` |
+| Writing or updating tests | `sov-testing` or `qa-engineer` |
+| Security review | `sov-security` |
+| Final code review | `sov-code-reviewer` |
+| CI/CD / infrastructure | `sov-devops` |
+| Documentation | `sov-documentation` |
+| Domain knowledge questions | `brain-data-retrieval` first, then specialist |
+
+`general-purpose` is reserved only for genuinely mixed tasks that don't fit any specialist. If you catch yourself reaching for it, ask: *which specialist is closest?*
 
 ---
 
@@ -386,30 +412,48 @@ Apply this standard when writing or updating agent tool documentation.
 
 ## Skill Dispatch Rules
 
-Skills are shared instruction sets loaded via the `skill` tool. They are **not invoked automatically** — you must call them explicitly. Use this table to know when to invoke each skill:
+Skills are shared instruction sets loaded via the `skill` tool. Use this table as a **hard routing checklist** — not a suggestion list. Concrete conditions are listed so there's no ambiguity.
 
-| Trigger condition | Invoke skill |
-|---|---|
-| Evaluating any plan, proposal, or architecture before committing | `critical-thinker` |
-| Architecture decision with HIGH/CRITICAL blast radius, hard to reverse | `dual-critique` |
-| Strategic or directional decision needing diverse perspectives (what to build, which approach) | `advisor` |
-| Starting a task in a repo — fetch context from brain / write back at end | `brain-sync` |
-| Handing off work between agents in a pipeline | `handoff-protocol` |
-| Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` |
-| Saving or reviewing a session log | `session-summary` |
+| Trigger condition | Invoke skill | When exactly |
+|---|---|---|
+| Starting work in any EROAD/Sovereign/copilot repo | `brain-sync` | **First tool call of the session** — fetch before touching any files |
+| Evaluating a plan, architecture, or multi-file proposal | `critical-thinker` | After drafting the plan, **before presenting it to John** |
+| Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
+| Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
+| Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
+| Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
+| Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |
 
-### When to auto-invoke (no user prompt needed)
+### Hard auto-invoke rules — fire WITHOUT being asked
 
-These skills should fire **automatically** based on context — you do not need to be asked:
+These are **not suggestions**. If the condition is met, invoke the skill immediately:
 
-- **`critical-thinker`** — invoke on your own output whenever you've produced an architectural proposal, a significant design choice, or a multi-service plan. Self-critique before presenting.
-- **`brain-sync`** — invoke at the START of any task in an EROAD or Sovereign repo (fetch), and at the END (write back). The orchestrator handles this via `brain-data-retrieval` and `brain-consolidation` agents, but for direct Copilot sessions without the orchestrator, do it yourself.
-- **`advisor`** — invoke when the user is facing a directional decision and hasn't explicitly asked for a particular analysis style. Offer it proactively: *"This looks like a strategic decision — want me to run the advisor panel?"*
+**`brain-sync` — invoke at the START of the FIRST coding turn**
+- Condition: John's first message in the session asks you to do work in a repo (any code, config, or script change)
+- Action: invoke `brain-sync` skill before reading any files
+- Why: stale context produces worse outputs than a 10-second fetch delay
+- Skip only if: the task is a pure question with zero file changes
+
+**`critical-thinker` — invoke when you produce a plan or proposal**
+- Condition: you've written a plan touching >2 files OR spanning >1 module/service, OR you're recommending a new dependency, OR you're proposing a new pattern/architecture
+- Action: invoke `critical-thinker` on your own plan **before presenting it to John**
+- Why: self-critique surfaces blind spots before they become bugs
+- Skip only if: the change is a single-file, routine edit with no design decisions
+
+**`session-summary` — invoke at session end**
+- Condition: John says he's done, wrapping up, "good job", or the session reaches a natural stopping point
+- Action: invoke `session-summary` to write the session note
+- This is in addition to the post-session sync steps — run both
+
+**`advisor` — offer proactively for directional decisions**
+- Condition: the task is about deciding *what* to build or *which* approach to take (not *how* to implement a decided approach)
+- Action: say "This looks like a directional decision — want me to run the advisor panel before we commit?"
+- Skip if: John has already committed to a direction and is asking for implementation
 
 ### When NOT to invoke skills
-- Routine code changes, bug fixes, single-file edits → no skill needed
-- When the user has already framed the analysis approach clearly → follow their framing
-- When speed matters and the decision is LOW blast radius → proceed directly
+- Routine single-file edits (bug fix, typo, formatting) → no skill needed
+- John has already framed the analysis and you're just executing → follow his framing
+- Speed is critical and blast radius is LOW (and no design decisions involved) → proceed directly
 
 ---
 

@@ -49,6 +49,42 @@ Phase 1+: [specialist agents]
 Phase N:  brain-consolidation   ← ALWAYS LAST
 ```
 
+### Enforcement checklist — run this before dispatching ANY agent
+
+```
+□ Have I created the STM file?                  → if NO: create it now
+□ Have I invoked brain-data-retrieval?          → if NO: invoke it NOW before anything else
+□ Have I classified the task (type/blast)?      → if NO: classify it now and write to STM
+□ Am I using specialist agents (not general-purpose)? → if NO: pick the right specialist
+□ Is brain-consolidation scheduled as the final step? → if NO: add it to the plan now
+```
+
+**If you find yourself about to call `general-purpose` — stop.** Look up the task in the routing table below and use the correct specialist. `general-purpose` is a fallback of last resort, not a default.
+
+### Specialist agent routing table
+
+| Task | Use agent |
+|---|---|
+| Exploring / understanding a codebase or repo | `sov-discovery` |
+| Implementing code (Java, Python, JS, scripts) | `sov-developer` |
+| Architecture design, ADRs, system design | `sov-architect` |
+| Writing or running tests | `sov-testing` or `qa-engineer` |
+| Security review (architecture or code level) | `sov-security` |
+| Final pre-merge code review | `sov-code-reviewer` |
+| CI/CD pipelines, Docker, infrastructure | `sov-devops` |
+| Documentation, README, Confluence pages | `sov-documentation` |
+| Database schema changes, data transforms | `sov-data-migration` |
+| Compliance, regulatory requirements | `sov-compliance` |
+| Performance profiling, bottleneck analysis | `sov-performance` |
+| Service integrations, APIs, event flows | `sov-integration` |
+| Blast radius assessment, governance rules | `sov-governance` |
+| Sprint ceremonies, backlog, velocity | `sov-scrum-master` |
+| Acceptance criteria, business value review | `sov-product-owner` |
+| Specs, user stories, Jira tickets | `product-manager` |
+| AI strategy, LLM tooling, agent design | `AI Master` |
+| Creating a missing specialist agent | `agent-factory` |
+| Fetching domain context mid-pipeline | `brain-data-retrieval` |
+
 ---
 
 ## Short-Term Memory (STM)
