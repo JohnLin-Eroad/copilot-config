@@ -44,6 +44,22 @@ def iso_to_week(ts: str) -> str:
         return "unknown"
 
 
+def categorise_error(msg: str) -> str:
+    """Map an error message to a short category label."""
+    m = msg.lower()
+    if "goaway" in m or "connection" in m:
+        return "connection_error"
+    if "timed out" in m or "timeout" in m:
+        return "timeout"
+    if "503" in m:
+        return "api_503"
+    if "rate limit" in m or "429" in m:
+        return "rate_limit"
+    if "401" in m or "unauthorized" in m:
+        return "auth_error"
+    return "other"
+
+
 def parse_session(events_path: Path) -> dict:
     """Parse a single session's events.jsonl and return stats dict."""
     stats = {
