@@ -269,6 +269,21 @@ def merge_into_aggregate(agg: dict, s: dict) -> None:
     for tool, count in s["tool_calls"].items():
         agg["tools"][tool] = agg["tools"].get(tool, 0) + count
 
+    # Agent failures
+    for agent, fv in s["agent_failures"].items():
+        if agent not in agg["agent_failures"]:
+            agg["agent_failures"][agent] = {"count": 0, "tokens_lost": 0, "errors": []}
+        agg["agent_failures"][agent]["count"] += fv["count"]
+        agg["agent_failures"][agent]["tokens_lost"] += fv["tokens_lost"]
+        agg["agent_failures"][agent]["errors"].extend(fv.get("errors", []))
+
+    # Session errors + aborts
+    agg["session_error_count"] = agg.get("session_error_count", 0) + s["session_error_count"]
+    agg["abort_count"] = agg.get("abort_count", 0) + s["abort_count"]
+    agg["abort_user_count"] = agg.get("abort_user_count", 0) + s["abort_user_count"]
+    for cat, cnt in s["session_errors_by_type"].items():
+        agg["session_errors_by_type"][cat] = agg["session_errors_by_type"].get(cat, 0) + cnt
+
 
 def empty_aggregate() -> dict:
     return {
