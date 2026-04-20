@@ -109,6 +109,7 @@ Classification:
         pass
 
     # Launch dashboard on fixed port 7700 + open in browser
+    # Use start_new_session=True so it survives shell session end (equivalent to nohup)
     if DASHBOARD_SCRIPT.exists():
         subprocess.Popen(
             [
@@ -118,6 +119,7 @@ Classification:
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
         import time; time.sleep(0.8)
         subprocess.Popen(["open", f"http://localhost:{DASHBOARD_PORT}"],
