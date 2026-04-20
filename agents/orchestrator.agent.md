@@ -172,37 +172,32 @@ The STM is a shared file all agents read and write during a task. You create it 
 
 ### Creating the STM
 
+**Always use `stm-init.py`** — it creates the STM in the permanent location (`~/.copilot/stm/`) and automatically opens the live dashboard in a browser window so the user can watch the pipeline run in real time.
+
 ```bash
-TASK_SLUG="$(echo '<task description>' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)"
-STM_DIR="/tmp/sov-task-${TASK_SLUG}"
-STM_PATH="${STM_DIR}/short-term-memory.md"
-mkdir -p "$STM_DIR"
+# Create STM + launch live dashboard
+eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
+# Sets $STM_PATH and $STM_DIR in your environment
 
-# Write the task brief into the STM header
-cat > "$STM_PATH" << EOF
----
-task: "${TASK_SLUG}"
-created: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
----
+# Then immediately fill in the Classification block:
+# Edit the Task Brief section in $STM_PATH with the correct values
+```
 
-# Short-Term Memory — ${TASK_SLUG}
+The dashboard auto-refreshes every 3 seconds as agents write to the STM. The user sees all sections, classification metadata, agent timeline, and contributions live.
 
-This file is the shared in-session context for all agents working on this task.
-**Do not delete sections. Only append.**
+**STM location:** `~/.copilot/stm/YYYY-MM-DD-{slug}/short-term-memory.md`  
+**Dashboard:** Opens automatically at `http://localhost:77xx`
 
----
+After creating the STM, update the Classification block immediately:
 
-## [STM] Task Brief
-<!-- Written by Orchestrator at task start -->
-
-Task: <USER TASK GOES HERE>
-
+```
 Classification:
   Domain:     eroad | personal
   Type:       code-change | architecture | discovery | documentation | question | ops | general
   Blast:      LOW | MEDIUM | HIGH | CRITICAL
   Pipeline:   minimal | standard | full-transformation
   BRAIN_TYPE: eroad | personal
+```
 
 ---
 
