@@ -231,6 +231,8 @@ def parse_session(events_path: Path) -> dict:
     stats["agent_calls"] = dict(stats["agent_calls"])
     stats["skill_calls"] = dict(stats["skill_calls"])
     stats["tool_calls"] = dict(stats["tool_calls"])
+    stats["agent_failures"] = {k: dict(v) for k, v in stats["agent_failures"].items()}
+    stats["session_errors_by_type"] = dict(stats["session_errors_by_type"])
 
     return stats
 
