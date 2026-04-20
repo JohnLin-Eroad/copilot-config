@@ -313,12 +313,27 @@ def finalize_aggregate(agg: dict) -> dict:
         mv["token_pct"] = round(mv["tokens"] / total_sub_tokens * 100, 1) if total_sub_tokens else 0
         mv["avg_duration_ms"] = round(mv["total_duration_ms"] / mv["calls"]) if mv["calls"] else 0
 
-    # Agent averages
+    # Agent averages + failure rate
+    total_failures = sum(fv["count"] for fv in agg["agent_failures"].values())
     for a, av in agg["agents"].items():
         av["avg_tokens"] = round(av["tokens"] / av["calls"]) if av["calls"] else 0
         av["avg_duration_ms"] = round(av["total_duration_ms"] / av["calls"]) if av["calls"] else 0
+        failures = agg["agent_failures"].get(a, {}).get("count", 0)
+        total_attempts = av["calls"] + failures
+        av["failure_count"] = failures
+        av["success_rate"] = round(av["calls"] / total_attempts * 100, 1) if total_attempts else 100.0
+
+    # Standalone failure entries (agents that only failed, never completed)
+    for a, fv in agg["agent_failures"].items():
+        if a not in agg["agents"]:
+            agg["agents"][a] = {
+                "calls": 0, "tokens": 0, "total_duration_ms": 0,
+                "avg_tokens": 0, "avg_duration_ms": 0,
+                "failure_count": fv["count"], "success_rate": 0.0,
+            }
 
     agg["total_tokens_estimated"] = total_sub_tokens + agg["main_session_tokens_heuristic"]
+    agg["total_agent_failures"] = total_failures
     return agg
 
 
