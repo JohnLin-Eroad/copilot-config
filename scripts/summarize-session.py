@@ -707,6 +707,9 @@ def main():
         if prev_note:
             patch_next_link(prev_note, date_prefix)
 
+    # Auto-commit the session summary to git
+    _git_commit_session(output_path)
+
     # Extract learnings and post to Notion vault
     date_prefix_str = date_prefix  # already computed above
     explicit_learnings = (
