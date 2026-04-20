@@ -276,21 +276,44 @@ All agents live in `~/.copilot/agents/` (no `sov-` prefix). Specialist agents in
 brain-data-retrieval → [specialist agents] → brain-consolidation
 ```
 
-### ✅ Always invoke the orchestrator
+### 🚨 The main CLI agent (you) IS the orchestrator
 
-Invoke the orchestrator for **every task** that produces output or makes changes:
+**Do NOT launch the orchestrator as a background agent.** You are the orchestrator. Run the pipeline directly:
+
+1. **Create the STM** using `stm-init.py` — this opens the live dashboard automatically
+2. **Write to the STM at every step** using Python or bash — the dashboard updates in real time
+3. **Launch specialist agents as background tasks** — capture their output and write it back to the STM
+4. **Run brain-data-retrieval yourself** by reading brain files directly (faster than delegating)
+5. **Invoke brain-consolidation as a background agent** at the end, passing the STM path
+
+```bash
+# Step 1: Create STM + open dashboard
+eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
+# → sets $STM_PATH and $STM_DIR, opens browser dashboard
+
+# Step 2: Write classification to STM (use Python helper or direct edit)
+# Step 3: Do brain-data-retrieval yourself (read files, write results to STM)
+# Step 4: Launch specialists as background tasks, write their output to STM
+# Step 5: Launch brain-consolidation as background task with STM_PATH
+```
+
+**Why:** Background agents can't write to files on disk. Only the main CLI agent has direct file access, so only it can keep the STM (and dashboard) live and up to date.
+
+### ✅ Always run the orchestrator pipeline
+
+Run the pipeline for **every task** that produces output or makes changes:
 - Any code, config, or script changes (any repo, any language)
 - Any architectural decision or design choice
 - Any multi-step task or anything spanning more than one file
 - Copilot system configuration (agents, skills, scripts, benchmarks)
 - Personal projects, learning, research with tangible outputs
 
-### ❌ Only skip the orchestrator for:
+### ❌ Only skip the pipeline for:
 - Pure lookup questions with zero file output ("what does X mean?", "show me how Y works")
 - Reading/showing a single file where no changes follow
 - A one-liner clarification where the answer fits in 2 sentences
 
-**Default: use the orchestrator.** When in doubt, route through it.
+**Default: run the pipeline.** When in doubt, route through it.
 
 ### ⚡ Brain routing — EROAD vs personal
 

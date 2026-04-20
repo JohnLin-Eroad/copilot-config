@@ -95,23 +95,29 @@ Classification:
         encoding="utf-8",
     )
 
-    # Launch dashboard in background (new terminal window on macOS)
+    # Kill any existing dashboard on port 7700 before starting a new one
+    DASHBOARD_PORT = 7700
+    try:
+        result = subprocess.run(
+            ["lsof", "-ti", f":{DASHBOARD_PORT}"],
+            capture_output=True, text=True
+        )
+        for pid in result.stdout.strip().splitlines():
+            subprocess.run(["kill", "-9", pid], capture_output=True)
+    except Exception:
+        pass
+
+    # Launch dashboard on fixed port 7700
     if DASHBOARD_SCRIPT.exists():
-        try:
-            # Try to open in a new Terminal window
-            script = f'tell application "Terminal" to do script "python3 {DASHBOARD_SCRIPT} \\"{stm_path}\\" && exit"'
-            subprocess.Popen(
-                ["osascript", "-e", script],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except Exception:
-            # Fallback: launch headlessly in background
-            subprocess.Popen(
-                ["python3", str(DASHBOARD_SCRIPT), str(stm_path), "--no-open"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+        subprocess.Popen(
+            [
+                "python3", str(DASHBOARD_SCRIPT),
+                str(stm_path),
+                "--port", str(DASHBOARD_PORT),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     # Print paths for orchestrator to capture
     print(f"STM_PATH={stm_path}")
