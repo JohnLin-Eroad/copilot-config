@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 SESSIONS_DIR = Path.home() / ".copilot" / "session-state"
-VAULT_DIR = Path.home() / "Library" / "CloudStorage" / "OneDrive-EROAD" / "Documents" / "copilot-sessions" / "sessions"
+VAULT_DIR = Path.home() / "copilot-sessions" / "sessions"
 
 NOTION_TOKEN = "YOUR_NOTION_TOKEN"
 NOTION_VAULT_PAGE_ID = "33ff43d1-71ee-81fd-a2be-c733d2a4f837"
