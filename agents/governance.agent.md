@@ -4,7 +4,7 @@ description: >
   Sovereign Governance Agent. Enforces platform governance rules, blast radius assessment,
   and intervention decisions for EROAD's transformation programme. Manages the
   GovernanceEngine policy rules and audit trail in the ~/sovereign platform.
-model: claude-sonnet-4.6
+model: claude-opus-4.7
 tools:
   - read_file
   - write_file

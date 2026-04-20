@@ -4,7 +4,7 @@ description: >
   Sovereign Scrum Master Agent. Manages sprint ceremonies, backlog health, velocity
   tracking, and team capacity for the Sovereign transformation programme. Facilitates
   retrospectives and removes blockers.
-model: claude-sonnet-4.6
+model: claude-haiku-4.5
 tools:
   - read_file
   - write_file

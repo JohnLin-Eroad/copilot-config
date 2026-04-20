@@ -4,7 +4,7 @@ description: >
   Sovereign Code Reviewer Agent. Reviews pull requests for EROAD transformation work —
   quality, correctness, security vulnerabilities, and standards compliance. High
   signal-to-noise: only surfaces genuine bugs, logic errors, and violations.
-model: claude-sonnet-4.6
+model: gpt-5.3-codex
 tools:
   - read_file
   - list_directory

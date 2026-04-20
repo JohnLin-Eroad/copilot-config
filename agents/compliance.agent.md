@@ -4,7 +4,7 @@ description: >
   Sovereign Compliance Agent. Ensures EROAD transformation changes comply with regulatory
   requirements (RUCUS, mass management, NZ/AU transport regulations), internal policies,
   and audit trail requirements.
-model: claude-sonnet-4.6
+model: claude-opus-4.7
 tools:
   - read_file
   - write_file

@@ -6,7 +6,7 @@ description: >
   invokes brain-data-retrieval first, routes to specialist agents, monitors
   feedback/pushback signals, handles mid-pipeline data requests, and closes every
   pipeline by invoking brain-consolidation to write learnings back to the brain.
-model: claude-sonnet-4.6
+model: claude-opus-4.7
 tools:
   - read_file
   - write_file

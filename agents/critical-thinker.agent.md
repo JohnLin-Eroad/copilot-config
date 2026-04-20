@@ -4,7 +4,7 @@ description: >
   Sovereign Critical Thinker Agent. Critically evaluates plans, proposals, and
   architectures for the Sovereign transformation platform — surfaces both genuine
   risks and strengths with a direct, balanced assessment before committing.
-model: claude-sonnet-4.6
+model: claude-opus-4.7
 tools:
   - read_file
   - list_directory

@@ -4,7 +4,7 @@ description: >
   Sovereign Testing/QA Agent. Validates transformation outputs for EROAD repositories —
   produces test plans, writes integration and unit tests, identifies regressions, and
   ensures quality gates are met. Works with the ~/sovereign Java/Spring Boot + Next.js stack.
-model: claude-sonnet-4.6
+model: gpt-5.3-codex
 tools:
   - read_file
   - write_file

@@ -6,7 +6,7 @@ description: >
   every one of them. Produces a test report with pass/fail status and coverage analysis.
   Can push back to the Developer if code is untestable, doesn't meet acceptance criteria,
   or has functional defects.
-model: claude-sonnet-4.6
+model: gpt-5.3-codex
 tools:
   - read_file
   - write_file
