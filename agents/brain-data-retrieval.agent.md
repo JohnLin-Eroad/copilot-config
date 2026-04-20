@@ -118,6 +118,20 @@ For john-brain, always fetch the `index.md` first — it summarises all 30 clust
 
 Track topics you searched for that returned **no results** — these go into `## [STM] Negative Context` later.
 
+### Step 3.5 — Score and Rank Candidates
+
+Before fetching, rank all candidate files by **relevance + freshness**. Do NOT blindly fetch in discovery order.
+
+**Relevance scoring (0–3 points each):**
+- +3 if the file's name matches a service/domain/cluster mentioned in the task
+- +2 if the file contains 3+ of the task's key terms
+- +1 if the file contains 1–2 key terms or is tangentially related
+
+**Freshness scoring (0–1 point):**
+- +1 if the file was modified within the last 30 days (`stat -f "%Sm" -t "%Y-%m-%d" <file>`)
+
+**Fetch threshold:** Only fetch files scoring **2 or higher**.
+
 **Freshness degradation — stale dynamic content:**
 Some brain content becomes misleading when outdated. For files covering **dynamic topics** (service APIs, endpoints, DB schemas, external integrations, deployment configs, infra):
 - Check modification date: `stat -f "%Sm" -t "%Y-%m-%d" <file>`
