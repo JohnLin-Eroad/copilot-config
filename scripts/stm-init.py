@@ -104,10 +104,11 @@ Classification:
         )
         for pid in result.stdout.strip().splitlines():
             subprocess.run(["kill", "-9", pid], capture_output=True)
+        import time; time.sleep(0.3)  # brief pause for port to free up
     except Exception:
         pass
 
-    # Launch dashboard on fixed port 7700
+    # Launch dashboard on fixed port 7700 + open in browser
     if DASHBOARD_SCRIPT.exists():
         subprocess.Popen(
             [
@@ -118,6 +119,9 @@ Classification:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        import time; time.sleep(0.8)
+        subprocess.Popen(["open", f"http://localhost:{DASHBOARD_PORT}"],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     # Print paths for orchestrator to capture
     print(f"STM_PATH={stm_path}")
