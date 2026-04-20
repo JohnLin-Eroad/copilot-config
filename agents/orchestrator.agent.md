@@ -194,7 +194,15 @@ This file is the shared in-session context for all agents working on this task.
 
 ## [STM] Task Brief
 <!-- Written by Orchestrator at task start -->
-<USER TASK GOES HERE>
+
+Task: <USER TASK GOES HERE>
+
+Classification:
+  Domain:     eroad | personal
+  Type:       code-change | architecture | discovery | documentation | question | ops | general
+  Blast:      LOW | MEDIUM | HIGH | CRITICAL
+  Pipeline:   minimal | standard | full-transformation
+  BRAIN_TYPE: eroad | personal
 
 ---
 
