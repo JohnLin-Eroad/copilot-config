@@ -296,6 +296,11 @@ def empty_aggregate() -> dict:
         "agents": {},
         "skills": {},
         "tools": {},
+        "agent_failures": {},
+        "session_error_count": 0,
+        "session_errors_by_type": {},
+        "abort_count": 0,
+        "abort_user_count": 0,
     }
 
 
