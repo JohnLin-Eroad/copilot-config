@@ -270,40 +270,51 @@ All agents live in `~/.copilot/agents/` (no `sov-` prefix). Specialist agents in
 
 ## Orchestrator Pipeline
 
-Route through the orchestrator pipeline for any task that involves **code changes, architecture decisions, or engineering work** — not just EROAD repos.
+**The orchestrator is the universal entry point for ALL tasks** — not just EROAD work. Every non-trivial task flows through it.
 
 ```
 brain-data-retrieval → [specialist agents] → brain-consolidation
 ```
 
-### ✅ Always invoke the orchestrator when the task:
-- Involves writing or changing code in **any repo** (eroad/, sovereign/, copilot-config/, or any `github.com/eroad/*` repo)
-- Involves changes to copilot scripts, agents, skills, or system configuration
-- Requires an architectural decision, ADR, or design choice
-- Touches infrastructure, CI/CD, or deployments
-- Spans multiple files across different modules or services
-- Involves creating or significantly restructuring a system (dashboards, pipelines, vaults)
+### ✅ Always invoke the orchestrator
 
-### ❌ Do NOT invoke the orchestrator for:
-- General coding questions with no file changes (e.g. "how does X work in Python")
-- Quick lookups, explanations, or status checks with no output
-- Single-file edits that are clearly low blast-radius and scoped
+Invoke the orchestrator for **every task** that produces output or makes changes:
+- Any code, config, or script changes (any repo, any language)
+- Any architectural decision or design choice
+- Any multi-step task or anything spanning more than one file
+- Copilot system configuration (agents, skills, scripts, benchmarks)
+- Personal projects, learning, research with tangible outputs
 
-### ⚡ Default routing — do not wait to be asked
+### ❌ Only skip the orchestrator for:
+- Pure lookup questions with zero file output ("what does X mean?", "show me how Y works")
+- Reading/showing a single file where no changes follow
+- A one-liner clarification where the answer fits in 2 sentences
 
-**Do not wait for John to say "orchestrator:".** Classify the task yourself on every turn:
+**Default: use the orchestrator.** When in doubt, route through it.
 
-```
-Is this task making code/config changes to a repo? → YES → invoke orchestrator
-Is this spanning multiple files or modules?        → YES → invoke orchestrator
-Is this a question or single-line lookup?          → NO  → answer directly
-```
+### ⚡ Brain routing — EROAD vs personal
 
-**And within every pipeline, NEVER use `general-purpose` as a fallback. Route to the specific agent:**
+The orchestrator selects the correct brain based on task domain:
+
+| Task domain | Brain used |
+|---|---|
+| EROAD services, Sovereign platform, EROAD repos, company work | `~/eroad-brain` |
+| Copilot system config, personal projects, general coding, AI learnings | `~/john-brain` |
+
+The orchestrator writes `BRAIN_TYPE: eroad` or `BRAIN_TYPE: personal` into the STM and passes it to `brain-data-retrieval` and `brain-consolidation`.
+
+### ⚡ No specialist? Auto-invoke agent-factory
+
+If the orchestrator determines no existing agent covers the task well enough:
+1. Invoke `agent-factory` with the capability gap description
+2. Wait for the new agent to be created
+3. Resume the pipeline using the new agent
+
+**NEVER use `general-purpose` as a fallback.** Route to the specific specialist or create one.
 
 | Task type | Use agent |
 |---|---|
-| Exploring / understanding a codebase | `sov-discovery` or `explore` |
+| Exploring / understanding a codebase | `sov-discovery` |
 | Implementing code changes | `sov-developer` |
 | Architecture / design decisions | `sov-architect` |
 | Writing or updating tests | `sov-testing` or `qa-engineer` |
@@ -311,9 +322,7 @@ Is this a question or single-line lookup?          → NO  → answer directly
 | Final code review | `sov-code-reviewer` |
 | CI/CD / infrastructure | `sov-devops` |
 | Documentation | `sov-documentation` |
-| Domain knowledge questions | `brain-data-retrieval` first, then specialist |
-
-`general-purpose` is reserved only for genuinely mixed tasks that don't fit any specialist. If you catch yourself reaching for it, ask: *which specialist is closest?*
+| No match found | → `agent-factory` |
 
 ---
 
