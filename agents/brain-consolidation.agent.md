@@ -4,9 +4,9 @@ description: >
   Brain Consolidation Agent. Runs at the end of every pipeline. Reads the task's
   Short-Term Memory (STM), identifies new knowledge produced during the session,
   validates it against existing brain schemas, and writes it back to the correct
-  locations in the eroad-brain vault. Adds learnings at three levels: project,
-  domain, and global — and propagates upward where appropriate. Also updates
-  .github/learnings.md in any repos touched during the task.
+  brain vault (eroad-brain for EROAD/Sovereign work, john-brain for personal/general
+  work). Adds learnings at three levels: project, domain, and global — and propagates
+  upward where appropriate. Also updates .github/learnings.md in any repos touched.
 model: claude-sonnet-4.6
 tools:
   - read_file
@@ -27,11 +27,34 @@ You are the Brain Consolidation Agent. You run at the **end of every pipeline**.
 
 ---
 
-## Brain Location
+## Brain Selection
+
+Read `BRAIN_SELECTED` and `BRAIN_PATH` from the STM (written by brain-data-retrieval).
+If not present, read `BRAIN_TYPE` from the STM Task Brief and select accordingly:
 
 ```bash
+# BRAIN_TYPE: eroad → company/Sovereign work
 BRAIN="$HOME/eroad-brain"
+
+# BRAIN_TYPE: personal → copilot config, personal projects, general
+BRAIN="$HOME/john-brain"
 ```
+
+**john-brain structure** (different from eroad-brain):
+```
+john-brain/
+  clusters/          ← 30 knowledge cluster files (John's ideas & preferences)
+  index.md           ← index of all clusters
+  Learnings/
+    Global/          ← Global Learnings.md
+    Copilot/         ← Copilot Learnings.md
+  Sessions/          ← session outputs (optional)
+```
+
+For john-brain, write new learnings to:
+- `$BRAIN/Learnings/Global/Global Learnings.md` — cross-cutting patterns
+- `$BRAIN/Learnings/Copilot/Copilot Learnings.md` — agent/skill/pipeline learnings
+- Update the relevant cluster file in `$BRAIN/clusters/` if the content maps to an existing cluster
 
 ---
 
