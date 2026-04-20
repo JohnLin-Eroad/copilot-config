@@ -123,10 +123,12 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 ### Specialist agent routing table
 
+**EROAD / Sovereign tasks (`BRAIN_TYPE: eroad`):**
+
 | Task | Use agent |
 |---|---|
 | Exploring / understanding a codebase or repo | `sov-discovery` |
-| Implementing code (Java, Python, JS, scripts) | `sov-developer` |
+| Implementing code (Java, Python, JS) in EROAD repos | `sov-developer` |
 | Architecture design, ADRs, system design | `sov-architect` |
 | Writing or running tests | `sov-testing` or `qa-engineer` |
 | Security review (architecture or code level) | `sov-security` |
@@ -141,7 +143,24 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | Sprint ceremonies, backlog, velocity | `sov-scrum-master` |
 | Acceptance criteria, business value review | `sov-product-owner` |
 | Specs, user stories, Jira tickets | `product-manager` |
+
+**Personal / General tasks (`BRAIN_TYPE: personal`):**
+
+| Task | Use agent |
+|---|---|
+| General code (any language, personal project) | `Senior Software Engineer` |
 | AI strategy, LLM tooling, agent design | `AI Master` |
+| Copilot config, agent/skill engineering | `agent-factory` or `AI Master` |
+| Architecture for personal projects | `sov-architect` (still applies) |
+| Security review for personal projects | `sov-security` (still applies) |
+| Weekly AI learnings | `ai-learner` |
+| Benchmark + usage stats | `benchmark-runner` |
+
+**Always available (any domain):**
+
+| Task | Use agent |
+|---|---|
+| Critical evaluation of any plan | `sov-critical-thinker` |
 | Creating a missing specialist agent | `agent-factory` |
 | Fetching domain context mid-pipeline | `brain-data-retrieval` |
 
