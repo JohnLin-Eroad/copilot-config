@@ -631,6 +631,27 @@ def post_to_notion_vault(title: str, learnings: list[str], date_str: str, sessio
         print(f"⚠️  Could not sync to Notion: {e}", file=sys.stderr)
 
 
+def _git_commit_session(file_path: Path) -> None:
+    """Commit and push the session summary to the copilot-sessions git repo."""
+    import subprocess
+    repo_dir = file_path.parent.parent  # sessions/ -> repo root
+    try:
+        subprocess.run(["git", "add", str(file_path)], cwd=repo_dir, check=True, capture_output=True)
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=repo_dir, capture_output=True
+        )
+        if result.returncode != 0:  # there are staged changes
+            subprocess.run(
+                ["git", "commit", "-m", f"session: add {file_path.stem}"],
+                cwd=repo_dir, check=True, capture_output=True
+            )
+            subprocess.run(["git", "push"], cwd=repo_dir, check=True, capture_output=True)
+            print(f"✅ Session committed and pushed to git")
+    except Exception as e:
+        print(f"⚠️  Could not git-commit session summary: {e}", file=sys.stderr)
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser()
