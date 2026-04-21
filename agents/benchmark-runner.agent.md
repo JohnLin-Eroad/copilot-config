@@ -220,6 +220,37 @@ Load previous week's JSON and compute `vs_previous = overall - prev_overall`.
 
 ---
 
+## Regression Alerting
+
+After computing all scores, compare each category to the previous week's result:
+
+```python
+for category, score in current_scores.items():
+    prev = previous_scores.get(category)
+    if prev and (prev - score) >= 0.5:
+        print(f"🚨 REGRESSION ALERT: {category} dropped {prev} → {score} (delta: {prev-score:.1f})")
+    elif prev and (prev - score) >= 0.2:
+        print(f"⚠️  WARNING: {category} declined {prev} → {score} (delta: {prev-score:.1f})")
+```
+
+Include regression alerts prominently at the TOP of the benchmark report, before the full scores table. A regression of ≥0.5 in any category must be flagged in the report subject/title.
+
+Format:
+```markdown
+## ⚠️ Regressions This Week
+| Category | Previous | Current | Delta |
+|---|---|---|---|
+| {category} | {prev} | {current} | {delta} |
+```
+
+If no regressions, write:
+```markdown
+## ✅ No Regressions This Week
+All categories within tolerance (delta < 0.2).
+```
+
+---
+
 ## Step 7b — Collect Usage Stats
 
 Before writing results, run the usage stats aggregator for the current week:
