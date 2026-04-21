@@ -1,0 +1,50 @@
+{
+  "week": "2026-W18",
+  "date": "2026-04-21",
+  "overall": 4.735,
+  "vs_previous": 0.220,
+  "categories": {
+    "code_generation": {
+      "score": 3.8,
+      "weight": 0.20,
+      "status": "WARN",
+      "notes": "All 8 files exist (4 agents + 4 skills). Agents: dependency-tracker, retrospective, pr-analyst, migration-validator — all have DO NOT, Output Format, Steps. Skills: tdd-workflow, blast-radius, rollback-plan, context-compression — all have Purpose, Steps, Output Contract. 4 skills correctly in copilot-instructions.md skill dispatch table. 4 agents NOT in copilot-instructions dispatch table (-integration score). Hexagonal refs sparse in agents. Completeness ~3.5/5 due to no explicit When To Use headings in some files."
+    },
+    "context_retrieval": {
+      "score": 4.5,
+      "weight": 0.25,
+      "status": "PASS",
+      "notes": "Base 4.5 (W17). tech-stack.md MISSING (brain-health-audit confirmed: optional file absent) — no +0.5 bonus. brain-health-audit.sh EXISTS and is executable — no penalty. brain-data-retrieval agent HAS Required Negative Context section — no -0.3 penalty. Final: 4.5."
+    },
+    "security_review": {
+      "score": 5.0,
+      "weight": 0.20,
+      "status": "PASS",
+      "notes": "Base 4.7 (W17). governance-rules.json has exactly 16 rules AND sec-005, sec-006, gov-006 all present → +0.3. security.agent.md handoff_description specifies structured JSON verdict (PASS/WARN/BLOCK) → +0.3. Total 5.0, capped at 5.0."
+    },
+    "planning": {
+      "score": 5.0,
+      "weight": 0.15,
+      "status": "PASS",
+      "notes": "Base 5.0 (W17). orchestrator.agent.md explicitly bans general-purpose as fallback (multiple references) → no -0.5. architect.agent.md enforces Blast Radius field in ADR format → no -0.3. copilot-instructions.md skill dispatch table includes all 4 new skills (tdd-workflow, blast-radius, rollback-plan, context-compression) → no -0.2. Final: 5.0."
+    },
+    "learning_retention": {
+      "score": 5.0,
+      "weight": 0.10,
+      "status": "PASS",
+      "notes": "Plist EXISTS at ~/copilot-config/com.johnlin.weekly-experimenter.plist and contains --open arg (fixed). launchctl list shows 'com.johnlin.weekly-experimenter' loaded with last exit code 0 (evidence of successful run). weekly/2026-W17 branch EXISTS at origin/weekly/2026-W17. All 3 score-5 conditions met."
+    },
+    "workflow_adherence": {
+      "score": 3.0,
+      "weight": 0.15,
+      "status": "WARN",
+      "notes": "NEW category. workflow-adherence.md rubric file exists. Signals: STM created twice (after corrections) ✅, orchestrator pipeline followed after correction ✅, fleet agents used for parallelism ✅, brain-consolidation invoked ✅. Violations: first attempt failed (no STM created) ⚠️, implementation phase began without new STM (user had to remind) ⚠️. Matches rubric score 3: one correction required from user, then compliant / 4/6 steps correct."
+    },
+    "instruction_following": {
+      "score": 3.0,
+      "weight": 0.05,
+      "status": "WARN",
+      "notes": "NEW category. instruction-following.md task file MISSING (using default rubric). Signals: STM created when reminded ✅, pipeline followed after corrections ✅, no general-purpose fallback ✅, unstick protocol not needed ✅. Two reminders required: (1) create STM for research phase, (2) create new STM for implementation phase. Rubric: 3 = Two reminders needed."
+    }
+  }
+}
