@@ -9,11 +9,13 @@ benchmarks/
 ├── README.md              ← This file
 ├── baseline.json          ← Week 0 measurement (before weekly learnings)
 ├── tasks/
-│   ├── code-generation.md      ← Benchmark task 1 definition
-│   ├── context-retrieval.md    ← Benchmark task 2 definition
-│   ├── security-review.md      ← Benchmark task 3 definition
-│   ├── planning.md             ← Benchmark task 4 definition
-│   └── learning-retention.md   ← Benchmark task 5 definition
+│   ├── code-generation.md       ← Task 1: rotating variants, 6-dimension rubric
+│   ├── context-retrieval.md     ← Task 2: brain retrieval + hallucination check
+│   ├── security-review.md       ← Task 3: planted OWASP vulns
+│   ├── planning.md              ← Task 4: rotating variants, 8-dimension rubric
+│   ├── learning-retention.md    ← Task 5: experiment delta (2=WARN if no branch)
+│   ├── workflow-adherence.md    ← Task 6 (NEW): STM, brain, skills, pipeline
+│   └── instruction-following.md ← Task 7 (NEW): IFEval-style preference checking
 ├── results/
 │   └── YYYY-WXX.json      ← Weekly results (auto-generated)
 └── reports/
@@ -22,15 +24,23 @@ benchmarks/
 
 ## Scoring
 
-| Category | Method | Scale |
-|---|---|---|
-| Code Generation | Rubric: hexagonal compliance × correctness × Javadoc | 1–5 |
-| Context Retrieval | Was brain data used? Was it accurate? | Pass/Fail + 1–5 accuracy |
-| Security Review | Planted 3 OWASP vulns — recall + precision | % |
-| Planning Quality | Rubric: completeness × blast radius × edge cases | 1–5 |
-| Learning Retention | Re-run a previously-failing category after an experiment | Pass/Fail + delta |
+| Category | Weight | Method | Scale |
+|---|---|---|---|
+| Code Generation | **20%** | Rubric: 6 dimensions, rotates weekly variant | 1–5 |
+| Context Retrieval | **20%** | Brain data used + accuracy + hallucination check | Pass/Fail + 1–5 |
+| Security Review | **20%** | Planted 3 OWASP vulns — recall + precision | 1–5 |
+| Planning Quality | **15%** | Rubric: 8 dimensions, rotates weekly variant | 1–5 |
+| Workflow Adherence | **15%** | 5 pipeline dimensions: STM, brain, skills, blast radius, consolidation | Pass/fail per dim |
+| Instruction Following | **5%** | 5 preference rules from learnings.md — pass/fail | Pass/fail per rule |
+| Learning Retention | **5%** | Experiment delta (2=WARN if no branch produced) | 1–5 |
 
-**Overall score** = weighted average (code gen 25%, context retrieval 25%, security 20%, planning 20%, learning 10%)
+**Overall score** = weighted average across 7 categories
+
+### Why the weights changed (2026-W18)
+- Code Gen and Planning hit 5.0 ceiling — reduced weight so saturated categories don't dominate
+- Workflow Adherence added at 15% — most important real-world capability
+- Learning Retention reduced to 5% — until weekly-experimenter is reliably producing branches
+- Instruction Following added at 5% — new category, weight will increase as baseline establishes
 
 ## Interpreting Results
 
