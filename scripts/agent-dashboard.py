@@ -589,6 +589,12 @@ function hexToRgb(hex) {
 }
 
 // ── Agent cards ───────────────────────────────────────────────────────────────
+const STALE_MS = 5 * 60 * 1000; // 5 minutes
+
+function isStale(isoTs) {
+  try { return (Date.now() - new Date(isoTs)) > STALE_MS; } catch { return false; }
+}
+
 function renderAgentCards(agents) {
   const grid = document.getElementById("agent-grid");
   if (!agents || agents.length === 0) {
@@ -601,7 +607,8 @@ function renderAgentCards(agents) {
     const col = agentColor(a.agent);
     const sm  = statusMeta(a.status);
     const isActive = a.status === "in_progress" || a.status === "starting";
-    return `<div class="agent-card ${isActive ? 'active' : ''}"
+    const stale = !isActive && isStale(a.timestamp);
+    return `<div class="agent-card ${isActive ? 'active' : ''} ${stale ? 'stale' : ''}"
       style="--agent-color:${col}">
       <div class="card-header">
         <div class="card-ring">${agentEmoji(a.agent)}</div>
@@ -610,8 +617,11 @@ function renderAgentCards(agents) {
           <div class="card-ts">${relTime(a.timestamp)}</div>
         </div>
       </div>
-      <div class="card-status" style="color:${sm.color};border-color:${sm.color}33;background:${sm.color}18">
-        <span style="font-size:0.85rem">${sm.icon}</span> ${sm.label}
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <div class="card-status" style="color:${sm.color};border-color:${sm.color}33;background:${sm.color}18;margin-bottom:0">
+          <span style="font-size:0.85rem">${sm.icon}</span> ${sm.label}
+        </div>
+        ${stale ? `<span class="stale-badge">⏱ stale</span>` : ''}
       </div>
       <div class="card-body">
         ${a.findings ? `<div class="card-findings">${escHtml(a.findings.slice(0,120))}${a.findings.length>120?'…':''}</div>` : ''}
@@ -632,12 +642,14 @@ function renderTimeline(timeline) {
   tl.innerHTML = timeline.map(e => {
     const col = agentColor(e.agent);
     const sm  = statusMeta(e.status);
-    return `<div class="timeline-entry">
-      <div class="tl-dot" style="background:${sm.color}"></div>
+    const superseded = e.is_latest === false;
+    return `<div class="timeline-entry${superseded ? ' superseded' : ''}">
+      <div class="tl-dot" style="background:${superseded ? '#334155' : sm.color}"></div>
       <div class="tl-content">
         <div>
           <span class="tl-agent">${agentEmoji(e.agent)} ${e.agent}</span>
           <span class="tl-status" style="background:${sm.color}18;color:${sm.color}">${sm.label}</span>
+          ${superseded ? `<span class="superseded-badge">history</span>` : ''}
         </div>
         ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : ''}
       </div>
