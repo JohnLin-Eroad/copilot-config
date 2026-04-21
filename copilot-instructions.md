@@ -365,6 +365,10 @@ If the orchestrator determines no existing agent covers the task well enough:
 | Final code review | `code-reviewer` |
 | CI/CD / infrastructure | `devops` |
 | Documentation | `documentation` |
+| Mapping inter-service / inter-module dependencies | `dependency-tracker` |
+| Sprint retrospective or benchmark analysis | `retrospective` |
+| Triaging open pull requests by urgency | `pr-analyst` |
+| Validating database migration files | `migration-validator` |
 | No match found | → `agent-factory` |
 
 ---
