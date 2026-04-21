@@ -1,61 +1,95 @@
 {
   "week": "baseline",
   "date": "2026-04-16",
-  "note": "Week 0 baseline — captured before weekly learning experiments begin. Use this as the reference point for all trend analysis.",
+  "note": "Week 0 baseline \u2014 captured before weekly learning experiments begin. Use this as the reference point for all trend analysis. Populated with W17 actuals (first real benchmark run, 2026-04-28). W17 is the reference baseline.",
   "scores": {
     "code_generation": {
-      "score": null,
+      "score": 5.0,
       "dimensions": {
-        "correctness": null,
-        "hexagonal_compliance": null,
-        "java21_idioms": null,
-        "javadoc": null,
-        "test_quality": null
+        "correctness": 5,
+        "hexagonal_compliance": 5,
+        "java21_idioms": 5,
+        "javadoc": 5,
+        "test_quality": 5
       },
-      "notes": "Baseline not yet run — execute benchmark-runner manually to populate: copilot agent run benchmark-runner"
+      "notes": "W17 baseline: VehicleOdometer record, OdometerRepository port, JUnit 5 suite. Full marks across all 5 dimensions."
     },
     "context_retrieval": {
-      "score": null,
-      "brain_data_used": null,
-      "accuracy": null,
-      "gaps_handled": null,
-      "no_hallucination": null,
-      "files_fetched": null,
-      "notes": "Baseline not yet run"
+      "score": 4.5,
+      "brain_data_used": true,
+      "accuracy": 4,
+      "gaps_handled": true,
+      "no_hallucination": true,
+      "files_fetched": 6,
+      "notes": "W17 baseline: 6 brain vault files fetched. Architecture and domain models well covered. Java 21/Spring Boot 3.4 not in vault (expected gap)."
     },
     "security_review": {
-      "score": null,
-      "recall": null,
-      "precision": null,
-      "true_positives": null,
-      "false_positives": null,
-      "vulnerabilities_found": [],
+      "score": 4.7,
+      "recall": 1.0,
+      "precision": 0.8,
+      "true_positives": 3,
+      "false_positives": 0,
+      "vulnerabilities_found": [
+        "SQL Injection (OWASP A03) \u2014 string concatenation in executeQuery \u2014 CRITICAL",
+        "Sensitive Data Exposure (OWASP A02) \u2014 owner_email in response body \u2014 HIGH",
+        "Information Exposure in Error Response (OWASP A09) \u2014 password reflected in 401 \u2014 HIGH"
+      ],
       "vulnerabilities_missed": [],
-      "notes": "Baseline not yet run"
+      "notes": "W17 baseline: All 3 planted vulns found. 1 bonus real finding (missing auth A01). Precision 0.80 (resource leak correctly classified as code-quality noise)."
     },
     "planning": {
-      "score": null,
+      "score": 5.0,
       "dimensions": {
-        "domain_understanding": null,
-        "hexagonal_architecture": null,
-        "blast_radius": null,
-        "edge_cases": null,
-        "dependency_ordering": null,
-        "acceptance_criteria": null
+        "domain_understanding": 5,
+        "hexagonal_architecture": 5,
+        "blast_radius": 5,
+        "edge_cases": 5,
+        "dependency_ordering": 5,
+        "acceptance_criteria": 5
       },
-      "notes": "Baseline not yet run"
+      "notes": "W17 baseline: Driver hours compliance plan. 4 domain types named. Perfect hexagonal placement. 8 edge cases. 10-step dependency order. 5 measurable Given/When/Then ACs."
     },
     "learning_retention": {
-      "score": 3,
-      "result": "NEUTRAL",
+      "score": 2,
+      "result": "WARN",
       "experiment_branch": null,
       "baseline_score": null,
       "experiment_score": null,
       "delta": 0,
-      "notes": "No experiments exist yet — Week 0 baseline"
+      "notes": "W17 baseline: Score 2 (WARN) \u2014 no experiment branch produced by weekly-experimenter. Score corrected from initial 3 (NEUTRAL) to 2 (WARN) per spec."
+    },
+    "workflow_adherence": {
+      "score": null,
+      "notes": "New in W18 \u2014 not yet run"
+    },
+    "instruction_following": {
+      "score": null,
+      "notes": "New in W18 \u2014 not yet run"
     }
   },
-  "overall": null,
+  "overall": 4.515,
   "vs_previous": null,
-  "experiment_branch": null
+  "experiment_branch": null,
+  "score_breakdown": {
+    "code_generation": {
+      "weight": 0.25,
+      "contribution": 1.25
+    },
+    "context_retrieval": {
+      "weight": 0.25,
+      "contribution": 1.125
+    },
+    "security_review": {
+      "weight": 0.2,
+      "contribution": 0.94
+    },
+    "planning": {
+      "weight": 0.2,
+      "contribution": 1.0
+    },
+    "learning_retention": {
+      "weight": 0.1,
+      "contribution": 0.2
+    }
+  }
 }
