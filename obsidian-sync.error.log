@@ -3832,3 +3832,4 @@ Other diff options
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
 fatal: not a git repository (or any of the parent directories): .git
+/Users/johnlin/copilot-config/obsidian-sync.sh: line 32: 55562 Terminated: 15          ( sleep "$DEBOUNCE" && sync_vault "$vault" && rm -f "$pid_file" )
