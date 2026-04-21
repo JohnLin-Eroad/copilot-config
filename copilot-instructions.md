@@ -319,6 +319,64 @@ eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
 
 **Why:** Background agents can't write to files on disk. Only the main CLI agent has direct file access, so only it can keep the STM (and dashboard) live and up to date.
 
+---
+
+### 📝 STM Write Protocol — MANDATORY for all agents
+
+**Every agent and sub-agent MUST write progress to the STM.** The STM is the single source of truth for pipeline state. An agent that doesn't write to the STM is invisible to the orchestrator and the user.
+
+#### Orchestrator responsibility
+When launching any sub-agent, **always** include `STM_PATH` in the prompt:
+
+```
+STM_PATH: /path/to/short-term-memory.md
+
+Write your progress to the STM using:
+  bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "AGENT-NAME" "content"
+```
+
+#### Sub-agent responsibility
+Every specialist agent must write to the STM at these checkpoints:
+
+| Checkpoint | What to write |
+|---|---|
+| **Start** | "Starting task. Scope: X. Files I'll touch: Y." |
+| **After each major step** | Brief summary of what was done, key findings, files changed |
+| **Completion** | Final summary, all files modified, decisions made, any blockers |
+| **On error/block** | What failed, what was tried, recommended next step |
+
+#### Standard write-stm.sh usage
+
+```bash
+# Single-line progress note
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "developer" "Updated auth.java — added JWT validation. Next: tests."
+
+# Multi-line completion summary
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "security" << 'EOF'
+STATUS: complete
+Files reviewed: src/auth/, src/api/
+Findings: 2 medium (SQL injection risk in UserRepo.java:45, missing rate limit on /login)
+No criticals. Changes recommended in STM security section.
+EOF
+```
+
+#### Standard section headers for STM entries
+
+Use these prefixes so the dashboard can parse them:
+
+```
+STATUS: starting | in_progress | complete | blocked | failed
+FILES: <comma-separated list of files touched>
+DECISIONS: <any architectural/implementation choices made>
+FINDINGS: <key discoveries, errors, or results>
+NEXT: <what should happen next>
+```
+
+#### Non-fatal if STM unavailable
+`write-stm.sh` exits 0 (success) even if `$STM_PATH` is empty or the file doesn't exist — it just logs a warning to stderr. Agents should never fail because STM writing failed.
+
+---
+
 ### ✅ Always run the orchestrator pipeline
 
 Run the pipeline for **every task** that produces output or makes changes:
