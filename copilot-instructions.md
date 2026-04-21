@@ -433,6 +433,31 @@ grep -n "\[STM\] Agent Contributions" "$STM_PATH"
 
 ---
 
+## Prompt Caching
+
+Prompt caching can reduce token costs by **60–80%** on stable context prefixes. Apply it whenever a large, stable block of text is being sent repeatedly across agent calls.
+
+### When to use
+- System prompt + brain context injected into every specialist agent call
+- STM content passed to multiple agents in a long pipeline
+- Any tool call where the same large prefix is repeated across turns
+
+### How to apply
+Mark stable prefixes with `cache_control: ephemeral` when constructing agent messages. The Anthropic API caches up to 4 breakpoints per request.
+
+```
+Priority order for cache breakpoints:
+1. System prompt (most stable — cache first)
+2. Brain vault excerpts injected as context
+3. STM content (changes each turn — cache last)
+4. Tool results (dynamic — do NOT cache)
+```
+
+### Orchestrator responsibility
+When invoking multiple specialist agents in sequence, pass the system prompt and brain excerpts as cached prefixes. Do not re-send large context blocks uncached — this is a primary driver of unnecessary token spend.
+
+---
+
 ## ACI — Tool Documentation Standard
 
 Every tool used in agent prompts must be documented with the **Agent-Computer Interface (ACI)** standard. Good tool docs are as important as the model itself.
