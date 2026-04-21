@@ -32,10 +32,22 @@ def slugify(text: str) -> str:
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: stm-init.py <task-description>", file=sys.stderr)
+        print("Usage: stm-init.py <task-description> [--port PORT]", file=sys.stderr)
         sys.exit(1)
 
-    task_desc = " ".join(sys.argv[1:])
+    # Parse optional --port flag
+    args = sys.argv[1:]
+    port_override = None
+    if "--port" in args:
+        idx = args.index("--port")
+        try:
+            port_override = int(args[idx + 1])
+            args = args[:idx] + args[idx + 2:]
+        except (IndexError, ValueError):
+            print("Error: --port requires an integer value", file=sys.stderr)
+            sys.exit(1)
+
+    task_desc = " ".join(args)
     slug = slugify(task_desc)
     date_str = datetime.now().strftime("%Y-%m-%d")
     created_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
