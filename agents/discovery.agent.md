@@ -1,7 +1,7 @@
 ---
-name: sov-discovery
+name: discovery
 description: >
-  Sovereign Discovery Agent. Explores EROAD codebases, maps domain boundaries, produces
+  Discovery Agent. Explores EROAD codebases, maps domain boundaries, produces
   domain dossiers and module inventories. Analyses GitHub repos for transformation
   readiness and generates structured findings for the Sovereign platform.
 model: claude-haiku-4.5
