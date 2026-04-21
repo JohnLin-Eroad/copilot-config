@@ -35,7 +35,7 @@ Score each dimension 1–5, then average:
 | **Javadoc completeness** | Missing or empty | Partial (some methods) | All public methods documented, @param and @return present |
 | **Test quality** | Tests trivial getters only | Covers happy path | Covers happy path + all edge cases (zero, negative, addition) |
 
-**Final score** = average of 5 dimensions (1.0–5.0)
+**Final score** = average of 5 dimensions (1–100)
 
 ## What Good Looks Like (Score 5)
 

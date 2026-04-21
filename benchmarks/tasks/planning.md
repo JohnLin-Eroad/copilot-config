@@ -28,7 +28,7 @@ Score each dimension 1–5:
 | **Dependency ordering** | Unordered or circular | Mostly ordered | Correct topo sort: domain model → port → use case → adapter → API → test |
 | **Acceptance criteria** | None | Vague ("it should work") | Measurable: "Given driver has driven 11h, When event processed, Then notification sent within 30s" |
 
-**Final score** = average of 6 dimensions (1.0–5.0)
+**Final score** = average of 6 dimensions (1–100)
 
 ## What Good Looks Like (Score 5)
 
