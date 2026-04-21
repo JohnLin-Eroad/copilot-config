@@ -1,0 +1,800 @@
+#!/usr/bin/env python3
+"""
+Agent Visibility Dashboard
+
+Live-updating HTML dashboard showing:
+  - Which agents are active / completed / blocked
+  - Pipeline flow diagram with animated connections
+  - Per-agent activity cards with status and findings
+  - Activity feed / timeline
+  - Full STM content viewer
+
+Reads write-stm.sh entries (### AGENT — TIMESTAMP format) from all active STM files.
+
+Usage:
+  python3 ~/.copilot/scripts/agent-dashboard.py
+  python3 ~/.copilot/scripts/agent-dashboard.py --port 8765
+  python3 ~/.copilot/scripts/agent-dashboard.py --stm /path/to/short-term-memory.md
+"""
+
+import argparse
+import http.server
+import json
+import os
+import re
+import sys
+import threading
+import time
+import webbrowser
+from datetime import datetime, timezone
+from pathlib import Path
+
+STM_DIR = Path.home() / ".copilot" / "stm"
+
+AGENT_COLORS = {
+    "orchestrator":          "#6c8ef7",
+    "developer":             "#34d399",
+    "architect":             "#a78bfa",
+    "security":              "#f87171",
+    "code-reviewer":         "#fb923c",
+    "testing":               "#22d3ee",
+    "qa-engineer":           "#22d3ee",
+    "devops":                "#fbbf24",
+    "discovery":             "#4ade80",
+    "documentation":         "#94a3b8",
+    "brain-data-retrieval":  "#e879f9",
+    "brain-consolidation":   "#e879f9",
+    "benchmark-runner":      "#f97316",
+    "product-manager":       "#60a5fa",
+    "product-owner":         "#60a5fa",
+    "performance":           "#facc15",
+    "data-migration":        "#fb7185",
+    "compliance":            "#a3e635",
+    "governance":            "#a3e635",
+    "integration":           "#38bdf8",
+}
+DEFAULT_AGENT_COLOR = "#6b7280"
+
+STATUS_META = {
+    "starting":    {"color": "#fbbf24", "icon": "◌", "label": "Starting"},
+    "in_progress": {"color": "#6c8ef7", "icon": "◉", "label": "Working"},
+    "complete":    {"color": "#34d399", "icon": "✓",  "label": "Done"},
+    "blocked":     {"color": "#f87171", "icon": "✕",  "label": "Blocked"},
+    "failed":      {"color": "#f87171", "icon": "✕",  "label": "Failed"},
+}
+DEFAULT_STATUS = {"color": "#94a3b8", "icon": "○", "label": "Idle"}
+
+
+def find_active_stm() -> Path | None:
+    if not STM_DIR.exists():
+        return None
+    candidates = sorted(
+        [p for p in STM_DIR.rglob("short-term-memory.md")],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return candidates[0] if candidates else None
+
+
+def parse_stm_entries(content: str) -> list[dict]:
+    """Parse write-stm.sh entries: ### AGENT — TIMESTAMP\\nBody"""
+    entries = []
+    # Match entries written by write-stm.sh
+    pattern = re.compile(
+        r"### (.+?) — (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\n(.*?)(?=\n### |\Z)",
+        re.DOTALL,
+    )
+    for m in pattern.finditer(content):
+        agent = m.group(1).strip()
+        ts = m.group(2).strip()
+        body = m.group(3).strip()
+
+        status = "idle"
+        findings = ""
+        files = ""
+        decisions = ""
+        next_step = ""
+
+        for line in body.splitlines():
+            low = line.strip().lower()
+            if low.startswith("status:"):
+                status = line.split(":", 1)[1].strip().lower()
+            elif low.startswith("findings:"):
+                findings = line.split(":", 1)[1].strip()
+            elif low.startswith("files:"):
+                files = line.split(":", 1)[1].strip()
+            elif low.startswith("decisions:"):
+                decisions = line.split(":", 1)[1].strip()
+            elif low.startswith("next:"):
+                next_step = line.split(":", 1)[1].strip()
+
+        # Multi-line findings (lines after FINDINGS: that don't start with a key)
+        in_findings = False
+        extra_lines = []
+        keys = {"status:", "files:", "decisions:", "next:", "findings:"}
+        for line in body.splitlines():
+            low = line.strip().lower()
+            if low.startswith("findings:"):
+                in_findings = True
+                continue
+            if any(low.startswith(k) for k in keys if not low.startswith("findings:")):
+                in_findings = False
+            if in_findings and line.strip():
+                extra_lines.append(line.strip())
+        if extra_lines:
+            findings = (findings + " " + " ".join(extra_lines)).strip()
+
+        entries.append({
+            "agent":     agent,
+            "timestamp": ts,
+            "status":    status,
+            "findings":  findings,
+            "files":     files,
+            "decisions": decisions,
+            "next":      next_step,
+            "raw":       body,
+        })
+
+    return entries
+
+
+def parse_stm_meta(content: str) -> dict:
+    """Extract task name and high-level info from STM frontmatter / Task Brief."""
+    meta = {"task": "Unknown Task", "brain": "", "started": "", "sections": {}}
+
+    fm = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
+    if fm:
+        for line in fm.group(1).splitlines():
+            if ":" in line:
+                k, _, v = line.partition(":")
+                meta[k.strip().lower()] = v.strip().strip('"')
+
+    # Task Brief section
+    brief = re.search(r"## \[STM\] Task Brief\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
+    if brief:
+        meta["sections"]["Task Brief"] = brief.group(1).strip()
+        task_m = re.search(r"\*\*Task\*\*:\s*(.+)", brief.group(1))
+        if task_m:
+            meta["task"] = task_m.group(1).strip()
+        brain_m = re.search(r"BRAIN_TYPE:\s*(\w+)", brief.group(1))
+        if brain_m:
+            meta["brain"] = brain_m.group(1).strip()
+
+    # Also capture other sections
+    for section_m in re.finditer(r"## \[STM\] (.+?)\n(.*?)(?=\n## |\Z)", content, re.DOTALL):
+        name = section_m.group(1).strip()
+        body = section_m.group(2).strip()
+        if name not in meta["sections"]:
+            meta["sections"][name] = body
+
+    return meta
+
+
+def get_dashboard_data(stm_path: Path) -> dict:
+    try:
+        content = stm_path.read_text(encoding="utf-8")
+    except Exception as e:
+        return {"error": str(e), "agents": [], "timeline": [], "meta": {}}
+
+    entries = parse_stm_entries(content)
+    meta = parse_stm_meta(content)
+
+    # Deduplicate agents — keep latest entry per agent, plus full history
+    agent_latest: dict[str, dict] = {}
+    for e in entries:
+        agent_latest[e["agent"]] = e
+
+    # Timeline — last 40 entries, newest first
+    timeline = list(reversed(entries[-40:]))
+
+    return {
+        "stm_path":  str(stm_path),
+        "stm_name":  stm_path.parent.name,
+        "meta":      meta,
+        "agents":    list(agent_latest.values()),
+        "timeline":  timeline,
+        "entry_count": len(entries),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚡ Agent Dashboard</title>
+<style>
+:root {
+  --bg: #0a0d14;
+  --bg-card: #111827;
+  --bg-card2: #1a2235;
+  --border: #1e2d45;
+  --border2: #243552;
+  --text: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #64748b;
+  --blue: #6c8ef7;
+  --green: #34d399;
+  --yellow: #fbbf24;
+  --red: #f87171;
+  --purple: #a78bfa;
+  --cyan: #22d3ee;
+  --orange: #fb923c;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'SF Mono','Fira Code',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+
+/* ── Layout ── */
+#app{display:grid;grid-template-rows:56px 1fr;grid-template-columns:280px 1fr 320px;height:100vh}
+#topbar{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 24px;
+  background:var(--bg-card);border-bottom:1px solid var(--border);z-index:10}
+#sidebar{grid-row:2;overflow-y:auto;border-right:1px solid var(--border);padding:16px}
+#main{grid-row:2;overflow-y:auto;padding:20px 24px}
+#rightpanel{grid-row:2;overflow-y:auto;border-left:1px solid var(--border);padding:16px}
+
+/* ── Topbar ── */
+.topbar-title{font-size:1rem;font-weight:700;color:var(--text);flex:1}
+.topbar-task{font-size:0.8rem;color:var(--text2);max-width:400px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 6px var(--green);animation:pulse-dot 2s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.3)}}
+.topbar-time{font-size:0.75rem;color:var(--text3);font-family:var(--mono)}
+.refresh-badge{font-size:0.7rem;padding:2px 8px;background:rgba(108,142,247,0.15);
+  color:var(--blue);border-radius:99px;border:1px solid rgba(108,142,247,0.3)}
+
+/* ── Section label ── */
+.section-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
+
+/* ── Pipeline diagram ── */
+#pipeline-wrap{position:relative;overflow-x:auto;margin-bottom:24px}
+#pipeline-svg{display:block;min-height:120px}
+
+/* ── Agent cards ── */
+.agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:24px}
+.agent-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;
+  padding:14px;transition:border-color .3s,box-shadow .3s;position:relative;overflow:hidden}
+.agent-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--agent-color,var(--blue))}
+.agent-card.active{border-color:var(--agent-color,var(--blue));
+  box-shadow:0 0 20px -4px var(--agent-color,var(--blue)),0 0 0 1px rgba(108,142,247,.1)}
+.agent-card.active .card-ring{animation:ring-pulse 1.8s ease-in-out infinite}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.card-ring{width:34px;height:34px;border-radius:50%;background:rgba(108,142,247,.1);
+  display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;
+  border:2px solid var(--agent-color,var(--blue));transition:border-color .3s}
+@keyframes ring-pulse{0%,100%{box-shadow:0 0 0 0 var(--agent-color,var(--blue))}
+  50%{box-shadow:0 0 0 6px transparent}}
+.card-name{font-size:0.9rem;font-weight:600;color:var(--text)}
+.card-ts{font-size:0.7rem;color:var(--text3);font-family:var(--mono)}
+.card-status{display:inline-flex;align-items:center;gap:5px;font-size:0.72rem;font-weight:600;
+  padding:3px 9px;border-radius:99px;margin-bottom:8px;border:1px solid}
+.card-body{font-size:0.78rem;color:var(--text2);line-height:1.5}
+.card-findings{margin-bottom:6px}
+.card-files{font-family:var(--mono);font-size:0.72rem;color:var(--text3);
+  background:var(--bg);padding:4px 8px;border-radius:6px;margin-top:6px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ── Working shimmer overlay ── */
+.agent-card.active::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.03),transparent);
+  animation:shimmer 2s ease-in-out infinite}
+@keyframes shimmer{0%{left:-100%}100%{left:150%}}
+
+/* ── Timeline ── */
+.timeline-entry{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);
+  animation:slide-in .3s ease}
+@keyframes slide-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+.tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
+.tl-content{flex:1;min-width:0}
+.tl-agent{font-size:0.78rem;font-weight:600;color:var(--text)}
+.tl-status{font-size:0.7rem;margin-left:6px;padding:1px 6px;border-radius:99px}
+.tl-findings{font-size:0.75rem;color:var(--text2);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-time{font-size:0.68rem;color:var(--text3);font-family:var(--mono);flex-shrink:0;padding-top:2px}
+
+/* ── STM Viewer (right panel) ── */
+.stm-section{margin-bottom:16px}
+.stm-section-title{font-size:0.75rem;font-weight:600;color:var(--blue);margin-bottom:6px;
+  display:flex;align-items:center;gap:6px}
+.stm-content{font-size:0.72rem;color:var(--text2);line-height:1.6;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:var(--mono)}
+
+/* ── Empty state ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
+.empty-icon{font-size:3rem;margin-bottom:12px}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+
+/* ── Stat strip ── */
+.stat-strip{display:flex;gap:12px;margin-bottom:20px}
+.stat-box{flex:1;background:var(--bg-card);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;text-align:center}
+.stat-val{font-size:1.5rem;font-weight:700;line-height:1}
+.stat-lbl{font-size:0.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+
+/* No-STM overlay */
+#no-stm{display:none;position:fixed;inset:0;background:rgba(10,13,20,.9);
+  z-index:999;align-items:center;justify-content:center;text-align:center}
+#no-stm.show{display:flex}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Topbar -->
+  <header id="topbar">
+    <div class="status-dot" id="conn-dot"></div>
+    <div>
+      <div class="topbar-title">⚡ Agent Dashboard</div>
+    </div>
+    <div class="topbar-task" id="task-name">Loading…</div>
+    <div style="flex:1"></div>
+    <span class="refresh-badge">Live · 2s</span>
+    <span class="topbar-time" id="topbar-time"></span>
+  </header>
+
+  <!-- Left sidebar: STM meta + sections -->
+  <aside id="sidebar">
+    <div class="section-label">STM Memory</div>
+    <div id="stm-sections"></div>
+  </aside>
+
+  <!-- Main: pipeline + agent cards -->
+  <main id="main">
+    <!-- Stat strip -->
+    <div class="stat-strip">
+      <div class="stat-box">
+        <div class="stat-val" id="stat-active" style="color:var(--blue)">0</div>
+        <div class="stat-lbl">Active</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-done" style="color:var(--green)">0</div>
+        <div class="stat-lbl">Done</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-blocked" style="color:var(--red)">0</div>
+        <div class="stat-lbl">Blocked</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val" id="stat-entries" style="color:var(--text2)">0</div>
+        <div class="stat-lbl">Entries</div>
+      </div>
+    </div>
+
+    <!-- Pipeline SVG diagram -->
+    <div class="section-label" style="margin-bottom:12px">Pipeline Flow</div>
+    <div id="pipeline-wrap">
+      <svg id="pipeline-svg" width="100%" height="110"></svg>
+    </div>
+
+    <!-- Agent cards -->
+    <div class="section-label" style="margin-bottom:12px">Agent Activity</div>
+    <div class="agent-grid" id="agent-grid">
+      <div class="empty-state"><div class="empty-icon">🤖</div><p>No agent activity yet.<br>Waiting for write-stm.sh entries…</p></div>
+    </div>
+  </main>
+
+  <!-- Right panel: timeline -->
+  <aside id="rightpanel">
+    <div class="section-label">Activity Feed</div>
+    <div id="timeline"></div>
+  </aside>
+</div>
+
+<!-- No STM overlay -->
+<div id="no-stm">
+  <div>
+    <div style="font-size:3rem;margin-bottom:16px">🔍</div>
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:8px">No Active STM</div>
+    <div style="font-size:0.85rem;color:#64748b">Start a task to see agent activity here.</div>
+  </div>
+</div>
+
+<script>
+const AGENT_COLORS = {
+  "orchestrator":         "#6c8ef7",
+  "developer":            "#34d399",
+  "architect":            "#a78bfa",
+  "security":             "#f87171",
+  "code-reviewer":        "#fb923c",
+  "testing":              "#22d3ee",
+  "qa-engineer":          "#22d3ee",
+  "devops":               "#fbbf24",
+  "discovery":            "#4ade80",
+  "documentation":        "#94a3b8",
+  "brain-data-retrieval": "#e879f9",
+  "brain-consolidation":  "#e879f9",
+  "benchmark-runner":     "#f97316",
+  "product-manager":      "#60a5fa",
+  "product-owner":        "#60a5fa",
+  "performance":          "#facc15",
+  "data-migration":       "#fb7185",
+  "compliance":           "#a3e635",
+  "governance":           "#a3e635",
+  "integration":          "#38bdf8",
+};
+const DEFAULT_COLOR = "#6b7280";
+
+const STATUS_META = {
+  "starting":    { color: "#fbbf24", icon: "◌", label: "Starting" },
+  "in_progress": { color: "#6c8ef7", icon: "◉", label: "Working"  },
+  "complete":    { color: "#34d399", icon: "✓",  label: "Done"     },
+  "blocked":     { color: "#f87171", icon: "✕",  label: "Blocked"  },
+  "failed":      { color: "#f87171", icon: "✕",  label: "Failed"   },
+  "idle":        { color: "#6b7280", icon: "○",  label: "Idle"     },
+};
+
+function agentColor(name) {
+  return AGENT_COLORS[name.toLowerCase()] || DEFAULT_COLOR;
+}
+function statusMeta(s) {
+  return STATUS_META[s?.toLowerCase()] || STATUS_META["idle"];
+}
+function agentEmoji(name) {
+  const map = {
+    orchestrator:"🎯", developer:"💻", architect:"🏛️", security:"🔒",
+    "code-reviewer":"👁️", testing:"🧪", "qa-engineer":"🧪", devops:"⚙️",
+    discovery:"🔍", documentation:"📝", "brain-data-retrieval":"🧠",
+    "brain-consolidation":"💾", "benchmark-runner":"📊", "product-manager":"📋",
+    performance:"⚡", "data-migration":"🗄️", compliance:"✅", governance:"⚖️",
+    integration:"🔌",
+  };
+  return map[name.toLowerCase()] || "🤖";
+}
+
+function relTime(isoStr) {
+  try {
+    const d = new Date(isoStr);
+    const diff = Math.floor((Date.now() - d) / 1000);
+    if (diff < 5)  return "just now";
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    return `${Math.floor(diff/3600)}h ago`;
+  } catch { return ""; }
+}
+
+// ── Pipeline SVG ─────────────────────────────────────────────────────────────
+function drawPipeline(agents) {
+  const svg = document.getElementById("pipeline-svg");
+  if (!agents || agents.length === 0) {
+    svg.innerHTML = '<text x="50%" y="55" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+    return;
+  }
+
+  const W = svg.clientWidth || 800;
+  const H = 110;
+  const R = 28;
+  const order = ["orchestrator", "brain-data-retrieval", ...agents.map(a=>a.agent).filter(
+    n => !["orchestrator","brain-data-retrieval","brain-consolidation"].includes(n)
+  ), "brain-consolidation"];
+  // Unique preserving order
+  const seen = new Set();
+  const nodes = order.filter(n => { if(seen.has(n)) return false; seen.add(n); return true; });
+
+  const cx = (i) => (W / (nodes.length + 1)) * (i + 1);
+  const cy = H / 2;
+
+  let html = `<defs>
+    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#1e2d45"/>
+    </marker>
+  </defs>`;
+
+  // Draw connections first (behind nodes)
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const x1 = cx(i) + R, x2 = cx(i+1) - R;
+    const agentEntry = agents.find(a => a.agent === nodes[i]);
+    const isActive = agentEntry?.status === "in_progress" || agentEntry?.status === "starting";
+    const col = isActive ? agentColor(nodes[i]) : "#1e2d45";
+    html += `<line x1="${x1}" y1="${cy}" x2="${x2}" y2="${cy}"
+      stroke="${col}" stroke-width="${isActive ? 2 : 1}" marker-end="url(#arrow)"
+      stroke-dasharray="${isActive ? 'none' : '4 3'}" opacity="${isActive ? 1 : 0.4}">
+      ${isActive ? `<animate attributeName="stroke-dashoffset" values="0;-100" dur="2s" repeatCount="indefinite"/>` : ''}
+    </line>`;
+  }
+
+  // Draw nodes on top
+  for (let i = 0; i < nodes.length; i++) {
+    const n = nodes[i];
+    const agentEntry = agents.find(a => a.agent === n);
+    const col = agentColor(n);
+    const sm = statusMeta(agentEntry?.status || "idle");
+    const isActive = agentEntry?.status === "in_progress" || agentEntry?.status === "starting";
+    const isDone   = agentEntry?.status === "complete";
+    const isBlocked= agentEntry?.status === "blocked" || agentEntry?.status === "failed";
+
+    const fill = isActive ? `rgba(${hexToRgb(col)},0.2)` :
+                 isDone   ? `rgba(52,211,153,0.1)` :
+                 isBlocked? `rgba(248,113,113,0.1)` : "#111827";
+    const stroke = isActive ? col : isDone ? "#34d399" : isBlocked ? "#f87171" : "#1e2d45";
+    const strokeW = isActive ? 2.5 : 1.5;
+
+    html += `<g class="pipeline-node">`;
+    if (isActive) {
+      html += `<circle cx="${cx(i)}" cy="${cy}" r="${R+6}" fill="none"
+        stroke="${col}" stroke-width="1" opacity="0.3">
+        <animate attributeName="r" values="${R+3};${R+9};${R+3}" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
+      </circle>`;
+    }
+    html += `<circle cx="${cx(i)}" cy="${cy}" r="${R}" fill="${fill}"
+      stroke="${stroke}" stroke-width="${strokeW}"
+      ${isActive ? `filter="url(#glow)"` : ''}/>`;
+    html += `<text x="${cx(i)}" y="${cy+1}" text-anchor="middle" dominant-baseline="middle"
+      font-size="16">${agentEmoji(n)}</text>`;
+    // Label below
+    const shortName = n.replace("brain-","").replace("-retrieval","ret.").replace("-consolidation","cons.");
+    html += `<text x="${cx(i)}" y="${cy+R+14}" text-anchor="middle"
+      font-size="9" fill="${isActive ? col : '#64748b'}" font-family="system-ui">
+      ${shortName}</text>`;
+
+    // Status dot
+    if (agentEntry) {
+      html += `<circle cx="${cx(i)+R-6}" cy="${cy-R+6}" r="5"
+        fill="${sm.color}" stroke="#0a0d14" stroke-width="1.5">
+        ${isActive ? `<animate attributeName="opacity" values="1;0.4;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
+      </circle>`;
+    }
+
+    html += `</g>`;
+  }
+
+  svg.innerHTML = html;
+}
+
+function hexToRgb(hex) {
+  const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : "108,142,247";
+}
+
+// ── Agent cards ───────────────────────────────────────────────────────────────
+function renderAgentCards(agents) {
+  const grid = document.getElementById("agent-grid");
+  if (!agents || agents.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🤖</div>
+      <p>No agent activity yet.<br>Waiting for write-stm.sh entries…</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = agents.map(a => {
+    const col = agentColor(a.agent);
+    const sm  = statusMeta(a.status);
+    const isActive = a.status === "in_progress" || a.status === "starting";
+    return `<div class="agent-card ${isActive ? 'active' : ''}"
+      style="--agent-color:${col}">
+      <div class="card-header">
+        <div class="card-ring">${agentEmoji(a.agent)}</div>
+        <div>
+          <div class="card-name">${a.agent}</div>
+          <div class="card-ts">${relTime(a.timestamp)}</div>
+        </div>
+      </div>
+      <div class="card-status" style="color:${sm.color};border-color:${sm.color}33;background:${sm.color}18">
+        <span style="font-size:0.85rem">${sm.icon}</span> ${sm.label}
+      </div>
+      <div class="card-body">
+        ${a.findings ? `<div class="card-findings">${escHtml(a.findings.slice(0,120))}${a.findings.length>120?'…':''}</div>` : ''}
+        ${a.files ? `<div class="card-files">📄 ${escHtml(a.files.slice(0,80))}</div>` : ''}
+        ${a.next && a.next !== 'none' ? `<div style="margin-top:6px;font-size:0.72rem;color:#64748b">→ ${escHtml(a.next.slice(0,80))}</div>` : ''}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Timeline ─────────────────────────────────────────────────────────────────
+function renderTimeline(timeline) {
+  const tl = document.getElementById("timeline");
+  if (!timeline || timeline.length === 0) {
+    tl.innerHTML = `<div style="color:#475569;font-size:0.8rem;padding:16px 0">No activity yet</div>`;
+    return;
+  }
+  tl.innerHTML = timeline.map(e => {
+    const col = agentColor(e.agent);
+    const sm  = statusMeta(e.status);
+    return `<div class="timeline-entry">
+      <div class="tl-dot" style="background:${sm.color}"></div>
+      <div class="tl-content">
+        <div>
+          <span class="tl-agent">${agentEmoji(e.agent)} ${e.agent}</span>
+          <span class="tl-status" style="background:${sm.color}18;color:${sm.color}">${sm.label}</span>
+        </div>
+        ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : ''}
+      </div>
+      <div class="tl-time">${relTime(e.timestamp)}</div>
+    </div>`;
+  }).join("");
+}
+
+// ── STM Sections (left sidebar) ───────────────────────────────────────────────
+function renderStmSections(data) {
+  const el = document.getElementById("stm-sections");
+  const sections = data?.meta?.sections || {};
+  const task = data?.meta?.task || data?.stm_name || "Unknown task";
+
+  let html = `<div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:12px;
+    padding:8px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+    📋 ${escHtml(task.slice(0,60))}</div>`;
+
+  if (data?.stm_path) {
+    html += `<div style="font-size:0.68rem;color:var(--text3);font-family:var(--mono);
+      margin-bottom:12px;word-break:break-all;line-height:1.4">${escHtml(data.stm_path)}</div>`;
+  }
+
+  for (const [name, body] of Object.entries(sections)) {
+    if (!body) continue;
+    const preview = body.slice(0, 400);
+    html += `<div class="stm-section">
+      <div class="stm-section-title">📄 ${escHtml(name)}</div>
+      <div class="stm-content">${escHtml(preview)}${body.length>400?'\n…':''}</div>
+    </div>`;
+  }
+
+  if (!Object.keys(sections).length) {
+    html += `<div style="color:var(--text3);font-size:0.8rem">No STM sections yet</div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function renderStats(data) {
+  const agents = data?.agents || [];
+  const active  = agents.filter(a => a.status==="in_progress"||a.status==="starting").length;
+  const done    = agents.filter(a => a.status==="complete").length;
+  const blocked = agents.filter(a => a.status==="blocked"||a.status==="failed").length;
+  document.getElementById("stat-active").textContent = active;
+  document.getElementById("stat-done").textContent   = done;
+  document.getElementById("stat-blocked").textContent= blocked;
+  document.getElementById("stat-entries").textContent = data?.entry_count || 0;
+}
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById("topbar-time").textContent =
+    new Date().toLocaleTimeString([], {hour12:false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+// ── Main poll loop ────────────────────────────────────────────────────────────
+let lastUpdate = null;
+
+async function fetchStatus() {
+  try {
+    const r = await fetch("/api/status");
+    if (!r.ok) throw new Error(r.status);
+    const data = await r.json();
+
+    document.getElementById("no-stm").classList.toggle("show", !data || data.error);
+    if (!data || data.error) return;
+
+    document.getElementById("task-name").textContent = data.meta?.task || data.stm_name || "";
+    document.getElementById("conn-dot").style.background = "#34d399";
+    document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
+
+    renderStats(data);
+    drawPipeline(data.agents);
+    renderAgentCards(data.agents);
+    renderTimeline(data.timeline);
+    renderStmSections(data);
+  } catch(e) {
+    document.getElementById("conn-dot").style.background = "#f87171";
+    document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #f87171";
+  }
+}
+
+fetchStatus();
+setInterval(fetchStatus, 2000);
+</script>
+</body>
+</html>
+"""
+
+
+class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
+    stm_path: Path | None = None
+    _cache: dict = {}
+    _cache_mtime: float = 0.0
+
+    def log_message(self, *args):
+        pass  # silence access logs
+
+    def do_GET(self):
+        if self.path == "/" or self.path == "/index.html":
+            self._serve_html()
+        elif self.path == "/api/status":
+            self._serve_status()
+        else:
+            self.send_error(404)
+
+    def _serve_html(self):
+        body = DASHBOARD_HTML.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_status(self):
+        stm = AgentDashboardHandler.stm_path or find_active_stm()
+        if stm is None:
+            payload = {"error": "No active STM found", "agents": [], "timeline": [], "meta": {}}
+        else:
+            mtime = stm.stat().st_mtime if stm.exists() else 0
+            if mtime != AgentDashboardHandler._cache_mtime:
+                AgentDashboardHandler._cache = get_dashboard_data(stm)
+                AgentDashboardHandler._cache_mtime = mtime
+            payload = AgentDashboardHandler._cache
+
+        body = json.dumps(payload, default=str).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+def find_free_port(start: int = 8765) -> int:
+    import socket
+    for port in range(start, start + 50):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("", port))
+                return port
+            except OSError:
+                continue
+    raise RuntimeError("No free port in range")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Agent Visibility Dashboard")
+    parser.add_argument("--stm", help="Path to short-term-memory.md (default: auto-detect latest)")
+    parser.add_argument("--port", type=int, default=0, help="Port (default: 8765)")
+    parser.add_argument("--no-open", action="store_true", help="Don't open browser")
+    args = parser.parse_args()
+
+    if args.stm:
+        p = Path(args.stm).expanduser().resolve()
+        if not p.exists():
+            print(f"STM file not found: {p}", file=sys.stderr)
+            sys.exit(1)
+        AgentDashboardHandler.stm_path = p
+    else:
+        AgentDashboardHandler.stm_path = None  # auto-detect
+
+    port = args.port if args.port else find_free_port()
+    server = http.server.HTTPServer(("", port), AgentDashboardHandler)
+    url = f"http://localhost:{port}"
+
+    print(f"⚡ Agent Dashboard running at {url}")
+    print(f"   STM: {'auto-detect latest' if not args.stm else args.stm}")
+    print(f"   Polls every 2 seconds · Ctrl+C to stop")
+
+    if not args.no_open:
+        threading.Timer(0.5, lambda: webbrowser.open(url)).start()
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nDashboard stopped.")
+
+
+if __name__ == "__main__":
+    main()
