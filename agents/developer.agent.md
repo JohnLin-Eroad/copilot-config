@@ -88,6 +88,14 @@ cd ~/sovereign && mvn clean install -DskipTests  # fast build
 cd ~/sovereign && mvn test                        # run all tests
 ```
 
+## After Every Implementation
+
+After writing or modifying code, always:
+1. Run the relevant tests: `cd ~/sovereign && mvn test -pl {module} -Dtest={TestClass} -q 2>&1 | tail -20`
+2. If tests fail, fix them before marking the task done — do NOT report success with failing tests
+3. If no tests exist for the changed code, write at least one happy-path test
+4. Report: `Tests: {N passed, M failed}` in your output
+
 ## When Stuck
 
 If the same action fails 3 times, or 5+ tool calls produce no forward progress:

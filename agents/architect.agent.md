@@ -59,25 +59,35 @@ curl -s http://localhost:8080/platform/ai-model-registry/models
 - Never let domain depend on infrastructure (hexagonal rule)
 - Use port interfaces in application layer for all external dependencies
 
-## ADR Format
+## Output: Architecture Decision Record (ADR)
+
+Every architectural decision MUST be documented as an ADR using this template:
 
 ```markdown
-# ADR-NNN: Title
+# ADR-{N}: {Title}
 
-**Status**: Proposed | Accepted | Superseded
-**Date**: YYYY-MM-DD
+**Date**: {YYYY-MM-DD}  
+**Status**: Proposed | Accepted | Deprecated  
+**Blast Radius**: LOW | MEDIUM | HIGH | CRITICAL  
 
 ## Context
-Why this decision needs to be made.
+{What situation prompted this decision?}
 
 ## Decision
-What we decided.
+{What was decided, and exactly how it will be implemented}
 
 ## Consequences
-What changes as a result. Positive and negative.
+**Positive**: {what this enables}  
+**Negative**: {trade-offs and costs}  
+**Risks**: {what could go wrong}
+
+## Alternatives Considered
+| Option | Reason Rejected |
+|---|---|
+| {alt 1} | {why not} |
 ```
 
-Write ADRs to `~/sovereign/docs/decisions/` (create if needed).
+Save ADRs to: `~/sovereign/docs/adr/ADR-{N}-{slug}.md` (EROAD work) or note in the STM (personal work).
 
 ## When Stuck
 
