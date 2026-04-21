@@ -91,20 +91,24 @@ Implement the following (you choose the exact class names and structure):
 Do NOT implement the infrastructure adapter. Only domain + application + tests.
 ```
 
-## Scoring Rubric
+## Scoring Rubric (Variant E)
 
 Score each dimension 1–5, then average:
 
 | Dimension | 1 (fail) | 3 (acceptable) | 5 (excellent) |
 |---|---|---|---|
-| **Correctness** | Logic errors or won't compile | Compiles, minor issues | Correct boundary math (10 L/100km), all paths correct |
-| **Hexagonal compliance** | Domain imports infra; use case in wrong layer | Minor violation | Domain has zero infra imports; use case depends only on domain + port interface |
-| **Java 21 idioms** | Uses class where record fits, field injection | Mostly correct | Records, sealed interfaces or enums for result, constructor injection, Optional |
-| **Design quality** | Threshold hardcoded in use case or test | Threshold in use case | Threshold is a domain constant — business rule lives in domain layer |
-| **Test quality** | Tests trivial getters only | Happy path covered | Boundary conditions (exactly 10.0), both outcomes, port interaction verified via mock |
-| **Ambiguity handling** | Invents requirements not in spec | Implements spec literally | Asks about or explicitly documents one design decision (e.g., what "store" means) |
+| **All tests pass** | >2 tests failing | 1–2 tests failing | All 6 tests pass exactly as written |
+| **Hexagonal placement** | Everything in one package | Some separation | `Money`, `FuelCard`, `FuelCardPolicy`, `SpendLimitExceededException`, `FuelCardAuthorisedEvent` all in domain; no infra imports |
+| **Domain event pattern** | Events not implemented or stored externally | Events stored on aggregate | `domainEvents()` returns immutable list; events accumulated on aggregate, not published directly |
+| **Money value object** | Mutable class with public field | Immutable but no validation | Immutable record/class, cents-based (no floating point), factory method validates, `equals`/`hashCode` correct |
+| **Invariant enforcement** | Limit check in wrong layer (e.g. controller) | Limit check in policy | `FuelCardPolicy` enforces the rule; `FuelCard` delegates — business rule in domain, not caller |
+| **Design justification** | No comment on layer placement | Brief note | Clear written rationale for why each class is in domain vs application |
 
 **Final score** = average of 6 dimensions (1.0–5.0)
+
+**Why this is hard:** Agent must infer the full domain model from test behaviour alone — no spec given. The tests contain subtle traps: Money uses cents (integer), domain events must accumulate on the aggregate (not publish to a bus), and SpendLimitExceededException must include the amount in its message. A shallow implementation that makes most tests pass will fail on the domain event and Money precision tests.
+
+
 
 ## Variant Rotation
 
