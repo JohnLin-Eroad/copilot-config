@@ -125,11 +125,13 @@ def main() -> None:
         print(f"⚠️  Git commit failed: {result.stderr}", file=sys.stderr)
         sys.exit(1)
 
-    # Push
-    result = git(["push"])
+    # Push to the current branch (not necessarily master)
+    branch = git(["branch", "--show-current"]).stdout.strip() or "master"
+    result = git(["push", "--set-upstream", "origin", branch])
     if result.returncode != 0:
         print(f"⚠️  Git push failed: {result.stderr}", file=sys.stderr)
         sys.exit(1)
+    print(f"🌿 Pushed to branch: {branch}")
 
     print("✅ Copilot config synced to GitHub.")
 
