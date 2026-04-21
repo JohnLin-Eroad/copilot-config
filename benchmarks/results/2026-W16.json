@@ -20,11 +20,14 @@
       "score": 3.6,
       "max": 5,
       "brain_data_used": true,
-      "files_fetched": ["03 - Architecture/eroad-platform-architecture.md (629 lines)", "03 - Architecture/sovereign-v2-spec.md"],
+      "files_fetched": [
+        "03 - Architecture/eroad-platform-architecture.md (629 lines)",
+        "03 - Architecture/sovereign-v2-spec.md"
+      ],
       "accuracy": 3.5,
       "explicit_gaps_handled": true,
       "hallucination_detected": false,
-      "notes": "Brain fetched correct architecture files. EROAD multi-cloud architecture and Sovereign role answered well. Java 21 / Spring Boot 3.4 NOT in brain vault (lives in pom.xml + copilot-instructions.md) — gap correctly flagged. Domain entity coverage partial: asset-{machines,devices,trailers}-{entities,telemetry} mentioned in arch doc but no detailed breakdown. Brain coverage is strong for architecture, weak for domain entities. Score held down by incomplete brain coverage on entities and missing Java version from vault."
+      "notes": "Brain fetched correct architecture files. EROAD multi-cloud architecture and Sovereign role answered well. Java 21 / Spring Boot 3.4 NOT in brain vault (lives in pom.xml + copilot-instructions.md) \u2014 gap correctly flagged. Domain entity coverage partial: asset-{machines,devices,trailers}-{entities,telemetry} mentioned in arch doc but no detailed breakdown. Brain coverage is strong for architecture, weak for domain entities. Score held down by incomplete brain coverage on entities and missing Java version from vault."
     },
     "security_review": {
       "score": 4.6,
@@ -33,13 +36,43 @@
       "precision": 0.75,
       "severity_accuracy": 1.0,
       "findings": [
-        {"id": "F1", "verdict": "TRUE_POSITIVE", "vuln": "SQL Injection (OWASP A03)", "severity": "CRITICAL", "note": "String concatenation in executeQuery matched planted vuln 1"},
-        {"id": "F2", "verdict": "TRUE_POSITIVE", "vuln": "Sensitive Data Exposure (OWASP A02)", "severity": "HIGH", "note": "owner_email in response body matched planted vuln 2"},
-        {"id": "F3", "verdict": "TRUE_POSITIVE", "vuln": "Information Exposure in Error Response (OWASP A09)", "severity": "HIGH", "note": "Password reflected in 401 body matched planted vuln 3"},
-        {"id": "F4", "verdict": "BONUS_REAL", "vuln": "Missing Authentication on /search (OWASP A01)", "severity": "HIGH", "note": "Not planted but legitimate Broken Access Control finding. Not counted as false positive."},
-        {"id": "F5", "verdict": "NOISE", "vuln": "Resource leak (not OWASP)", "severity": "MEDIUM", "note": "Connection/Statement/ResultSet not closed. Code quality concern, not OWASP Top 10. Security agent (post B2 self-critique) correctly downgraded to code-quality note rather than security finding."}
+        {
+          "id": "F1",
+          "verdict": "TRUE_POSITIVE",
+          "vuln": "SQL Injection (OWASP A03)",
+          "severity": "CRITICAL",
+          "note": "String concatenation in executeQuery matched planted vuln 1"
+        },
+        {
+          "id": "F2",
+          "verdict": "TRUE_POSITIVE",
+          "vuln": "Sensitive Data Exposure (OWASP A02)",
+          "severity": "HIGH",
+          "note": "owner_email in response body matched planted vuln 2"
+        },
+        {
+          "id": "F3",
+          "verdict": "TRUE_POSITIVE",
+          "vuln": "Information Exposure in Error Response (OWASP A09)",
+          "severity": "HIGH",
+          "note": "Password reflected in 401 body matched planted vuln 3"
+        },
+        {
+          "id": "F4",
+          "verdict": "BONUS_REAL",
+          "vuln": "Missing Authentication on /search (OWASP A01)",
+          "severity": "HIGH",
+          "note": "Not planted but legitimate Broken Access Control finding. Not counted as false positive."
+        },
+        {
+          "id": "F5",
+          "verdict": "NOISE",
+          "vuln": "Resource leak (not OWASP)",
+          "severity": "MEDIUM",
+          "note": "Connection/Statement/ResultSet not closed. Code quality concern, not OWASP Top 10. Security agent (post B2 self-critique) correctly downgraded to code-quality note rather than security finding."
+        }
       ],
-      "notes": "Found all 3 planted vulns at correct severity. 1 bonus real finding (missing auth, OWASP A01). Resource leak downgraded to code quality note via self-critique (B2 improvement). Precision=0.75 counts 4 true security findings vs 3 planted. Score formula: (1.0×0.5)+(0.75×0.3)+(1.0×0.2)×5 = 4.625"
+      "notes": "Found all 3 planted vulns at correct severity. 1 bonus real finding (missing auth, OWASP A01). Resource leak downgraded to code quality note via self-critique (B2 improvement). Precision=0.75 counts 4 true security findings vs 3 planted. Score formula: (1.0\u00d70.5)+(0.75\u00d70.3)+(1.0\u00d70.2)\u00d75 = 4.625"
     },
     "planning": {
       "score": 4.9,
@@ -52,25 +85,40 @@
         "dependency_ordering": 5,
         "acceptance_criteria": 5
       },
-      "notes": "Prompt: driver hours compliance — warn at 11h, block at 13h. Plan identified: 4 domain types (DrivingSession, ComplianceThreshold, ComplianceStatus, ComplianceEvent), perfect hexagonal placement across 4 layers, 13-step dependency order, 6 edge cases (midnight boundary, timezone, multi-fleet, clock drift, retroactive entry, rest break validation), 5 measurable Given/When/Then ACs. Blast radius assessment solid: new table, new SQS dependency, new endpoint, config keys — minor deduction for not specifying estimated migration cardinality."
+      "notes": "Prompt: driver hours compliance \u2014 warn at 11h, block at 13h. Plan identified: 4 domain types (DrivingSession, ComplianceThreshold, ComplianceStatus, ComplianceEvent), perfect hexagonal placement across 4 layers, 13-step dependency order, 6 edge cases (midnight boundary, timezone, multi-fleet, clock drift, retroactive entry, rest break validation), 5 measurable Given/When/Then ACs. Blast radius assessment solid: new table, new SQS dependency, new endpoint, config keys \u2014 minor deduction for not specifying estimated migration cardinality."
     },
     "learning_retention": {
       "score": 3.0,
       "max": 5,
       "pass": null,
       "delta": null,
-      "notes": "NEUTRAL — no experiment branches exist yet. First real retention score will be 2026-W17+ after weekly-experimenter runs for the first time on Sunday 2026-04-19."
+      "notes": "NEUTRAL \u2014 no experiment branches exist yet. First real retention score will be 2026-W17+ after weekly-experimenter runs for the first time on Sunday 2026-04-19."
     }
   },
-  "overall": 4.35,
+  "overall": 87.0,
   "vs_previous": null,
   "experiment_branch": null,
   "score_breakdown": {
-    "code_generation": {"weight": 0.25, "contribution": 1.25},
-    "context_retrieval": {"weight": 0.25, "contribution": 0.90},
-    "security_review": {"weight": 0.20, "contribution": 0.92},
-    "planning": {"weight": 0.20, "contribution": 0.98},
-    "learning_retention": {"weight": 0.10, "contribution": 0.30}
+    "code_generation": {
+      "weight": 0.25,
+      "contribution": 1.25
+    },
+    "context_retrieval": {
+      "weight": 0.25,
+      "contribution": 0.9
+    },
+    "security_review": {
+      "weight": 0.2,
+      "contribution": 0.92
+    },
+    "planning": {
+      "weight": 0.2,
+      "contribution": 0.98
+    },
+    "learning_retention": {
+      "weight": 0.1,
+      "contribution": 0.3
+    }
   },
   "summary": "Strong baseline. Code generation and planning are near-perfect. Security review finds all planted vulns with low noise. Main opportunity: expand brain vault domain entity coverage to lift context_retrieval from 3.6 to 4.5+. Learning retention will become meaningful from W17 onward."
 }
