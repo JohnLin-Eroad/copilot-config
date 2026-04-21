@@ -66,29 +66,40 @@ case "${1:-}" in
 
   --close)
     ACTIVE=$(git branch --show-current)
-    log "Closing week — merging $ACTIVE → master"
+    log "Closing week — creating PR for $ACTIVE → master"
 
     if [[ "$ACTIVE" != weekly/* ]]; then
       log "⚠️  Not on a weekly branch ($ACTIVE) — aborting close"
       exit 1
     fi
 
-    # Merge current week into master
-    git checkout master
-    git pull origin master --quiet
-    git merge --no-ff "$ACTIVE" -m "chore: merge $ACTIVE into master
+    # Push any remaining changes before opening the PR
+    git push origin "$ACTIVE" --quiet
 
-Weekly experiment branch merged at end of week.
-Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-    git push origin master
-    log "✅ Merged $ACTIVE → master and pushed"
+    # Create PR for review (idempotent — gh will error if PR already exists, which is fine)
+    WEEK=$(echo "$ACTIVE" | sed 's|weekly/||')
+    PR_URL=$(gh pr create \
+      --base master \
+      --head "$ACTIVE" \
+      --title "Weekly config: $WEEK" \
+      --body "Weekly Copilot config changes for $WEEK.
 
-    # Create next week's branch and switch to it so fswatch targets it
+Review and cherry-pick what to merge into master." \
+      --repo "JohnLin-Eroad/copilot-config" 2>&1) && \
+      log "✅ PR created: $PR_URL" || \
+      log "⚠️  PR creation skipped (may already exist): $PR_URL"
+
+    # Create next week's branch from master and switch to it so fswatch targets it
     log "Opening next week: $NEXT_BRANCH"
+    git fetch origin --quiet
     if git show-ref --quiet "refs/heads/$NEXT_BRANCH"; then
       log "Next week's branch already exists — checking out"
       git checkout "$NEXT_BRANCH"
+    elif git show-ref --quiet "refs/remotes/origin/$NEXT_BRANCH"; then
+      git checkout --track "origin/$NEXT_BRANCH"
     else
+      git checkout master
+      git pull origin master --quiet
       git checkout -b "$NEXT_BRANCH"
       git push --set-upstream origin "$NEXT_BRANCH"
       log "✅ Created and pushed $NEXT_BRANCH"
