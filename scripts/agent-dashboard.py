@@ -192,20 +192,27 @@ def get_dashboard_data(stm_path: Path) -> dict:
     entries = parse_stm_entries(content)
     meta = parse_stm_meta(content)
 
-    # Deduplicate agents — keep latest entry per agent, plus full history
+    # Deduplicate agents — keep latest entry per agent, sorted newest-first
     agent_latest: dict[str, dict] = {}
     for e in entries:
         agent_latest[e["agent"]] = e
 
-    # Timeline — last 40 entries, newest first
-    timeline = list(reversed(entries[-40:]))
+    agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
+
+    # Build set of latest timestamps per agent for timeline superseded tagging
+    latest_ts_per_agent = {a["agent"]: a["timestamp"] for a in agents_sorted}
+
+    # Timeline — last 40 entries, newest first; tag superseded (non-latest) entries
+    timeline_raw = list(reversed(entries[-40:]))
+    for e in timeline_raw:
+        e["is_latest"] = (e["timestamp"] == latest_ts_per_agent.get(e["agent"]))
 
     return {
         "stm_path":  str(stm_path),
         "stm_name":  re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "", stm_path.parent.name.replace("-", " ")).title(),
         "meta":      meta,
-        "agents":    list(agent_latest.values()),
-        "timeline":  timeline,
+        "agents":    agents_sorted,
+        "timeline":  timeline_raw,
         "entry_count": len(entries),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
