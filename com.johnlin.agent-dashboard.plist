@@ -8,7 +8,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
+    <string>/Library/Frameworks/Python.framework/Versions/3.12/bin/python3</string>
     <string>/Users/johnlin/.copilot/scripts/agent-dashboard.py</string>
     <string>--port</string>
     <string>8765</string>
