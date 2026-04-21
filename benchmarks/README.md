@@ -58,7 +58,10 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 
 ## Score History
 
-| Week | Overall | Code | Context | Security | Planning | Retention | vs Prev |
-|---|---|---|---|---|---|---|---|
-| **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | 3.0 (N) | baseline |
-| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | 3.0 (N) | +0.265 |
+| Week | Overall | Code | Context | Security | Planning | Workflow | Instr. | Retention | vs Prev |
+|---|---|---|---|---|---|---|---|---|---|
+| **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | — | — | 3.0 (N) | baseline |
+| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | — | — | 3.0 (N) | +0.265 |
+| **2026-W18** *(new weights)* | TBD | — | — | — | — | — | — | — | — |
+
+> **Note:** W16/W17 used old weights (25/25/20/20/10). From W18 onward, new weights apply (20/20/20/15/15/5/5). Scores are **not comparable** across this boundary — treat W18 as a new baseline.
