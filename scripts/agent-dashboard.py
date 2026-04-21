@@ -271,7 +271,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 /* ── Pipeline diagram ── */
 #pipeline-wrap{position:relative;overflow-x:auto;margin-bottom:24px}
-#pipeline-svg{display:block;min-height:120px}
+#pipeline-svg{display:block;min-height:240px}
 
 /* ── Agent cards ── */
 .agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:24px}
