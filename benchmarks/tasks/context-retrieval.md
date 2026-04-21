@@ -41,7 +41,7 @@ Provide the STM content and the input prompt.
 - Explicit gaps handled: Pass=1, Fail=0
 - No hallucination: Pass=1, Fail=0
 
-**Composite:** (accuracy/5 × 0.5) + (other 3 pass/fail × 0.167 each) → 0.0–1.0, then × 5 for 1–5 scale
+**Composite:** (accuracy/5 × 0.5) + (other 3 pass/fail × 0.167 each) → 0.0–1.0, then × 100 for 1–100 scale
 
 ## What Good Looks Like (Score 5)
 
