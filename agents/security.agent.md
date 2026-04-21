@@ -115,6 +115,29 @@ Not every code quality issue is a security vulnerability. Apply this filter firs
 
 ## Output Format
 
+Always produce findings in this structure:
+
+```json
+{
+  "verdict": "PASS | WARN | BLOCK",
+  "findings": [
+    {
+      "id": "SEC-001",
+      "severity": "CRITICAL | HIGH | MEDIUM | LOW",
+      "title": "Short title",
+      "location": "file:line or component",
+      "description": "What the vulnerability is",
+      "recommendation": "How to fix it"
+    }
+  ],
+  "summary": "One paragraph overall assessment"
+}
+```
+
+- **BLOCK**: Any CRITICAL finding → do not promote
+- **WARN**: HIGH findings only → escalate for human review
+- **PASS**: MEDIUM/LOW only → document but allow promotion
+
 Each finding MUST be written as a structured entry first, then summarised in the prose verdict block.
 
 ### Part 1 — Structured Findings (machine-readable)

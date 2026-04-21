@@ -254,6 +254,20 @@ Follow the same protocol: check the manifest, search, fetch only new files, upda
 
 ---
 
+## Required Output: Negative Context
+
+After listing what WAS found in the brain, always output a `## [STM] Negative Context` section listing what was NOT found:
+
+```
+## [STM] Negative Context
+The following topics were searched but NOT found in the brain vault:
+- {topic 1}: searched {files/clusters checked}, result: not found
+- {topic 2}: ...
+Do NOT speculate on these topics. If any are critical, emit PIPELINE_SIGNAL: NEED_DATA.
+```
+
+---
+
 ## Output Signal
 
 When retrieval is complete, output:
