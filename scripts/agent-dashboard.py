@@ -490,95 +490,128 @@ function relTime(isoStr) {
   } catch { return ""; }
 }
 
-// ── Pipeline SVG ─────────────────────────────────────────────────────────────
+// ── Pipeline tree (orchestrator root → children row) ─────────────────────────
 function drawPipeline(agents) {
   const svg = document.getElementById("pipeline-svg");
   if (!agents || agents.length === 0) {
-    svg.innerHTML = '<text x="50%" y="55" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+    svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
     return;
   }
 
-  const W = svg.clientWidth || 800;
-  const H = 110;
-  const R = 28;
-  const order = ["orchestrator", "brain-data-retrieval", ...agents.map(a=>a.agent).filter(
-    n => !["orchestrator","brain-data-retrieval","brain-consolidation"].includes(n)
-  ), "brain-consolidation"];
-  // Unique preserving order
-  const seen = new Set();
-  const nodes = order.filter(n => { if(seen.has(n)) return false; seen.add(n); return true; });
+  const W   = svg.clientWidth || 800;
+  const H   = 240;
+  const R   = 26;         // node radius
+  const ROOT_Y  = 44;     // orchestrator Y centre
+  const CHILD_Y = 160;    // children Y centre
+  const LABEL_PAD = 16;   // label below node
 
-  const cx = (i) => (W / (nodes.length + 1)) * (i + 1);
-  const cy = H / 2;
+  // Split into root + children
+  const ROOT = "orchestrator";
+  const children = agents.map(a => a.agent).filter(n => n !== ROOT);
+  // Deduplicate, preserve insertion order
+  const seen = new Set();
+  const childNodes = children.filter(n => { if (seen.has(n)) return false; seen.add(n); return true; });
+
+  const rootEntry   = agents.find(a => a.agent === ROOT);
+  const rootActive  = rootEntry?.status === "in_progress" || rootEntry?.status === "starting";
+  const rootDone    = rootEntry?.status === "complete";
+  const rootBlocked = rootEntry?.status === "blocked" || rootEntry?.status === "failed";
+
+  // X positions for children — evenly spaced
+  const gap   = Math.min(120, (W - 60) / Math.max(childNodes.length, 1));
+  const totalW = gap * (childNodes.length - 1);
+  const startX = W / 2 - totalW / 2;
+  const childX = (i) => startX + i * gap;
 
   let html = `<defs>
-    <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
-      markerWidth="6" markerHeight="6" orient="auto">
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="5" markerHeight="5" orient="auto">
       <path d="M0,0 L10,5 L0,10 Z" fill="#1e2d45"/>
     </marker>
   </defs>`;
 
-  // Draw connections first (behind nodes)
-  for (let i = 0; i < nodes.length - 1; i++) {
-    const x1 = cx(i) + R, x2 = cx(i+1) - R;
-    const agentEntry = agents.find(a => a.agent === nodes[i]);
-    const isActive = agentEntry?.status === "in_progress" || agentEntry?.status === "starting";
-    const col = isActive ? agentColor(nodes[i]) : "#1e2d45";
-    html += `<line x1="${x1}" y1="${cy}" x2="${x2}" y2="${cy}"
-      stroke="${col}" stroke-width="${isActive ? 2 : 1}" marker-end="url(#arrow)"
-      stroke-dasharray="${isActive ? 'none' : '4 3'}" opacity="${isActive ? 1 : 0.4}">
-      ${isActive ? `<animate attributeName="stroke-dashoffset" values="0;-100" dur="2s" repeatCount="indefinite"/>` : ''}
-    </line>`;
+  // ── Edges: orchestrator → each child ────────────────────────────────────────
+  for (let i = 0; i < childNodes.length; i++) {
+    const n   = childNodes[i];
+    const cx2 = childX(i);
+    const childEntry   = agents.find(a => a.agent === n);
+    const childActive  = childEntry?.status === "in_progress" || childEntry?.status === "starting";
+    const childDone    = childEntry?.status === "complete";
+
+    // Edge colour: active edge if either end is active; done if child done
+    const edgeActive = rootActive || childActive;
+    const col = edgeActive ? agentColor(n)
+              : childDone  ? "#34d399"
+              : "#1e2d45";
+    const opacity  = edgeActive ? 1 : childDone ? 0.5 : 0.25;
+    const strokeW  = edgeActive ? 2 : 1;
+
+    // Curved bezier: from bottom of root to top of child
+    const x1 = W / 2, y1 = ROOT_Y + R;
+    const x2 = cx2,   y2 = CHILD_Y - R;
+    const cpY = (y1 + y2) / 2;
+
+    html += `<path d="M${x1},${y1} C${x1},${cpY} ${x2},${cpY} ${x2},${y2}"
+      fill="none" stroke="${col}" stroke-width="${strokeW}"
+      marker-end="url(#arr)" opacity="${opacity}"
+      stroke-dasharray="${edgeActive ? '6 3' : '4 3'}">
+      ${edgeActive ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
+    </path>`;
   }
 
-  // Draw nodes on top
-  for (let i = 0; i < nodes.length; i++) {
-    const n = nodes[i];
-    const agentEntry = agents.find(a => a.agent === n);
-    const col = agentColor(n);
-    const sm = statusMeta(agentEntry?.status || "idle");
-    const isActive = agentEntry?.status === "in_progress" || agentEntry?.status === "starting";
-    const isDone   = agentEntry?.status === "complete";
-    const isBlocked= agentEntry?.status === "blocked" || agentEntry?.status === "failed";
+  // ── Node renderer ────────────────────────────────────────────────────────────
+  function nodeHtml(name, x, y, entry) {
+    const col      = agentColor(name);
+    const sm       = statusMeta(entry?.status || "idle");
+    const isActive = entry?.status === "in_progress" || entry?.status === "starting";
+    const isDone   = entry?.status === "complete";
+    const isBlocked= entry?.status === "blocked" || entry?.status === "failed";
 
-    const fill = isActive ? `rgba(${hexToRgb(col)},0.2)` :
-                 isDone   ? `rgba(52,211,153,0.1)` :
-                 isBlocked? `rgba(248,113,113,0.1)` : "#111827";
+    const fill   = isActive ? `rgba(${hexToRgb(col)},0.18)`
+                 : isDone   ? `rgba(52,211,153,0.1)`
+                 : isBlocked? `rgba(248,113,113,0.1)` : "#111827";
     const stroke = isActive ? col : isDone ? "#34d399" : isBlocked ? "#f87171" : "#1e2d45";
-    const strokeW = isActive ? 2.5 : 1.5;
+    const sW     = isActive ? 2.5 : 1.5;
+    const short  = name.replace("brain-data-retrieval","brain-ret.")
+                       .replace("brain-consolidation","brain-cons.")
+                       .replace(/-/g, " ");
 
-    html += `<g class="pipeline-node">`;
+    let g = `<g>`;
+    // Pulse ring for active
     if (isActive) {
-      html += `<circle cx="${cx(i)}" cy="${cy}" r="${R+6}" fill="none"
-        stroke="${col}" stroke-width="1" opacity="0.3">
-        <animate attributeName="r" values="${R+3};${R+9};${R+3}" dur="1.8s" repeatCount="indefinite"/>
+      g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3">
+        <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
       </circle>`;
     }
-    html += `<circle cx="${cx(i)}" cy="${cy}" r="${R}" fill="${fill}"
-      stroke="${stroke}" stroke-width="${strokeW}"
-      ${isActive ? `filter="url(#glow)"` : ''}/>`;
-    html += `<text x="${cx(i)}" y="${cy+1}" text-anchor="middle" dominant-baseline="middle"
-      font-size="16">${agentEmoji(n)}</text>`;
-    // Label below
-    const shortName = n.replace("brain-","").replace("-retrieval","ret.").replace("-consolidation","cons.");
-    html += `<text x="${cx(i)}" y="${cy+R+14}" text-anchor="middle"
-      font-size="9" fill="${isActive ? col : '#64748b'}" font-family="system-ui">
-      ${shortName}</text>`;
-
-    // Status dot
-    if (agentEntry) {
-      html += `<circle cx="${cx(i)+R-6}" cy="${cy-R+6}" r="5"
-        fill="${sm.color}" stroke="#0a0d14" stroke-width="1.5">
-        ${isActive ? `<animate attributeName="opacity" values="1;0.4;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
+    g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}" stroke-width="${sW}"
+      ${isActive ? 'filter="url(#glow)"' : ''}/>`;
+    g += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="15">${agentEmoji(name)}</text>`;
+    // Label
+    g += `<text x="${x}" y="${y + R + LABEL_PAD}" text-anchor="middle"
+      font-size="9" fill="${isActive ? col : isDone ? '#34d399' : '#64748b'}" font-family="system-ui,sans-serif">${short}</text>`;
+    // Status dot (top-right of circle)
+    if (entry) {
+      g += `<circle cx="${x+R-5}" cy="${y-R+5}" r="5" fill="${sm.color}" stroke="#0a0d14" stroke-width="1.5">
+        ${isActive ? `<animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
       </circle>`;
     }
-
-    html += `</g>`;
+    g += `</g>`;
+    return g;
   }
+
+  // ── Draw children first (behind root visually if they overlap) ───────────────
+  for (let i = 0; i < childNodes.length; i++) {
+    const entry = agents.find(a => a.agent === childNodes[i]);
+    html += nodeHtml(childNodes[i], childX(i), CHILD_Y, entry);
+  }
+
+  // ── Draw root (orchestrator) on top ─────────────────────────────────────────
+  html += nodeHtml(ROOT, W / 2, ROOT_Y, rootEntry);
 
   svg.innerHTML = html;
 }
