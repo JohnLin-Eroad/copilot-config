@@ -303,6 +303,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   animation:shimmer 2s ease-in-out infinite}
 @keyframes shimmer{0%{left:-100%}100%{left:150%}}
 
+/* ── Stale card ── */
+.agent-card.stale{opacity:0.55;filter:grayscale(0.4)}
+.stale-badge{font-size:0.65rem;padding:2px 7px;border-radius:99px;
+  background:rgba(100,116,139,0.18);color:var(--text3);border:1px solid rgba(100,116,139,0.25);
+  display:inline-flex;align-items:center;gap:3px}
+
 /* ── Timeline ── */
 .timeline-entry{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);
   animation:slide-in .3s ease}
