@@ -804,7 +804,7 @@ async function fetchStatus() {
     renderStats(data);
     drawPipeline(data.agents);
     renderAgentCards(data.agents);
-    renderTimeline(data.timeline);
+    renderTimeline(data.timeline, data.stm_path);
     renderStmSections(data);
   } catch(e) {
     errorCount++;
