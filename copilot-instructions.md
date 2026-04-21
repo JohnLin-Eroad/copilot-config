@@ -472,9 +472,14 @@ Skills are shared instruction sets loaded via the `skill` tool. Use this table a
 | Evaluating a plan, architecture, or multi-file proposal | `critical-thinker` | After drafting the plan, **before presenting it to John** |
 | Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
 | Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
+| Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
 | Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
 | Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
 | Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |
+| Implementing code when acceptance criteria exist | `tdd-workflow` | Before developer/qa-engineer writes any implementation code |
+| Any change touching >2 files, shared interface, or DB schema | `blast-radius` | Before implementation — assess impact first |
+| blast-radius returns MEDIUM, HIGH, or CRITICAL | `rollback-plan` | Immediately after blast-radius verdict — document undo path before proceeding |
+| STM exceeds 200KB or agent context is degrading | `context-compression` | Before passing STM to next agent; when orchestrator notices long pipeline |
 
 ### Hard auto-invoke rules — fire WITHOUT being asked
 
