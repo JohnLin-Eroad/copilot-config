@@ -66,6 +66,22 @@ Read the task definition from `tasks/code-generation.md`.
 2. Read the output
 3. Score each of the 5 dimensions (1–5) with explicit reasoning
 4. Record average score
+5. Save trace:
+
+```bash
+cat > "$TRACES/code-generation.md" << 'EOF'
+# Trace: Code Generation — {WEEK}
+
+## Prompt Sent
+{exact prompt from task definition}
+
+## Raw Output
+{full unedited output from the agent}
+
+## Failure Observations
+{what scored < 5 and why — or "None — full marks" if perfect}
+EOF
+```
 
 ---
 
@@ -78,6 +94,25 @@ Read the task definition from `tasks/context-retrieval.md`.
 3. Ask the question to a general agent with the STM
 4. Score: brain data used (0/1) + accuracy (1–5) + gaps handled (0/1) + no hallucination (0/1)
 5. Convert to 1–5 composite score using the formula in the task definition
+6. Save trace:
+
+```bash
+cat > "$TRACES/context-retrieval.md" << 'EOF'
+# Trace: Context Retrieval — {WEEK}
+
+## Prompt Sent
+{exact prompt from task definition}
+
+## Files Fetched from Brain
+{list of files the brain-data-retrieval agent pulled}
+
+## Raw Output
+{full unedited answer from the agent}
+
+## Failure Observations
+{gaps, hallucinations, or missed files — or "None" if clean}
+EOF
+```
 
 ---
 
@@ -91,6 +126,28 @@ Read the task definition from `tasks/security-review.md`.
 4. The 3 planted vulnerabilities are: SQL injection, PII exposure in response, password reflection in error
 5. Calculate recall and precision
 6. Convert to 1–5 score using the formula in the task definition
+7. Save trace:
+
+```bash
+cat > "$TRACES/security-review.md" << 'EOF'
+# Trace: Security Review — {WEEK}
+
+## Code Submitted
+{the test code sent to the agent}
+
+## Raw Findings Output
+{full unedited findings from the security agent}
+
+## Vulnerability Mapping
+- SQL injection: {FOUND | MISSED}
+- PII exposure: {FOUND | MISSED}
+- Password reflection: {FOUND | MISSED}
+- False positives: {list or "None"}
+
+## Failure Observations
+{what was missed and why — or "None" if full recall}
+EOF
+```
 
 ---
 
@@ -102,6 +159,22 @@ Read the task definition from `tasks/planning.md`.
 2. Read the plan that is produced
 3. Score each of the 6 dimensions (1–5) with explicit reasoning
 4. Record average score
+5. Save trace:
+
+```bash
+cat > "$TRACES/planning.md" << 'EOF'
+# Trace: Planning — {WEEK}
+
+## Prompt Sent
+{exact prompt from task definition}
+
+## Raw Plan Output
+{full unedited plan from the orchestrator}
+
+## Failure Observations
+{dimensions that scored < 5 and why — or "None"}
+EOF
+```
 
 ---
 
@@ -114,6 +187,25 @@ Read the task definition from `tasks/learning-retention.md`.
 3. Run that task on the `weekly/YYYY-WXX` branch (with experiment changes) vs `main`
 4. Compare the scores and assign retention score (1–5)
 5. If no experiments: score 3 (NEUTRAL)
+6. Save trace:
+
+```bash
+cat > "$TRACES/learning-retention.md" << 'EOF'
+# Trace: Learning Retention — {WEEK}
+
+## Experiment Tested
+{experiment title and branch, or "No experiments this week"}
+
+## Baseline Output (main)
+{raw output on main branch}
+
+## Experiment Output (weekly/WEEK branch)
+{raw output on experiment branch}
+
+## Failure Observations
+{what didn't transfer or regressed — or "No experiment to test"}
+EOF
+```
 
 ---
 
