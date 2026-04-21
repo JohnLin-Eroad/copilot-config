@@ -107,38 +107,53 @@ Classification:
         encoding="utf-8",
     )
 
-    # Find the next available port starting from 7700 (auto-resets when all STMs closed)
+    # Open the persistent agent-dashboard (port 8765, always running via LaunchD).
+    # It auto-detects the latest STM — no need to spin up a per-task process.
     import socket
-    BASE_PORT = 7700
-    MAX_PARALLEL = 10  # ports 7700–7709
+    AGENT_DASHBOARD_PORT = 8765
 
-    if port_override:
-        DASHBOARD_PORT = port_override
-    else:
-        DASHBOARD_PORT = BASE_PORT
-        for p in range(BASE_PORT, BASE_PORT + MAX_PARALLEL):
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                if s.connect_ex(("localhost", p)) != 0:
-                    DASHBOARD_PORT = p  # port is free, use it
-                    break
+    import time
+    dashboard_up = False
+    for _ in range(5):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(("localhost", AGENT_DASHBOARD_PORT)) == 0:
+                dashboard_up = True
+                break
+        time.sleep(0.5)
 
-    # Launch dashboard on fixed port 7700 + open in browser
-    # Use start_new_session=True so it survives shell session end (equivalent to nohup)
-    if DASHBOARD_SCRIPT.exists():
+    if dashboard_up:
         subprocess.Popen(
-            [
-                "python3", str(DASHBOARD_SCRIPT),
-                str(stm_path),
-                "--port", str(DASHBOARD_PORT),
-                "--no-open",  # stm-init opens the browser; avoid double tab
-            ],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
+            ["open", f"http://localhost:{AGENT_DASHBOARD_PORT}"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        import time; time.sleep(0.8)
-        subprocess.Popen(["open", f"http://localhost:{DASHBOARD_PORT}"],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    else:
+        # Fallback: launch the old per-task STM dashboard if agent-dashboard isn't available
+        BASE_PORT = 7700
+        MAX_PARALLEL = 10
+        DASHBOARD_PORT = port_override or BASE_PORT
+        if not port_override:
+            for p in range(BASE_PORT, BASE_PORT + MAX_PARALLEL):
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    if s.connect_ex(("localhost", p)) != 0:
+                        DASHBOARD_PORT = p
+                        break
+        if DASHBOARD_SCRIPT.exists():
+            subprocess.Popen(
+                [
+                    "python3", str(DASHBOARD_SCRIPT),
+                    str(stm_path),
+                    "--port", str(DASHBOARD_PORT),
+                    "--no-open",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            time.sleep(0.8)
+            subprocess.Popen(
+                ["open", f"http://localhost:{DASHBOARD_PORT}"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
 
     # Print paths for orchestrator to capture
     print(f"STM_PATH={stm_path}")
