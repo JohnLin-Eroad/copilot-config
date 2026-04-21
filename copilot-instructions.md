@@ -500,7 +500,7 @@ Skills are shared instruction sets loaded via the `skill` tool. Use this table a
 | Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
 | Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
 | Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
-| Background agent: `elapsed > 100s` AND `total_turns == 0` | `unstick` | **Immediately** — agent is deadlocked; do the work directly instead |
+| Background agent: `elapsed > 15s` AND `0 changes made` | `unstick` | **Immediately** — agent is deadlocked; do the work directly instead |
 | Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
 | Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
 | Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |
