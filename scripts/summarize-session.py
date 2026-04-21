@@ -10,10 +10,7 @@ Called automatically by the zsh copilot() wrapper after gh copilot exits.
 import json
 import os
 import re
-import ssl
 import sys
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
