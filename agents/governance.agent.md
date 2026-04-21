@@ -6,6 +6,7 @@ description: >
   GovernanceEngine policy rules and audit trail in the ~/sovereign platform.
 model: claude-opus-4.7
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -96,3 +97,17 @@ return GovernanceDecision.allow();
 ```
 
 After editing, rebuild: `cd ~/sovereign && mvn clean install -DskipTests -pl api/application`
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.

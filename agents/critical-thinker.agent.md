@@ -6,6 +6,7 @@ description: >
   risks and strengths with a direct, balanced assessment before committing.
 model: claude-opus-4.7
 tools:
+  - task
   - read_file
   - list_directory
   - run_command
@@ -68,3 +69,17 @@ curl -s http://localhost:8080/roles | python3 -c "import sys,json; d=json.load(s
 - Constructive. Every issue should hint at a path forward.
 - Concise. A sharp review beats an exhaustive one.
 - Avoid analysis paralysis. The goal is better decisions, not endless critique.
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.

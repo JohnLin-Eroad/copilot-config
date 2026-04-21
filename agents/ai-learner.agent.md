@@ -7,6 +7,7 @@ description: >
   ~/AI-understandings/10 - Weekly Learnings/. Commits and pushes to GitHub.
 model: claude-haiku-4.5
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -207,3 +208,17 @@ echo "Weekly learnings committed and pushed for $WEEK"
 echo "$(date '+%Y-%m-%d %H:%M:%S') ai-learner completed for $WEEK" >> ~/.copilot/logs/ai-learner.log
 echo "Note written: $OUTPUT" >> ~/.copilot/logs/ai-learner.log
 ```
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.

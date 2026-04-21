@@ -6,6 +6,7 @@ description: >
   readiness and generates structured findings for the platform.
 model: claude-haiku-4.5
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -100,3 +101,17 @@ Key entities and their relationships.
 
 Check `~/.copilot/brain/01 - Services/` for known EROAD services.
 Use `gh repo list eroad --limit 100` to discover all repos in the org.
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
