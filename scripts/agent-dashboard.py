@@ -632,10 +632,9 @@ function renderAgentCards(agents) {
   }).join("");
 }
 
-// ── Timeline (incremental — no full re-renders) ───────────────────────────────
-// Maps "agent@timestamp" → last-known is_latest value. Cleared on STM switch.
+// ── Timeline (append-only — entries are never removed) ────────────────────────
+// Maps "agent@timestamp" → last-known is_latest value.
 const tlState = new Map();
-let tlStmPath = null;
 
 function buildTimelineEl(e) {
   const sm = statusMeta(e.status);
@@ -657,38 +656,35 @@ function buildTimelineEl(e) {
   return el;
 }
 
-function renderTimeline(timeline, stmPath) {
+function renderTimeline(timeline) {
   const tl = document.getElementById("timeline");
 
-  // STM switched → full reset
-  if (stmPath !== tlStmPath) {
-    tl.innerHTML = '';
-    tlState.clear();
-    tlStmPath = stmPath;
-  }
-
   if (!timeline || timeline.length === 0) {
-    if (!tl.children.length) {
-      tl.innerHTML = `<div style="color:#475569;font-size:0.8rem;padding:16px 0">No activity yet</div>`;
+    if (!tl.querySelector('.timeline-entry')) {
+      tl.innerHTML = `<div class="tl-empty" style="color:#475569;font-size:0.8rem;padding:16px 0">No activity yet</div>`;
     }
     return;
   }
 
-  // Remove "no activity" placeholder if present
-  const placeholder = tl.querySelector("div:not(.timeline-entry)");
-  if (placeholder) placeholder.remove();
+  // Remove placeholder if present
+  tl.querySelector('.tl-empty')?.remove();
 
-  // Pass 1 — prepend genuinely new entries (API is newest-first; iterate oldest-first to prepend)
-  for (let i = timeline.length - 1; i >= 0; i--) {
-    const e = timeline[i];
+  // Pass 1 — prepend new entries (API is newest-first; collect then prepend oldest-first)
+  const newEntries = [];
+  for (const e of timeline) {
     const key = `${e.agent}@${e.timestamp}`;
     if (!tlState.has(key)) {
-      tl.prepend(buildTimelineEl(e));
-      tlState.set(key, e.is_latest);
+      newEntries.push(e);
     }
   }
+  // Prepend oldest-first so newest ends up at top
+  for (let i = newEntries.length - 1; i >= 0; i--) {
+    const e = newEntries[i];
+    tl.prepend(buildTimelineEl(e));
+    tlState.set(`${e.agent}@${e.timestamp}`, e.is_latest);
+  }
 
-  // Pass 2 — patch is_latest changes in-place (entry went latest→superseded)
+  // Pass 2 — patch is_latest changes in-place (entry went latest → superseded)
   for (const e of timeline) {
     const key = `${e.agent}@${e.timestamp}`;
     if (tlState.get(key) !== e.is_latest) {
