@@ -632,30 +632,85 @@ function renderAgentCards(agents) {
   }).join("");
 }
 
-// ── Timeline ─────────────────────────────────────────────────────────────────
-function renderTimeline(timeline) {
+// ── Timeline (incremental — no full re-renders) ───────────────────────────────
+// Maps "agent@timestamp" → last-known is_latest value. Cleared on STM switch.
+const tlState = new Map();
+let tlStmPath = null;
+
+function buildTimelineEl(e) {
+  const sm = statusMeta(e.status);
+  const superseded = e.is_latest === false;
+  const el = document.createElement("div");
+  el.className = `timeline-entry${superseded ? ' superseded' : ''}`;
+  el.dataset.key = `${e.agent}@${e.timestamp}`;
+  el.innerHTML = `
+    <div class="tl-dot" style="background:${superseded ? '#334155' : sm.color}"></div>
+    <div class="tl-content">
+      <div>
+        <span class="tl-agent">${agentEmoji(e.agent)} ${e.agent}</span>
+        <span class="tl-status" style="background:${sm.color}18;color:${sm.color}">${sm.label}</span>
+        ${superseded ? `<span class="superseded-badge">history</span>` : ''}
+      </div>
+      ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : ''}
+    </div>
+    <div class="tl-time">${relTime(e.timestamp)}</div>`;
+  return el;
+}
+
+function renderTimeline(timeline, stmPath) {
   const tl = document.getElementById("timeline");
+
+  // STM switched → full reset
+  if (stmPath !== tlStmPath) {
+    tl.innerHTML = '';
+    tlState.clear();
+    tlStmPath = stmPath;
+  }
+
   if (!timeline || timeline.length === 0) {
-    tl.innerHTML = `<div style="color:#475569;font-size:0.8rem;padding:16px 0">No activity yet</div>`;
+    if (!tl.children.length) {
+      tl.innerHTML = `<div style="color:#475569;font-size:0.8rem;padding:16px 0">No activity yet</div>`;
+    }
     return;
   }
-  tl.innerHTML = timeline.map(e => {
-    const col = agentColor(e.agent);
-    const sm  = statusMeta(e.status);
-    const superseded = e.is_latest === false;
-    return `<div class="timeline-entry${superseded ? ' superseded' : ''}">
-      <div class="tl-dot" style="background:${superseded ? '#334155' : sm.color}"></div>
-      <div class="tl-content">
-        <div>
-          <span class="tl-agent">${agentEmoji(e.agent)} ${e.agent}</span>
-          <span class="tl-status" style="background:${sm.color}18;color:${sm.color}">${sm.label}</span>
-          ${superseded ? `<span class="superseded-badge">history</span>` : ''}
-        </div>
-        ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : ''}
-      </div>
-      <div class="tl-time">${relTime(e.timestamp)}</div>
-    </div>`;
-  }).join("");
+
+  // Remove "no activity" placeholder if present
+  const placeholder = tl.querySelector("div:not(.timeline-entry)");
+  if (placeholder) placeholder.remove();
+
+  // Pass 1 — prepend genuinely new entries (API is newest-first; iterate oldest-first to prepend)
+  for (let i = timeline.length - 1; i >= 0; i--) {
+    const e = timeline[i];
+    const key = `${e.agent}@${e.timestamp}`;
+    if (!tlState.has(key)) {
+      tl.prepend(buildTimelineEl(e));
+      tlState.set(key, e.is_latest);
+    }
+  }
+
+  // Pass 2 — patch is_latest changes in-place (entry went latest→superseded)
+  for (const e of timeline) {
+    const key = `${e.agent}@${e.timestamp}`;
+    if (tlState.get(key) !== e.is_latest) {
+      const el = tl.querySelector(`[data-key="${CSS.escape(key)}"]`);
+      if (el) {
+        const sm = statusMeta(e.status);
+        const superseded = e.is_latest === false;
+        el.classList.toggle('superseded', superseded);
+        el.querySelector('.tl-dot').style.background = superseded ? '#334155' : sm.color;
+        const badge = el.querySelector('.superseded-badge');
+        if (superseded && !badge) {
+          const b = document.createElement('span');
+          b.className = 'superseded-badge';
+          b.textContent = 'history';
+          el.querySelector('.tl-content > div')?.appendChild(b);
+        } else if (!superseded && badge) {
+          badge.remove();
+        }
+      }
+      tlState.set(key, e.is_latest);
+    }
+  }
 }
 
 // ── STM Sections (left sidebar) ───────────────────────────────────────────────
