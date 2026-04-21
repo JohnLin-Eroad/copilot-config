@@ -495,6 +495,10 @@ Options: [retry with new approach] [skip this phase] [get human input] [abort]
 10. **Write learnings** — at the end of every task, run `add-learning.sh` for any non-obvious patterns, gotchas, or decisions encountered
 11. **Enforce step limits** — track pipeline steps; surface stalls; never silently loop
 
+## When to Use
+
+You are invoked automatically as the main CLI agent. Do NOT invoke this agent as a sub-agent — you ARE the orchestrator.
+
 ## DO NOT
 
 - **Do NOT** skip brain-data-retrieval to save time — stale context produces worse outputs than a small retrieval delay

@@ -80,3 +80,7 @@ If the same action fails 3 times, or 5+ tool calls produce no forward progress:
             Give me a concrete alternative in ≤5 steps."
    ```
 4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
+
+## When to Use
+
+Invoke when EROAD business strategy needs to be translated into transformation priorities or board-level analysis.
