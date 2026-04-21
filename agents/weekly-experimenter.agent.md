@@ -1,10 +1,11 @@
 ---
 name: weekly-experimenter
 description: >
-  Weekly Experiment Agent. Reads the latest AI Learning weekly note, identifies
-  actionable improvements to the Copilot setup, creates a branch weekly/YYYY-WXX
-  in copilot-config, implements low-blast-radius experiments, and writes an
-  experiment summary to copilot-config/experiments/YYYY-WXX.md.
+  Weekly Experiment Agent. Reads prior harness candidates, benchmark scores, and
+  execution traces to diagnose failures, then reads the latest AI Learning weekly
+  note for improvement ideas. Creates a branch weekly/YYYY-WXX in copilot-config,
+  implements trace-informed low-blast-radius experiments, and writes an experiment
+  summary to copilot-config/experiments/YYYY-WXX.md.
 model: claude-sonnet-4.6
 tools:
   - read_file
