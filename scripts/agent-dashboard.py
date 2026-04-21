@@ -166,7 +166,7 @@ def parse_stm_meta(content: str) -> dict:
     brief = re.search(r"## \[STM\] Task Brief\n(.*?)(?=\n## |\Z)", content, re.DOTALL)
     if brief:
         meta["sections"]["Task Brief"] = brief.group(1).strip()
-        task_m = re.search(r"\*\*Task\*\*:\s*(.+)", brief.group(1))
+        task_m = re.search(r"(?:\*\*Task\*\*|Task):\s*(.+)", brief.group(1))
         if task_m:
             meta["task"] = task_m.group(1).strip()
         brain_m = re.search(r"BRAIN_TYPE:\s*(\w+)", brief.group(1))
