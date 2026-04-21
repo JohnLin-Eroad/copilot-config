@@ -306,6 +306,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 /* ── Timeline ── */
 .timeline-entry{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);
   animation:slide-in .3s ease}
+.timeline-entry.superseded{opacity:0.38}
+.timeline-entry.superseded .tl-agent{color:var(--text3)}
+.superseded-badge{font-size:0.62rem;padding:1px 5px;border-radius:3px;
+  background:rgba(100,116,139,0.15);color:var(--text3);margin-left:6px;vertical-align:middle}
 @keyframes slide-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
 .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
 .tl-content{flex:1;min-width:0}
