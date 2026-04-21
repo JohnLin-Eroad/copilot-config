@@ -490,38 +490,55 @@ function relTime(isoStr) {
   } catch { return ""; }
 }
 
-// ── Pipeline tree (orchestrator root → children row) ─────────────────────────
-function drawPipeline(agents) {
+// ── Pipeline tree (orchestrator root → children row + handoff arrows) ─────────
+function drawPipeline(agents, timeline) {
   const svg = document.getElementById("pipeline-svg");
   if (!agents || agents.length === 0) {
     svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
     return;
   }
 
-  const W   = svg.clientWidth || 800;
-  const H   = 240;
-  const R   = 26;         // node radius
-  const ROOT_Y  = 44;     // orchestrator Y centre
-  const CHILD_Y = 160;    // children Y centre
-  const LABEL_PAD = 16;   // label below node
+  const W        = svg.clientWidth || 800;
+  const R        = 26;
+  const ROOT_Y   = 44;
+  const CHILD_Y  = 150;
+  const LABEL_PAD= 16;
+  const ROOT     = "orchestrator";
 
-  // Split into root + children
-  const ROOT = "orchestrator";
-  const children = agents.map(a => a.agent).filter(n => n !== ROOT);
-  // Deduplicate, preserve insertion order
+  // Child nodes in appearance order (deduplicated)
   const seen = new Set();
-  const childNodes = children.filter(n => { if (seen.has(n)) return false; seen.add(n); return true; });
+  const childNodes = (timeline || [])
+    .map(e => e.agent)
+    .filter(n => n !== ROOT && !seen.has(n) && seen.add(n));
 
-  const rootEntry   = agents.find(a => a.agent === ROOT);
-  const rootActive  = rootEntry?.status === "in_progress" || rootEntry?.status === "starting";
-  const rootDone    = rootEntry?.status === "complete";
-  const rootBlocked = rootEntry?.status === "blocked" || rootEntry?.status === "failed";
+  // Build handoff edges from Next: field (exclude orchestrator and "none")
+  const knownAgents = new Set([ROOT, ...childNodes]);
+  const handoffEdges = []; // {from, to, done}
+  const edgeSeen = new Set();
+  for (const e of (timeline || [])) {
+    const next = (e.next || "").trim().toLowerCase().replace(/^none$/, "");
+    if (!next || e.agent === ROOT) continue;
+    // next can be comma-separated
+    for (const target of next.split(/[,\s]+/)) {
+      if (!knownAgents.has(target) || target === e.agent || target === ROOT) continue;
+      const key = `${e.agent}→${target}`;
+      if (edgeSeen.has(key)) continue;
+      edgeSeen.add(key);
+      const targetEntry = agents.find(a => a.agent === target);
+      const done = targetEntry?.status === "complete";
+      handoffEdges.push({ from: e.agent, to: target, done });
+    }
+  }
 
-  // X positions for children — evenly spaced
-  const gap   = Math.min(120, (W - 60) / Math.max(childNodes.length, 1));
+  // X positions for children
+  const gap    = Math.min(120, (W - 80) / Math.max(childNodes.length, 1));
   const totalW = gap * (childNodes.length - 1);
   const startX = W / 2 - totalW / 2;
-  const childX = (i) => startX + i * gap;
+  const cx     = (name) => startX + childNodes.indexOf(name) * gap;
+
+  // SVG height: expand if we have handoff arrows below
+  const H = handoffEdges.length > 0 ? 260 : 220;
+  svg.setAttribute("height", H);
 
   let html = `<defs>
     <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
@@ -532,34 +549,59 @@ function drawPipeline(agents) {
       markerWidth="5" markerHeight="5" orient="auto">
       <path d="M0,0 L10,5 L0,10 Z" fill="#1e2d45"/>
     </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#34d399"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5"
+      markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#6c8ef7"/>
+    </marker>
   </defs>`;
 
-  // ── Edges: orchestrator → each child ────────────────────────────────────────
-  for (let i = 0; i < childNodes.length; i++) {
-    const n   = childNodes[i];
-    const cx2 = childX(i);
-    const childEntry   = agents.find(a => a.agent === n);
-    const childActive  = childEntry?.status === "in_progress" || childEntry?.status === "starting";
-    const childDone    = childEntry?.status === "complete";
+  // ── Orchestrator → child edges (curved bezier, top half) ───────────────────
+  for (const n of childNodes) {
+    const entry      = agents.find(a => a.agent === n);
+    const childActive= entry?.status === "in_progress" || entry?.status === "starting";
+    const childDone  = entry?.status === "complete";
+    const rootEntry  = agents.find(a => a.agent === ROOT);
+    const rootActive = rootEntry?.status === "in_progress" || rootEntry?.status === "starting";
 
-    // Edge colour: active edge if either end is active; done if child done
     const edgeActive = rootActive || childActive;
-    const col = edgeActive ? agentColor(n)
-              : childDone  ? "#34d399"
-              : "#1e2d45";
-    const opacity  = edgeActive ? 1 : childDone ? 0.5 : 0.25;
-    const strokeW  = edgeActive ? 2 : 1;
+    const col = edgeActive ? agentColor(n) : childDone ? "#34d399" : "#1e2d45";
+    const opacity = edgeActive ? 1 : childDone ? 0.45 : 0.2;
+    const strokeW = edgeActive ? 2 : 1;
 
-    // Curved bezier: from bottom of root to top of child
     const x1 = W / 2, y1 = ROOT_Y + R;
-    const x2 = cx2,   y2 = CHILD_Y - R;
+    const x2 = cx(n),  y2 = CHILD_Y - R;
     const cpY = (y1 + y2) / 2;
+    const markerId = edgeActive ? "arr-blue" : childDone ? "arr-green" : "arr";
 
     html += `<path d="M${x1},${y1} C${x1},${cpY} ${x2},${cpY} ${x2},${y2}"
-      fill="none" stroke="${col}" stroke-width="${strokeW}"
-      marker-end="url(#arr)" opacity="${opacity}"
-      stroke-dasharray="${edgeActive ? '6 3' : '4 3'}">
+      fill="none" stroke="${col}" stroke-width="${strokeW}" opacity="${opacity}"
+      marker-end="url(#${markerId})" stroke-dasharray="${edgeActive ? '6 3' : '4 3'}">
       ${edgeActive ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
+    </path>`;
+  }
+
+  // ── Handoff edges (between siblings, arc below child row) ──────────────────
+  const HANDOFF_Y = CHILD_Y + R + 20; // base of arc below nodes
+  for (const { from, to, done } of handoffEdges) {
+    const x1 = cx(from), x2 = cx(to);
+    const goingRight = x2 > x1;
+    // Arc depth scales with distance
+    const dist  = Math.abs(x2 - x1);
+    const arcDY = 18 + dist * 0.18;
+    const midX  = (x1 + x2) / 2;
+    const arcY  = HANDOFF_Y + arcDY;
+    const col   = done ? "#34d399" : "#6c8ef7";
+    const markerId = done ? "arr-green" : "arr-blue";
+
+    // Start/end at bottom of node circles
+    html += `<path d="M${x1},${CHILD_Y + R} Q${midX},${arcY} ${x2},${CHILD_Y + R}"
+      fill="none" stroke="${col}" stroke-width="1.5" opacity="${done ? 0.5 : 0.85}"
+      marker-end="url(#${markerId})" stroke-dasharray="5 3">
+      ${!done ? `<animate attributeName="stroke-dashoffset" values="0;-16" dur="1.4s" repeatCount="indefinite"/>` : ''}
     </path>`;
   }
 
@@ -570,31 +612,26 @@ function drawPipeline(agents) {
     const isActive = entry?.status === "in_progress" || entry?.status === "starting";
     const isDone   = entry?.status === "complete";
     const isBlocked= entry?.status === "blocked" || entry?.status === "failed";
-
-    const fill   = isActive ? `rgba(${hexToRgb(col)},0.18)`
-                 : isDone   ? `rgba(52,211,153,0.1)`
-                 : isBlocked? `rgba(248,113,113,0.1)` : "#111827";
-    const stroke = isActive ? col : isDone ? "#34d399" : isBlocked ? "#f87171" : "#1e2d45";
-    const sW     = isActive ? 2.5 : 1.5;
-    const short  = name.replace("brain-data-retrieval","brain-ret.")
-                       .replace("brain-consolidation","brain-cons.")
-                       .replace(/-/g, " ");
-
+    const fill     = isActive ? `rgba(${hexToRgb(col)},0.18)` :
+                     isDone   ? `rgba(52,211,153,0.1)` :
+                     isBlocked? `rgba(248,113,113,0.1)` : "#111827";
+    const stroke   = isActive ? col : isDone ? "#34d399" : isBlocked ? "#f87171" : "#1e2d45";
+    const short    = name.replace("brain-data-retrieval","brain-ret.")
+                         .replace("brain-consolidation","brain-cons.")
+                         .replace(/-/g," ");
     let g = `<g>`;
-    // Pulse ring for active
     if (isActive) {
       g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3">
         <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
       </circle>`;
     }
-    g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}" stroke-width="${sW}"
-      ${isActive ? 'filter="url(#glow)"' : ''}/>`;
+    g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}"
+      stroke-width="${isActive ? 2.5 : 1.5}" ${isActive ? 'filter="url(#glow)"' : ''}/>`;
     g += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="15">${agentEmoji(name)}</text>`;
-    // Label
-    g += `<text x="${x}" y="${y + R + LABEL_PAD}" text-anchor="middle"
-      font-size="9" fill="${isActive ? col : isDone ? '#34d399' : '#64748b'}" font-family="system-ui,sans-serif">${short}</text>`;
-    // Status dot (top-right of circle)
+    g += `<text x="${x}" y="${y+R+LABEL_PAD}" text-anchor="middle"
+      font-size="9" fill="${isActive ? col : isDone ? '#34d399' : '#64748b'}"
+      font-family="system-ui,sans-serif">${short}</text>`;
     if (entry) {
       g += `<circle cx="${x+R-5}" cy="${y-R+5}" r="5" fill="${sm.color}" stroke="#0a0d14" stroke-width="1.5">
         ${isActive ? `<animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
@@ -604,14 +641,11 @@ function drawPipeline(agents) {
     return g;
   }
 
-  // ── Draw children first (behind root visually if they overlap) ───────────────
-  for (let i = 0; i < childNodes.length; i++) {
-    const entry = agents.find(a => a.agent === childNodes[i]);
-    html += nodeHtml(childNodes[i], childX(i), CHILD_Y, entry);
+  // Children first, root on top
+  for (const n of childNodes) {
+    html += nodeHtml(n, cx(n), CHILD_Y, agents.find(a => a.agent === n));
   }
-
-  // ── Draw root (orchestrator) on top ─────────────────────────────────────────
-  html += nodeHtml(ROOT, W / 2, ROOT_Y, rootEntry);
+  html += nodeHtml(ROOT, W / 2, ROOT_Y, agents.find(a => a.agent === ROOT));
 
   svg.innerHTML = html;
 }
@@ -831,7 +865,7 @@ async function fetchStatus() {
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
 
     renderStats(data);
-    drawPipeline(data.agents);
+    drawPipeline(data.agents, data.timeline);
     renderAgentCards(data.agents);
     renderTimeline(data.timeline);
     renderStmSections(data);
