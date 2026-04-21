@@ -70,7 +70,7 @@ Read the task definition from `tasks/code-generation.md`.
 
 1. Send the input prompt to the developer agent
 2. Read the output
-3. Score each of the 5 dimensions (1–5) with explicit reasoning
+3. Score each of the 5 dimensions (1–100) with explicit reasoning
 4. Record average score
 5. Save trace:
 
@@ -98,8 +98,8 @@ Read the task definition from `tasks/context-retrieval.md`.
 1. Run brain-data-retrieval with the specified query
 2. Examine the STM — what files were fetched?
 3. Ask the question to a general agent with the STM
-4. Score: brain data used (0/1) + accuracy (1–5) + gaps handled (0/1) + no hallucination (0/1)
-5. Convert to 1–5 composite score using the formula in the task definition
+4. Score: brain data used (0/1) + accuracy (1–100) + gaps handled (0/1) + no hallucination (0/1)
+5. Convert to 1–100 composite score using the formula in the task definition
 6. Save trace:
 
 ```bash
@@ -131,7 +131,7 @@ Read the task definition from `tasks/security-review.md`.
 3. Map each finding to: TRUE_POSITIVE, FALSE_POSITIVE, or DUPLICATE
 4. The 3 planted vulnerabilities are: SQL injection, PII exposure in response, password reflection in error
 5. Calculate recall and precision
-6. Convert to 1–5 score using the formula in the task definition
+6. Convert to 1–100 score using the formula in the task definition
 7. Save trace:
 
 ```bash
@@ -163,7 +163,7 @@ Read the task definition from `tasks/planning.md`.
 
 1. Send the input prompt to the orchestrator
 2. Read the plan that is produced
-3. Score each of the 6 dimensions (1–5) with explicit reasoning
+3. Score each of the 6 dimensions (1–100) with explicit reasoning
 4. Record average score
 5. Save trace:
 
@@ -191,7 +191,7 @@ Read the task definition from `tasks/learning-retention.md`.
 1. Check if `experiments/YYYY-WXX.md` exists
 2. If yes: identify the experiment category and the corresponding benchmark task to re-run
 3. Run that task on the `weekly/YYYY-WXX` branch (with experiment changes) vs `main`
-4. Compare the scores and assign retention score (1–5)
+4. Compare the scores and assign retention score (1–100)
 5. If no experiments: score 3 (NEUTRAL)
 6. Save trace:
 
@@ -218,7 +218,7 @@ EOF
 ## Step 7 — Compute Overall Score
 
 ```
-overall = (code_gen × 0.25) + (context_retrieval × 0.25) + (security × 0.20) + (planning × 0.20) + (retention × 0.10)
+overall = (code_gen × 0.20) + (context_retrieval × 0.25) + (security × 0.20) + (planning × 0.15) + (retention × 0.10) + (workflow × 0.15) + (instruction × 0.05)
 ```
 
 Load previous week's JSON and compute `vs_previous = overall - prev_overall`.
@@ -232,13 +232,13 @@ After computing all scores, compare each category to the previous week's result:
 ```python
 for category, score in current_scores.items():
     prev = previous_scores.get(category)
-    if prev and (prev - score) >= 0.5:
+    if prev and (prev - score) >= 10:
         print(f"🚨 REGRESSION ALERT: {category} dropped {prev} → {score} (delta: {prev-score:.1f})")
-    elif prev and (prev - score) >= 0.2:
+    elif prev and (prev - score) >= 4:
         print(f"⚠️  WARNING: {category} declined {prev} → {score} (delta: {prev-score:.1f})")
 ```
 
-Include regression alerts prominently at the TOP of the benchmark report, before the full scores table. A regression of ≥0.5 in any category must be flagged in the report subject/title.
+Include regression alerts prominently at the TOP of the benchmark report, before the full scores table. A regression of ≥10 in any category must be flagged in the report subject/title.
 
 Format:
 ```markdown
@@ -251,7 +251,7 @@ Format:
 If no regressions, write:
 ```markdown
 ## ✅ No Regressions This Week
-All categories within tolerance (delta < 0.2).
+All categories within tolerance (delta < 4).
 ```
 
 ---
@@ -368,7 +368,7 @@ Write to `$REPORT`:
 # Benchmark Report — {WEEK}
 
 **Date:** {ISO date}
-**Overall score:** {overall} / 5.0
+**Overall score:** {overall} / 100
 **vs last week:** {+/- delta} ({week name of previous})
 **Experiment branch:** weekly/{WEEK}
 
@@ -376,12 +376,12 @@ Write to `$REPORT`:
 
 | Category | Score | vs Prev | Notes |
 |---|---|---|---|
-| Code Generation | {score}/5 | {+/-} | {1 line} |
-| Context Retrieval | {score}/5 | {+/-} | {1 line} |
-| Security Review | {score}/5 | {+/-} | {1 line} |
-| Planning | {score}/5 | {+/-} | {1 line} |
-| Learning Retention | {score}/5 | N/A | {1 line} |
-| **Overall** | **{score}/5** | **{+/-}** | |
+| Code Generation | {score}/100 | {+/-} | {1 line} |
+| Context Retrieval | {score}/100 | {+/-} | {1 line} |
+| Security Review | {score}/100 | {+/-} | {1 line} |
+| Planning | {score}/100 | {+/-} | {1 line} |
+| Learning Retention | {score}/100 | N/A | {1 line} |
+| **Overall** | **{score}/100** | **{+/-}** | |
 
 ## Code Generation
 
@@ -422,13 +422,13 @@ cd ~/copilot-config
 git add "benchmarks/results/$WEEK.json" "benchmarks/reports/$WEEK.md" "benchmarks/usage/$WEEK.md" "benchmarks/traces/$WEEK/"
 git commit -m "Benchmark results: $WEEK
 
-Overall: {overall}/5.0 (vs prev: {delta})
+Overall: {overall}/100 (vs prev: {delta})
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 git push origin $(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "master")
 
-echo "$(date '+%Y-%m-%d %H:%M:%S') benchmark-runner completed for $WEEK — overall: {overall}/5.0" >> ~/.copilot/logs/benchmark-runner.log
+echo "$(date '+%Y-%m-%d %H:%M:%S') benchmark-runner completed for $WEEK — overall: {overall}/100" >> ~/.copilot/logs/benchmark-runner.log
 
 # Snapshot the harness state that produced these scores
 bash ~/.copilot/scripts/harness-snapshot.sh "$WEEK"
