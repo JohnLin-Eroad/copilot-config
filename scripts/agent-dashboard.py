@@ -85,7 +85,7 @@ def find_active_stm() -> Path | None:
     result = candidates[0] if candidates else None
     if result is not None:
         _stm_cache["path"] = result
-        _stm_cache["expires"] = now + 10.0  # re-evaluate every 10s
+        _stm_cache["expires"] = now + 2.0  # re-evaluate every 2s for fast task switching
     return result
 
 
