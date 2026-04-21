@@ -189,7 +189,7 @@ def get_dashboard_data(stm_path: Path) -> dict:
 
     return {
         "stm_path":  str(stm_path),
-        "stm_name":  stm_path.parent.name,
+        "stm_name":  stm_path.parent.name.replace("-", " ").title(),
         "meta":      meta,
         "agents":    list(agent_latest.values()),
         "timeline":  timeline,
