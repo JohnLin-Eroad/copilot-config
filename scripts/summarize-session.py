@@ -646,8 +646,7 @@ def _git_commit_session(file_path: Path) -> None:
                 ["git", "commit", "-m", f"session: add {file_path.stem}"],
                 cwd=repo_dir, check=True, capture_output=True
             )
-            subprocess.run(["git", "push"], cwd=repo_dir, check=True, capture_output=True)
-            print(f"✅ Session committed and pushed to git")
+            print(f"✅ Session committed to git (push handled by fswatch)")
     except Exception as e:
         print(f"⚠️  Could not git-commit session summary: {e}", file=sys.stderr)
 
