@@ -10,91 +10,12 @@ Called automatically by the zsh copilot() wrapper after gh copilot exits.
 import json
 import os
 import re
-import ssl
 import sys
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
 SESSIONS_DIR = Path.home() / ".copilot" / "session-state"
 VAULT_DIR = Path.home() / "copilot-sessions" / "sessions"
-
-NOTION_TOKEN = "YOUR_NOTION_TOKEN"
-NOTION_VAULT_PAGE_ID = "33ff43d1-71ee-81fd-a2be-c733d2a4f837"
-NOTION_LEARNINGS_TITLE = "Key Learnings & Findings"
-NOTION_STATE_FILE = Path.home() / ".copilot" / "notion-vault-state.json"
-
-
-def _notion_headers() -> dict:
-    return {
-        "Authorization": f"Bearer {NOTION_TOKEN}",
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-    }
-
-
-def _notion_request(url: str, payload: dict | None = None, method: str | None = None) -> dict:
-    if method is None:
-        method = "POST" if payload is not None else "GET"
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode() if payload is not None else None,
-        headers=_notion_headers(),
-        method=method,
-    )
-    ctx = ssl._create_unverified_context()
-    with urllib.request.urlopen(req, context=ctx, timeout=15) as resp:
-        return json.loads(resp.read())
-
-
-def get_or_create_learnings_page() -> str:
-    """Return the Notion page ID for the central learnings page, creating it if needed."""
-    if NOTION_STATE_FILE.exists():
-        state = json.loads(NOTION_STATE_FILE.read_text())
-        if page_id := state.get("learnings_page_id"):
-            return page_id
-
-    result = _notion_request(
-        "https://api.notion.com/v1/pages",
-        {
-            "parent": {"page_id": NOTION_VAULT_PAGE_ID},
-            "icon": {"emoji": "💡"},
-            "properties": {
-                "title": {"title": [{"type": "text", "text": {"content": NOTION_LEARNINGS_TITLE}}]}
-            },
-            "children": [{
-                "object": "block",
-                "type": "paragraph",
-                "paragraph": {
-                    "rich_text": [{"type": "text", "text": {
-                        "content": "Auto-synced key learnings and findings from Copilot sessions. Duplicates are skipped."
-                    }}]
-                },
-            }],
-        },
-    )
-    page_id = result["id"]
-    NOTION_STATE_FILE.write_text(json.dumps({"learnings_page_id": page_id}))
-    return page_id
-
-
-def fetch_all_blocks(page_id: str) -> list[dict]:
-    """Fetch all child blocks from a Notion page, handling pagination."""
-    blocks = []
-    cursor = None
-    while True:
-        url = f"https://api.notion.com/v1/blocks/{page_id}/children?page_size=100"
-        if cursor:
-            url += f"&start_cursor={cursor}"
-        req = urllib.request.Request(url, headers=_notion_headers())
-        with urllib.request.urlopen(req, context=ssl._create_unverified_context(), timeout=15) as resp:
-            data = json.loads(resp.read())
-        blocks.extend(data.get("results", []))
-        if not data.get("has_more"):
-            break
-        cursor = data.get("next_cursor")
-    return blocks
 
 
 
@@ -387,250 +308,6 @@ def patch_next_link(prev_path: Path, next_stem: str) -> None:
 
 
 
-# Patterns that indicate structural output rather than genuine insights
-_STRUCTURAL_PATTERNS = [
-    re.compile(r'^\*\*[^*]+\*\*\s+[—–-]'),          # **Service Name** — description
-    re.compile(r'^\*\*\d+\s+\w+\*\*'),                # **19 domain files**
-    re.compile(r'\[\[[\w\s/\-]+\]\]'),                 # wiki-links [[...]]
-    re.compile(r'`[/~][^\s`]{5,}`'),                   # file paths like `/path/to/file`
-    re.compile(r'https?://\S+'),                       # bare URLs
-    re.compile(r'^(Deleted|Created|Updated|Added|Removed|Fixed|Renamed)\s'),  # status verbs
-    re.compile(r'\b\d+\s+(files?|services?|references?|endpoints?|notes?)\b'), # "220 references"
-    re.compile(r'^(All|Zero)\s+\d+'),                  # "All 220 linked"
-    re.compile(r'\|\s*\w+\s*\|'),                      # table rows
-]
-
-# Keywords that indicate genuine insight
-_INSIGHT_KEYWORDS = re.compile(
-    r'\b(always|never|important|note that|gotcha|watch out|be aware|don\'t|prefer|'
-    r'avoid|instead|because|turns out|discovered|found that|key insight|critical|'
-    r'required|must|should|be careful|caveat|warning|ensure|guarantee|pattern|'
-    r'approach|reason|why|how to)\b',
-    re.IGNORECASE,
-)
-
-
-def _is_structural(line: str) -> bool:
-    """Return True if this line looks like structured output rather than an insight."""
-    for pattern in _STRUCTURAL_PATTERNS:
-        if pattern.search(line):
-            return True
-    return False
-
-
-def _extract_from_learnings_section(content: str) -> list[str]:
-    """Extract bullets from any '## Key Learnings' / '## Learnings' section in a message."""
-    results = []
-    in_section = False
-    for line in content.split("\n"):
-        stripped = line.strip()
-        if re.match(r'^#{1,3}\s+(Key\s+)?Learnings?', stripped, re.IGNORECASE):
-            in_section = True
-            continue
-        if in_section:
-            if re.match(r'^#{1,3}\s+', stripped):
-                in_section = False
-                continue
-            if re.match(r'^[-*•]\s+.{10,}', stripped):
-                results.append(re.sub(r'^[-*•]\s+', '', stripped))
-            elif re.match(r'^\d+[.)]\s+.{10,}', stripped):
-                results.append(re.sub(r'^\d+[.)]\s+', '', stripped))
-    return results
-
-
-def _extract_from_markers(content: str) -> list[str]:
-    """Extract content between <!-- learnings_start --> and <!-- learnings_end --> markers.
-
-    Markers must appear on their own line to avoid matching inline examples.
-    """
-    match = re.search(
-        r'(?:^|\n)[ \t]*<!--\s*learnings_start\s*-->[ \t]*\n(.*?)\n[ \t]*<!--\s*learnings_end\s*-->',
-        content,
-        re.DOTALL | re.IGNORECASE,
-    )
-    if not match:
-        return []
-    block = match.group(1)
-    results = []
-    for line in block.split("\n"):
-        stripped = line.strip()
-        if re.match(r'^[-*•]\s+.{10,}', stripped):
-            results.append(re.sub(r'^[-*•]\s+', '', stripped))
-        elif re.match(r'^\d+[.)]\s+.{10,}', stripped):
-            results.append(re.sub(r'^\d+[.)]\s+', '', stripped))
-        elif stripped and not stripped.startswith('#'):
-            results.append(stripped)
-    return [r for r in results if r]
-
-
-def extract_learnings(messages: list[dict], explicit: list[str] | None = None) -> list[str]:
-    """Extract key learnings from the session.
-
-    Priority order:
-    1. ``explicit`` — caller-provided list (e.g. from --learnings flag)
-    2. <!-- learnings_start --> ... <!-- learnings_end --> markers in any AI message
-    3. Dedicated '## Key Learnings' / '## Learnings' sections in AI messages
-    4. Fallback: bullet/numbered lines that pass insight heuristics (structural noise filtered out)
-    """
-    if explicit:
-        return _dedup(explicit)[:30]
-
-    # Pass 1: marker blocks
-    marker_learnings: list[str] = []
-    for msg in messages:
-        if msg["role"] == "assistant":
-            marker_learnings.extend(_extract_from_markers(msg["content"]))
-    if marker_learnings:
-        return _dedup(marker_learnings)[:30]
-
-    # Pass 2: dedicated learnings sections
-    section_learnings: list[str] = []
-    for msg in messages:
-        if msg["role"] == "assistant":
-            section_learnings.extend(_extract_from_learnings_section(msg["content"]))
-    if section_learnings:
-        return _dedup(section_learnings)[:30]
-
-    # Pass 3: heuristic fallback — bullets with insight language, structural noise filtered
-    fallback: list[str] = []
-    for msg in messages:
-        if msg["role"] != "assistant":
-            continue
-        for line in msg["content"].split("\n"):
-            line = line.strip()
-            if not re.match(r'^([-*•]|\d+[.)])\s+.{20,}', line):
-                continue
-            text = re.sub(r'^([-*•]|\d+[.)]\s*)', '', line).strip()
-            if _is_structural(text):
-                continue
-            if _INSIGHT_KEYWORDS.search(text):
-                fallback.append(text)
-
-    return _dedup(fallback)[:20]
-
-
-def _dedup(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    unique = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            unique.append(item)
-    return unique
-
-
-def _make_bullet(text: str) -> dict:
-    return {
-        "object": "block",
-        "type": "bulleted_list_item",
-        "bulleted_list_item": {
-            "rich_text": [{"type": "text", "text": {"content": text[:2000]}}]
-        },
-    }
-
-
-def _make_toggle(heading: str, children: list[dict]) -> dict:
-    """Create a Notion toggle block with bullet children nested inside."""
-    return {
-        "object": "block",
-        "type": "toggle",
-        "toggle": {
-            "rich_text": [{"type": "text", "text": {"content": heading}}],
-            "color": "default",
-            "children": children,
-        },
-    }
-
-
-def existing_learning_texts(page_id: str) -> set[str]:
-    """Collect all bullet text already stored under any toggle on this page (dedup guard)."""
-    texts: set[str] = set()
-    top_blocks = fetch_all_blocks(page_id)
-    for block in top_blocks:
-        if block.get("type") == "toggle":
-            child_blocks = fetch_all_blocks(block["id"])
-            for cb in child_blocks:
-                if cb.get("type") == "bulleted_list_item":
-                    rt = cb["bulleted_list_item"].get("rich_text", [])
-                    text = "".join(t.get("plain_text", "") for t in rt).strip()
-                    if text:
-                        texts.add(text)
-        elif block.get("type") == "bulleted_list_item":
-            # Legacy flat bullets from before the toggle format
-            rt = block["bulleted_list_item"].get("rich_text", [])
-            text = "".join(t.get("plain_text", "") for t in rt).strip()
-            if text:
-                texts.add(text)
-    return texts
-
-
-def find_session_toggle(blocks: list[dict], session_id: str) -> str | None:
-    """Return the block ID of an existing toggle that contains this session_id."""
-    for block in blocks:
-        if block.get("type") == "toggle":
-            rt = block["toggle"].get("rich_text", [])
-            text = "".join(t.get("plain_text", "") for t in rt)
-            if session_id in text:
-                return block["id"]
-    return None
-
-
-def post_to_notion_vault(title: str, learnings: list[str], date_str: str, session_id: str) -> None:
-    """Sync learnings to the central Notion page.
-
-    Each session gets its own toggle block:
-
-        ▶ 🗓️ 2025-04-14 — Session title  (session: abc123)
-            • Learning one
-            • Learning two
-
-    Same-session syncs append new bullets inside the existing toggle.
-    Duplicate bullets (matched by text) are always skipped.
-    """
-    if not learnings:
-        print("ℹ️  No learnings extracted — skipping Notion sync.")
-        return
-
-    try:
-        page_id = get_or_create_learnings_page()
-        existing_texts = existing_learning_texts(page_id)
-        new_items = [item for item in learnings if item not in existing_texts]
-
-        if not new_items:
-            print(f"ℹ️  All {len(learnings)} learnings already in Notion vault — nothing to add.")
-            return
-
-        bullet_blocks = [_make_bullet(item) for item in new_items]
-        top_blocks = fetch_all_blocks(page_id)
-        toggle_id = find_session_toggle(top_blocks, session_id)
-
-        if toggle_id:
-            # Append new bullets into the existing session toggle
-            _notion_request(
-                f"https://api.notion.com/v1/blocks/{toggle_id}/children",
-                {"children": bullet_blocks},
-                method="PATCH",
-            )
-            print(f"💡 Added {len(new_items)} learnings to existing session toggle (skipped {len(learnings) - len(new_items)} duplicates).")
-        else:
-            # New session — create a toggle heading + bullets, preceded by a divider
-            toggle_heading = f"🗓️ {date_str} — {title}  (session: {session_id})"
-            children = [
-                {"object": "block", "type": "divider", "divider": {}},
-                _make_toggle(toggle_heading, bullet_blocks),
-            ]
-            _notion_request(
-                f"https://api.notion.com/v1/blocks/{page_id}/children",
-                {"children": children},
-                method="PATCH",
-            )
-            print(f"💡 Synced {len(new_items)} learnings to new session toggle in Notion (skipped {len(learnings) - len(new_items)} duplicates).")
-    except urllib.error.HTTPError as e:
-        print(f"⚠️  Notion API error {e.code}: {e.read().decode()}", file=sys.stderr)
-    except Exception as e:
-        print(f"⚠️  Could not sync to Notion: {e}", file=sys.stderr)
-
-
 def _git_commit_session(file_path: Path) -> None:
     """Commit and push the session summary to the copilot-sessions git repo."""
     import subprocess
@@ -646,8 +323,7 @@ def _git_commit_session(file_path: Path) -> None:
                 ["git", "commit", "-m", f"session: add {file_path.stem}"],
                 cwd=repo_dir, check=True, capture_output=True
             )
-            subprocess.run(["git", "push"], cwd=repo_dir, check=True, capture_output=True)
-            print(f"✅ Session committed and pushed to git")
+            print(f"✅ Session committed to git (push handled by fswatch)")
     except Exception as e:
         print(f"⚠️  Could not git-commit session summary: {e}", file=sys.stderr)
 
@@ -657,10 +333,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("session_id", nargs="?", help="Session ID to summarise")
     parser.add_argument("--prose", help="Human prose summary to embed below the summary table")
-    parser.add_argument(
-        "--learnings",
-        help="Newline-separated explicit learning statements to sync to Notion (skips auto-extraction)",
-    )
     args = parser.parse_args()
 
     if args.session_id:
@@ -730,16 +402,6 @@ def main():
 
     # Auto-commit the session summary to git
     _git_commit_session(output_path)
-
-    # Extract learnings and post to Notion vault
-    date_prefix_str = date_prefix  # already computed above
-    explicit_learnings = (
-        [l.strip() for l in args.learnings.splitlines() if l.strip()]
-        if args.learnings
-        else None
-    )
-    learnings = extract_learnings(messages, explicit=explicit_learnings)
-    post_to_notion_vault(raw_title, learnings, date_prefix_str, session_id)
 
 
 if __name__ == "__main__":
