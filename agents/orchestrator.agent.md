@@ -128,20 +128,20 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | Task | Use agent |
 |---|---|
 | Exploring / understanding a codebase or repo | `discovery` |
-| Implementing code (Java, Python, JS) in EROAD repos | `sov-developer` |
-| Architecture design, ADRs, system design | `sov-architect` |
-| Writing or running tests | `sov-testing` or `qa-engineer` |
-| Security review (architecture or code level) | `sov-security` |
-| Final pre-merge code review | `sov-code-reviewer` |
-| CI/CD pipelines, Docker, infrastructure | `sov-devops` |
-| Documentation, README, Confluence pages | `sov-documentation` |
-| Database schema changes, data transforms | `sov-data-migration` |
-| Compliance, regulatory requirements | `sov-compliance` |
-| Performance profiling, bottleneck analysis | `sov-performance` |
-| Service integrations, APIs, event flows | `sov-integration` |
-| Blast radius assessment, governance rules | `sov-governance` |
-| Sprint ceremonies, backlog, velocity | `sov-scrum-master` |
-| Acceptance criteria, business value review | `sov-product-owner` |
+| Implementing code (Java, Python, JS) in EROAD repos | `developer` |
+| Architecture design, ADRs, system design | `architect` |
+| Writing or running tests | `testing` or `qa-engineer` |
+| Security review (architecture or code level) | `security` |
+| Final pre-merge code review | `code-reviewer` |
+| CI/CD pipelines, Docker, infrastructure | `devops` |
+| Documentation, README, Confluence pages | `documentation` |
+| Database schema changes, data transforms | `data-migration` |
+| Compliance, regulatory requirements | `compliance` |
+| Performance profiling, bottleneck analysis | `performance` |
+| Service integrations, APIs, event flows | `integration` |
+| Blast radius assessment, governance rules | `governance` |
+| Sprint ceremonies, backlog, velocity | `scrum-master` |
+| Acceptance criteria, business value review | `product-owner` |
 | Specs, user stories, Jira tickets | `product-manager` |
 
 **Personal / General tasks (`BRAIN_TYPE: personal`):**
@@ -151,8 +151,8 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | General code (any language, personal project) | `Senior Software Engineer` |
 | AI strategy, LLM tooling, agent design | `AI Master` |
 | Copilot config, agent/skill engineering | `agent-factory` or `AI Master` |
-| Architecture for personal projects | `sov-architect` (still applies) |
-| Security review for personal projects | `sov-security` (still applies) |
+| Architecture for personal projects | `architect` (still applies) |
+| Security review for personal projects | `security` (still applies) |
 | Weekly AI learnings | `ai-learner` |
 | Benchmark + usage stats | `benchmark-runner` |
 
@@ -160,7 +160,7 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 | Task | Use agent |
 |---|---|
-| Critical evaluation of any plan | `sov-critical-thinker` |
+| Critical evaluation of any plan | `critical-thinker` |
 | Creating a missing specialist agent | `agent-factory` |
 | Fetching domain context mid-pipeline | `brain-data-retrieval` |
 

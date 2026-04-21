@@ -341,13 +341,13 @@ If the orchestrator determines no existing agent covers the task well enough:
 | Task type | Use agent |
 |---|---|
 | Exploring / understanding a codebase | `discovery` |
-| Implementing code changes | `sov-developer` |
-| Architecture / design decisions | `sov-architect` |
-| Writing or updating tests | `sov-testing` or `qa-engineer` |
-| Security review | `sov-security` |
-| Final code review | `sov-code-reviewer` |
-| CI/CD / infrastructure | `sov-devops` |
-| Documentation | `sov-documentation` |
+| Implementing code changes | `developer` |
+| Architecture / design decisions | `architect` |
+| Writing or updating tests | `testing` or `qa-engineer` |
+| Security review | `security` |
+| Final code review | `code-reviewer` |
+| CI/CD / infrastructure | `devops` |
+| Documentation | `documentation` |
 | No match found | → `agent-factory` |
 
 ---
