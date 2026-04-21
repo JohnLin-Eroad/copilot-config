@@ -377,7 +377,7 @@ You are stuck if any of these are true:
 - Same tool call attempted 3+ times with same or worsening result
 - 5+ tool calls with no measurable forward progress (no files written, no state changed)
 - Hard constraint hit (tool unavailable, permission denied) after one retry
-- **Background agent: `elapsed > 100s` AND `total_turns == 0`** — agent is deadlocked
+- **Background agent: `elapsed > 15s` AND `0 changes made`** — agent is deadlocked
 
 **When stuck:**
 

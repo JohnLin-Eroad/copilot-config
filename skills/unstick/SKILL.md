@@ -24,6 +24,7 @@ Trigger this skill if **any** of these are true:
 - You have made 5+ tool calls with no measurable forward progress (no files written, no state changed)
 - You hit a hard constraint (tool unavailable, permission denied, file not found after retrying)
 - You are about to retry something you've already tried twice
+- **Background agent: `elapsed > 15s` AND `0 changes made`** — agent is stalled; escalate immediately
 
 ---
 
