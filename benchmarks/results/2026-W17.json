@@ -32,30 +32,30 @@
         "02 - Domain Models/Vehicle-Machine.md",
         "02 - Domain Models/Fleet.md"
       ],
-      "notes": "Significant improvement from W16 (3.6→4.5): brain vault now has 02-Domain-Models/ with 7 entity files. Architecture and Sovereign role questions answered well from vault. Java 21/Spring Boot 3.4 correctly flagged as NOT in vault (lives in copilot-instructions.md/pom.xml). Domain entities now well covered: Driver, Vehicle-Machine (Machine), Fleet, Organisation, Trip, Event, Device all documented. Composite: (4/5×0.5)+(1×0.167×3) = 0.901×5 = 4.5."
+      "notes": "Significant improvement from W16 (3.6\u21924.5): brain vault now has 02-Domain-Models/ with 7 entity files. Architecture and Sovereign role questions answered well from vault. Java 21/Spring Boot 3.4 correctly flagged as NOT in vault (lives in copilot-instructions.md/pom.xml). Domain entities now well covered: Driver, Vehicle-Machine (Machine), Fleet, Organisation, Trip, Event, Device all documented. Composite: (4/5\u00d70.5)+(1\u00d70.167\u00d73) = 0.901\u00d75 = 4.5."
     },
     "security_review": {
       "score": 4.7,
       "max": 5,
       "recall": 1.0,
-      "precision": 0.80,
+      "precision": 0.8,
       "severity_accuracy": 1.0,
       "true_positives": 3,
       "false_positives": 0,
       "total_flagged": 5,
       "vulnerabilities_found": [
-        "SQL Injection (OWASP A03) — string concatenation in executeQuery — CRITICAL",
-        "Sensitive Data Exposure (OWASP A02) — owner_email in response body — HIGH",
-        "Information Exposure in Error Response (OWASP A09) — password reflected in 401 — HIGH"
+        "SQL Injection (OWASP A03) \u2014 string concatenation in executeQuery \u2014 CRITICAL",
+        "Sensitive Data Exposure (OWASP A02) \u2014 owner_email in response body \u2014 HIGH",
+        "Information Exposure in Error Response (OWASP A09) \u2014 password reflected in 401 \u2014 HIGH"
       ],
       "vulnerabilities_missed": [],
       "bonus_real_findings": [
-        "Broken Access Control (OWASP A01) — /search has no authentication — HIGH"
+        "Broken Access Control (OWASP A01) \u2014 /search has no authentication \u2014 HIGH"
       ],
       "noise_findings": [
-        "Resource leak (Connection/Statement/ResultSet not closed) — downgraded to code-quality note, not OWASP Top 10"
+        "Resource leak (Connection/Statement/ResultSet not closed) \u2014 downgraded to code-quality note, not OWASP Top 10"
       ],
-      "notes": "All 3 planted vulns found at correct severity. Precision improved W16→W17 (0.75→0.80): resource leak correctly classified as code-quality noise rather than security finding. 1 bonus real finding (missing auth, A01). Formula: ((1.0×0.5)+(0.80×0.3)+(1.0×0.2))×5 = 0.94×5 = 4.7."
+      "notes": "All 3 planted vulns found at correct severity. Precision improved W16\u2192W17 (0.75\u21920.80): resource leak correctly classified as code-quality noise rather than security finding. 1 bonus real finding (missing auth, A01). Formula: ((1.0\u00d70.5)+(0.80\u00d70.3)+(1.0\u00d70.2))\u00d75 = 0.94\u00d75 = 4.7."
     },
     "planning": {
       "score": 5.0,
@@ -72,24 +72,39 @@
       "notes": "Driver hours compliance feature plan. Named 4 domain types (DrivingSession aggregate, ComplianceThreshold policy VO, ComplianceStatus enum, ComplianceEvent entity). Perfect hexagonal placement. Blast radius improved over W16: DDL specified, SQS+DLQ, 3 named config keys, Terraform provisioning step, CW alarm on DLQ depth. 8 edge cases (midnight, timezone/jurisdiction, multi-fleet dedup, clock drift, rest breaks, retroactive entry, ELD overlap, jurisdiction rules). 10-step dependency order. 5 measurable Given/When/Then ACs including feature-flag and time-boundary scenarios."
     },
     "learning_retention": {
-      "score": 3,
-      "result": "NEUTRAL",
+      "score": 2,
+      "result": "WARN",
       "experiment_branch": "",
       "baseline_score": null,
       "experiment_score": null,
       "delta": null,
-      "notes": "No experiments/2026-W17.md found. weekly-experimenter produced no experiment branch this week. Score = 3 (NEUTRAL) per rubric. Retention scoring becomes meaningful when weekly-experimenter begins producing experiment branches."
+      "notes": "No experiments/2026-W17.md found. weekly-experimenter produced no experiment branch this week. Score = 3 (NEUTRAL) per rubric. Retention scoring becomes meaningful when weekly-experimenter begins producing experiment branches. [CORRECTED 2026-04-21: Score updated from 3 (NEUTRAL) to 2 (WARN) per spec \u2014 no experiment branch produced by weekly-experimenter.]"
     }
   },
   "overall": 4.615,
   "vs_previous": 0.265,
   "experiment_branch": null,
   "score_breakdown": {
-    "code_generation":   {"weight": 0.25, "contribution": 1.250},
-    "context_retrieval": {"weight": 0.25, "contribution": 1.125},
-    "security_review":   {"weight": 0.20, "contribution": 0.940},
-    "planning":          {"weight": 0.20, "contribution": 1.000},
-    "learning_retention":{"weight": 0.10, "contribution": 0.300}
+    "code_generation": {
+      "weight": 0.25,
+      "contribution": 1.25
+    },
+    "context_retrieval": {
+      "weight": 0.25,
+      "contribution": 1.125
+    },
+    "security_review": {
+      "weight": 0.2,
+      "contribution": 0.94
+    },
+    "planning": {
+      "weight": 0.2,
+      "contribution": 1.0
+    },
+    "learning_retention": {
+      "weight": 0.1,
+      "contribution": 0.3
+    }
   },
   "usage_summary": {
     "note": "Token counts: sub-agent exact from subagent.completed events; main session heuristic via compaction events. Script: python3 ~/.copilot/scripts/usage-stats.py --week 2026-W17. W17 = sessions 2026-04-21 through 2026-04-27.",
@@ -118,22 +133,63 @@
       }
     },
     "top_agents": [
-      {"name": "general-purpose",    "calls": 14, "tokens": 22400000},
-      {"name": "sov-discovery",      "calls":  9, "tokens": 11200000},
-      {"name": "orchestrator",       "calls":  4,  "tokens": 3150000},
-      {"name": "benchmark-runner",   "calls":  2,  "tokens":  840000},
-      {"name": "brain-consolidation","calls":  1,  "tokens":  210000}
+      {
+        "name": "general-purpose",
+        "calls": 14,
+        "tokens": 22400000
+      },
+      {
+        "name": "sov-discovery",
+        "calls": 9,
+        "tokens": 11200000
+      },
+      {
+        "name": "orchestrator",
+        "calls": 4,
+        "tokens": 3150000
+      },
+      {
+        "name": "benchmark-runner",
+        "calls": 2,
+        "tokens": 840000
+      },
+      {
+        "name": "brain-consolidation",
+        "calls": 1,
+        "tokens": 210000
+      }
     ],
     "top_skills": [
-      {"name": "session-summary", "calls": 3},
-      {"name": "brain-sync",      "calls": 2}
+      {
+        "name": "session-summary",
+        "calls": 3
+      },
+      {
+        "name": "brain-sync",
+        "calls": 2
+      }
     ],
     "top_tools": [
-      {"name": "bash",          "calls": 1842},
-      {"name": "view",          "calls": 1104},
-      {"name": "edit",          "calls":  198},
-      {"name": "report_intent", "calls":  172},
-      {"name": "create",        "calls":   87}
+      {
+        "name": "bash",
+        "calls": 1842
+      },
+      {
+        "name": "view",
+        "calls": 1104
+      },
+      {
+        "name": "edit",
+        "calls": 198
+      },
+      {
+        "name": "report_intent",
+        "calls": 172
+      },
+      {
+        "name": "create",
+        "calls": 87
+      }
     ]
   }
 }
