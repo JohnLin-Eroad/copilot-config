@@ -107,18 +107,20 @@ Classification:
         encoding="utf-8",
     )
 
-    # Kill any existing dashboard on port 7700 before starting a new one
-    DASHBOARD_PORT = 7700
-    try:
-        result = subprocess.run(
-            ["lsof", "-ti", f":{DASHBOARD_PORT}"],
-            capture_output=True, text=True
-        )
-        for pid in result.stdout.strip().splitlines():
-            subprocess.run(["kill", "-9", pid], capture_output=True)
-        import time; time.sleep(0.3)  # brief pause for port to free up
-    except Exception:
-        pass
+    # Kill any existing dashboard on port before starting a new one
+    DASHBOARD_PORT = port_override if port_override else 7700
+    if not port_override:
+        # Only kill existing dashboard if using default port (don't kill parallel sessions)
+        try:
+            result = subprocess.run(
+                ["lsof", "-ti", f":{DASHBOARD_PORT}"],
+                capture_output=True, text=True
+            )
+            for pid in result.stdout.strip().splitlines():
+                subprocess.run(["kill", "-9", pid], capture_output=True)
+            import time; time.sleep(0.3)  # brief pause for port to free up
+        except Exception:
+            pass
 
     # Launch dashboard on fixed port 7700 + open in browser
     # Use start_new_session=True so it survives shell session end (equivalent to nohup)
