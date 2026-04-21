@@ -340,7 +340,7 @@ If the orchestrator determines no existing agent covers the task well enough:
 
 | Task type | Use agent |
 |---|---|
-| Exploring / understanding a codebase | `sov-discovery` |
+| Exploring / understanding a codebase | `discovery` |
 | Implementing code changes | `sov-developer` |
 | Architecture / design decisions | `sov-architect` |
 | Writing or updating tests | `sov-testing` or `qa-engineer` |

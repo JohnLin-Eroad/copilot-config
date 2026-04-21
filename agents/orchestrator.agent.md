@@ -127,7 +127,7 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 | Task | Use agent |
 |---|---|
-| Exploring / understanding a codebase or repo | `sov-discovery` |
+| Exploring / understanding a codebase or repo | `discovery` |
 | Implementing code (Java, Python, JS) in EROAD repos | `sov-developer` |
 | Architecture design, ADRs, system design | `sov-architect` |
 | Writing or running tests | `sov-testing` or `qa-engineer` |
