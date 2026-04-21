@@ -89,6 +89,13 @@ Review and cherry-pick what to merge into master." \
       log "✅ PR created: $PR_URL" || \
       log "⚠️  PR creation skipped (may already exist): $PR_URL"
 
+    # Notify user immediately that PR is open
+    osascript -e "display notification \"PR open for $WEEK. Benchmarking in progress...\" with title \"📋 Copilot Weekly PR\"" 2>/dev/null || true
+
+    # Run benchmark + post results to PR + final notification in background
+    nohup bash "$HOME/.copilot/scripts/notify-weekly-results.sh" "$PR_URL" "$WEEK" >> "$LOG" 2>&1 &
+    log "Benchmark started in background (PID: $!)"
+
     # Create next week's branch from master and switch to it so fswatch targets it
     log "Opening next week: $NEXT_BRANCH"
     git fetch origin --quiet
