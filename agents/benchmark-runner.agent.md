@@ -389,7 +389,7 @@ Overall: {overall}/5.0 (vs prev: {delta})
 
 Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
-git push origin main
+git push origin $(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "master")
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') benchmark-runner completed for $WEEK — overall: {overall}/5.0" >> ~/.copilot/logs/benchmark-runner.log
 
