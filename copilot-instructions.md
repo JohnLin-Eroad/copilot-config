@@ -311,13 +311,30 @@ brain-data-retrieval → [specialist agents] → brain-consolidation
 eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
 # → sets $STM_PATH and $STM_DIR, opens browser dashboard
 
-# Step 2: Write classification to STM (use Python helper or direct edit)
+# Step 2: Write classification to STM
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: starting
+Task: <description>
+Brain type: eroad|personal"
+
 # Step 3: Do brain-data-retrieval yourself (read files, write results to STM)
-# Step 4: Launch specialists as background tasks, write their output to STM
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: in_progress
+Brain fetch complete. Key context: <1-2 lines>"
+
+# Step 4: Launch specialists — pass STM_PATH in every prompt
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: in_progress
+Launching: <agent-name>"
+
+# After each agent completes — write its output to STM
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "<agent-name>" "STATUS: complete
+FINDINGS: <key output>
+FILES: <files changed>"
+
 # Step 5: Launch brain-consolidation as background task with STM_PATH
 ```
 
 **Why:** Background agents can't write to files on disk. Only the main CLI agent has direct file access, so only it can keep the STM (and dashboard) live and up to date.
+
+**Rule: every time you call a bash tool or read a file in service of the task, write a brief STM update. Do not batch up all the STM writes to the end — write progressively so the dashboard stays live.**
 
 ---
 
