@@ -7,7 +7,7 @@ Tests the orchestrator + architect agents' ability to produce a complete, well-s
 
 > **Rotate this each week.** Pick the next variant from the list below.
 
-**Current variant: B — Cross-service fleet analytics**
+**Current variant: E — Contradictory Requirements (Tier 3)**
 
 ## Input Prompt (Variant B)
 
