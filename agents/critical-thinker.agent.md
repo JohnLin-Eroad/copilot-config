@@ -88,3 +88,29 @@ If the same action fails 3 times, or 5+ tool calls produce no forward progress:
 ## When to Use
 
 Invoke after drafting any plan touching >2 files or spanning >1 module. Non-negotiable before presenting a plan to the user.
+
+
+---
+
+## STM Write Protocol
+
+**Always write progress to the STM when `STM_PATH` is set in your prompt.**
+
+```bash
+# Start of task
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "critical-thinker" "STATUS: starting
+Scope: <brief description of what this agent will do>"
+
+# After each major step
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "critical-thinker" "STATUS: in_progress
+FINDINGS: <what was discovered or done>
+FILES: <files touched>"
+
+# Completion
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "critical-thinker" "STATUS: complete
+FINDINGS: <summary of all findings and decisions>
+FILES: <all files changed>
+NEXT: <recommended next step or none>"
+```
+
+**Non-fatal:** If `STM_PATH` is empty or the file is missing, `write-stm.sh` exits cleanly — never let STM writing fail the task.

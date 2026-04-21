@@ -292,3 +292,29 @@ If the same action fails 3 times, or 5+ tool calls produce no forward progress:
 ## When to Use
 
 Invoke on a nightly schedule (LaunchD) or manually when new EROAD repos need to be scanned and documented in eroad-brain.
+
+
+---
+
+## STM Write Protocol
+
+**Always write progress to the STM when `STM_PATH` is set in your prompt.**
+
+```bash
+# Start of task
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "brain-repo-sync" "STATUS: starting
+Scope: <brief description of what this agent will do>"
+
+# After each major step
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "brain-repo-sync" "STATUS: in_progress
+FINDINGS: <what was discovered or done>
+FILES: <files touched>"
+
+# Completion
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "brain-repo-sync" "STATUS: complete
+FINDINGS: <summary of all findings and decisions>
+FILES: <all files changed>
+NEXT: <recommended next step or none>"
+```
+
+**Non-fatal:** If `STM_PATH` is empty or the file is missing, `write-stm.sh` exits cleanly — never let STM writing fail the task.
