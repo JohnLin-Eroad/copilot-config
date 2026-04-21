@@ -259,7 +259,7 @@ The project uses strict hexagonal architecture. **Domain must never import Infra
 Module dependency order: `domain` ← `application` ← `infrastructure` ← `web`
 
 ### Copilot Agents
-All agents live in `~/.copilot/agents/` (no `sov-` prefix). Specialist agents include:
+All agents live in `~/.copilot/agents/` (no prefix). Specialist agents include:
 `architect`, `developer`, `security`, `testing`, `devops`, `discovery`, `governance`,
 `orchestrator`, `code-reviewer`, `documentation`, `product-owner`, `scrum-master`,
 `compliance`, `integration`, `performance`, `data-migration`, `critical-thinker`,

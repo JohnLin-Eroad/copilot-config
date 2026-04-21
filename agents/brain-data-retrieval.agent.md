@@ -47,7 +47,7 @@ BRAIN_PATH: /Users/johnlin/eroad-brain | /Users/johnlin/john-brain
 
 The STM file path is always passed to you in the prompt. It looks like:
 ```
-STM: /tmp/sov-task-<task-slug>/short-term-memory.md
+STM: /tmp/task-<task-slug>/short-term-memory.md
 ```
 
 If the STM file does not exist yet, **create it** using the template at the bottom of this document.
@@ -246,7 +246,7 @@ When called mid-pipeline, you will receive a request like:
 ADDITIONAL_DATA_NEEDED:
 - Topic: "SQS event schema for replay-service"
 - Topic: "HOS rule engine architecture"
-STM: /tmp/sov-task-<slug>/short-term-memory.md
+STM: /tmp/task-<slug>/short-term-memory.md
 ```
 
 Follow the same protocol: check the manifest, search, fetch only new files, update the manifest and log.

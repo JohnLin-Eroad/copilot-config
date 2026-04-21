@@ -389,7 +389,7 @@ Maintain a `TASK_CONTEXT.md` alongside the STM for agent handoffs (see `handoff-
 ```markdown
 ## [v0] Task Brief — Orchestrator
 ...
-**STM Path:** /tmp/sov-task-<slug>/short-term-memory.md
+**STM Path:** /tmp/task-<slug>/short-term-memory.md
 ```
 
 ---
