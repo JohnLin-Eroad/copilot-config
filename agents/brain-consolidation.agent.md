@@ -4,7 +4,7 @@ description: >
   Brain Consolidation Agent. Runs at the end of every pipeline. Reads the task's
   Short-Term Memory (STM), identifies new knowledge produced during the session,
   validates it against existing brain schemas, and writes it back to the correct
-  brain vault (eroad-brain for EROAD/Sovereign work, john-brain for personal/general
+  brain vault (eroad-brain for EROAD/work, john-brain for personal/general
   work). Adds learnings at three levels: project, domain, and global — and propagates
   upward where appropriate. Also updates .github/learnings.md in any repos touched.
 model: claude-sonnet-4.6
@@ -33,7 +33,7 @@ Read `BRAIN_SELECTED` and `BRAIN_PATH` from the STM (written by brain-data-retri
 If not present, read `BRAIN_TYPE` from the STM Task Brief and select accordingly:
 
 ```bash
-# BRAIN_TYPE: eroad → company/Sovereign work
+# BRAIN_TYPE: eroad → company/work
 BRAIN="$HOME/eroad-brain"
 
 # BRAIN_TYPE: personal → copilot config, personal projects, general

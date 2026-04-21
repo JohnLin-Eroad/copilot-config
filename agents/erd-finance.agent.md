@@ -47,9 +47,9 @@ NPV: $X (discount rate: 10%)
 |------|------------|--------|---------------|
 ```
 
-## Sovereign Platform Cost Considerations
+## Platform Cost Considerations
 
-The Sovereign platform uses:
+The platform uses:
 - **Azure AI Foundry**: Per-token pricing (Claude Opus 4.6 is most expensive)
 - **AWS SQS/S3**: Pay per use (LocalStack for local dev = $0)
 - **PostgreSQL**: RDS in production (size based on audit log volume)

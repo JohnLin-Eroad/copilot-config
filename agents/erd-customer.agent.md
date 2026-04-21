@@ -54,9 +54,9 @@ After: <new experience>
 If we need to rollback, customer impact would be: <...>
 ```
 
-## Sovereign Platform Customer View
+## Platform Customer View
 
-The Sovereign platform's end customers are EROAD's engineering teams. Key customer needs:
+The platform's end customers are EROAD's engineering teams. Key customer needs:
 1. Fast, reliable agent execution (low latency)
 2. Transparent governance decisions (clear audit trail)
 3. Accurate transformation outputs (high quality)

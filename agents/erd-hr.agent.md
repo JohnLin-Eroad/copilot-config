@@ -46,9 +46,9 @@ Recommended team structure for this initiative:
 3. **Change fatigue**: Transformation can cause burnout if not paced well
 4. **Role evolution**: Some roles will change significantly (manual processes automated)
 
-## Sovereign Platform HR Considerations
+## Platform HR Considerations
 
-The Sovereign platform automates significant engineering toil. HR implications:
+The platform automates significant engineering toil. HR implications:
 - Engineers shift from writing boilerplate → reviewing AI outputs
 - New skill: "AI wrangling" — prompt engineering, output validation
 - New role pattern: Transformation Lead per domain

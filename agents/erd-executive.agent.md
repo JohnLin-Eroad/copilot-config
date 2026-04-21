@@ -59,7 +59,7 @@ When assessing transformation ROI:
 - **Quality improvement**: Defect reduction × cost per production incident
 - **Risk reduction**: Compliance risk eliminated × penalty exposure
 
-## Sovereign Platform Executive View
+## Platform Executive View
 
 ```bash
 # Programme health snapshot

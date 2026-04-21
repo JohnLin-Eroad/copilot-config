@@ -2,7 +2,7 @@
 name: brain-data-retrieval
 description: >
   Brain Data Retrieval Agent. Fetches relevant knowledge from the correct Obsidian
-  vault (eroad-brain for EROAD/Sovereign work, john-brain for personal/general work)
+  vault (eroad-brain for EROAD/work, john-brain for personal/general work)
   into the task's Short-Term Memory (STM). Maintains a fetch manifest to prevent
   duplicate fetches. Can be called at the start of a pipeline or mid-pipeline when an
   agent needs additional context. Always checks the STM manifest before fetching.

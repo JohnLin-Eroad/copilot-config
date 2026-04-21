@@ -50,9 +50,9 @@ Rationale and expected business outcomes.
 How we measure success.
 ```
 
-## Sovereign Platform as Strategy Tool
+## Platform as Strategy Tool
 
-The Sovereign platform enables EROAD's transformation strategy by:
+The platform enables EROAD's transformation strategy by:
 - Automating domain discovery and mapping
 - AI-governed code transformation at scale
 - Multi-agent pipeline for quality assurance

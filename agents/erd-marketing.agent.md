@@ -51,7 +51,7 @@ For <target customer> who <need>, <product name> is a <category> that <key benef
 
 ## Transformation → Marketing Narrative
 
-The Sovereign transformation programme enables EROAD to:
+The transformation programme enables EROAD to:
 1. **Ship faster**: AI-assisted development reduces time-to-market
 2. **Higher quality**: Multi-agent quality assurance
 3. **More reliable**: Better architecture means less downtime

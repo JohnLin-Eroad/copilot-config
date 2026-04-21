@@ -54,9 +54,9 @@ How we know this feature is delivering value.
 | Analytics dashboards | Insights | Business leaders |
 | Developer portal | Platform | Engineering teams |
 
-## Sovereign Platform Product Features
+## Platform Product Features
 
-When capturing requirements for Sovereign platform improvements:
+When capturing requirements for platform improvements:
 
 ```bash
 # Check current feature state

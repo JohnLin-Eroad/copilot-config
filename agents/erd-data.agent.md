@@ -52,7 +52,7 @@ You are the ERD Data Agent for EROAD's digital transformation programme. You own
 Downstream dashboards/reports affected: <list>
 ```
 
-## Sovereign Platform Data
+## Platform Data
 
 ```bash
 # Check Sovereign's data schema

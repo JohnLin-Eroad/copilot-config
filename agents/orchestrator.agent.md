@@ -46,7 +46,7 @@ Classification:
 ```
 
 **Domain rules:**
-- `eroad` — task involves EROAD services, Sovereign platform, EROAD repos, RUCUS, NZ/AU transport, company infrastructure
+- `eroad` — task involves EROAD services, platform, EROAD repos, RUCUS, NZ/AU transport, company infrastructure
 - `personal` — task involves copilot config, personal projects, general coding, AI/LLM learnings, benchmarking, vault setup, anything non-company
 
 The `BRAIN_TYPE` in the STM is read by `brain-data-retrieval` and `brain-consolidation` to select the correct vault.
@@ -123,7 +123,7 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 ### Specialist agent routing table
 
-**EROAD / Sovereign tasks (`BRAIN_TYPE: eroad`):**
+**EROAD / tasks (`BRAIN_TYPE: eroad`):**
 
 | Task | Use agent |
 |---|---|

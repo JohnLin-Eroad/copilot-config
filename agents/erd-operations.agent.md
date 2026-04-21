@@ -54,7 +54,7 @@ If this change causes an incident:
 3. <Rollback procedure>
 ```
 
-## Sovereign Platform Operations
+## Platform Operations
 
 ```bash
 # Check local service health
