@@ -194,6 +194,23 @@ Context engineering is the most important skill for working with LLMs effectivel
 - **Negative constraints.** Say what NOT to do. "Do not add new dependencies." "Do not modify the public API." "Do not speculate on topics not in the STM."
 - **Most agent failures are context failures.** If an agent produces poor output, the fix is usually to improve what was in the context — not to retry with the same context.
 
+### The 3 sub-skills of context engineering (Karpathy framework)
+
+> *"The job of a good LLM engineer is not to write better prompts — it is to manage what goes into the context window with the same care that a backend engineer manages database queries."* — Andrej Karpathy, 2026
+
+Most agent failures are one of three kinds:
+
+| Sub-skill | Problem it solves | How it maps to this system |
+|---|---|---|
+| **Retrieval** — know what to pull | Relevant info isn't in context → model guesses | `brain-data-retrieval` + the STM Fetch Manifest; negative context for gaps |
+| **Compression** — reduce noise before injection | Irrelevant content fills the window → model diluted | Compress brain files >150 lines; extract headings + keyword-relevant lines only |
+| **Ordering** — sequence context to exploit attention | Model under-weights critical info buried in the middle | Inject STM in priority order (system → task → STM → brain → tools); put the most important constraint first |
+
+**The 3-question pre-flight check** — run this before invoking any agent:
+1. *Retrieval:* Does the context contain what this agent actually needs to do its job? (Check STM Brain Data + Fetch Manifest)
+2. *Compression:* Is there noise that could dilute the signal? (Remove stale decisions, trim verbose tool outputs)
+3. *Ordering:* Is the most critical constraint early in the context? (System prompt → task scope → negative constraints → then supporting data)
+
 ---
 
 ## Model Selection

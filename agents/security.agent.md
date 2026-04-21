@@ -94,23 +94,63 @@ Before issuing any verdict, run this self-critique check:
 
 **Then revise your findings** — downgrade any findings that don't hold up under scrutiny. Upgrade any you initially softened. Only then issue the final verdict.
 
+## Noise Filter — Before Writing Any Finding
+
+Not every code quality issue is a security vulnerability. Apply this filter first:
+
+| If the issue is... | Then... |
+|---|---|
+| A resource that isn't closed (streams, connections) | Code quality → note in `### ⚪ Code Quality Notes`, NOT a security finding |
+| A missing null check with no security consequence | Code quality → omit or note separately |
+| A logging statement with non-sensitive data | Not a finding |
+| An exception revealing a stack trace to the client | Security (A09) → include as finding |
+| Any OWASP Top 10 category with evidence | Security finding → include |
+
+**If in doubt, ask:** "Can an attacker exploit this to compromise confidentiality, integrity, or availability?" If no → code quality. If yes → security finding.
+
 ## Output Format
+
+Each finding MUST be written as a structured entry first, then summarised in the prose verdict block.
+
+### Part 1 — Structured Findings (machine-readable)
+
+```
+SECURITY_FINDING:
+  id: SF-001
+  severity: CRITICAL | HIGH | MEDIUM | LOW
+  owasp_ref: A03:2021 | A01:2021 | ... (use exact OWASP Top 10 2021 category)
+  file: com/example/UserRepository.java
+  line: 47
+  title: SQL string concatenation in executeQuery()
+  attack_vector: Attacker controls `username` parameter; injects `' OR '1'='1` to bypass auth
+  evidence: "query = \"SELECT * FROM users WHERE name = '\" + username + \"'\""
+  fix: Use PreparedStatement with parameterised query; never concatenate user input into SQL
+```
+
+Emit one `SECURITY_FINDING:` block per finding, severity order (CRITICAL first).
+
+### Part 2 — Prose Summary (human-readable)
 
 ```markdown
 ## Security Review: <change/PR title>
 
 ### 🔴 CRITICAL — Block immediately
-- **File:Line** — Vulnerability. Attack vector. Required fix.
+- **SF-001 · File:Line** — Vulnerability. Attack vector. Required fix.
 
 ### 🟠 HIGH — Escalate for review
-- **File:Line** — Issue. Risk. Recommended fix.
+- **SF-002 · File:Line** — Issue. Risk. Recommended fix.
 
 ### 🟡 MEDIUM — Fix this sprint
-- **File:Line** — Issue. Recommended fix.
+- **SF-003 · File:Line** — Issue. Recommended fix.
 
 ### 🟢 LOW — Tech debt
-- **File:Line** — Issue. Note for backlog.
+- **SF-004 · File:Line** — Issue. Note for backlog.
+
+### ⚪ Code Quality Notes (not security findings)
+- **File:Line** — Issue. (Handle separately from security review.)
 
 ### Verdict
 APPROVED | BLOCKED | ESCALATE_FOR_REVIEW
+
+**Recall check:** Did I cover all OWASP Top 10 categories? List any with no findings as "No evidence of vulnerability found."
 ```
