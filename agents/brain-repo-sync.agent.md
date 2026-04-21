@@ -8,6 +8,8 @@ description: >
 triggers:
   - scheduled: nightly (02:00 NZST via launchd)
   - manual: user invokes or orchestrator calls for a targeted sync
+tools:
+  - task
 ---
 
 # Brain Repo Sync Agent
