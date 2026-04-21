@@ -1,11 +1,11 @@
 {
   "version": "1.0",
-  "description": "Copilot governance rules — evaluated by the governance-audit hook on every tool call",
+  "description": "Copilot governance rules \u2014 evaluated by the governance-audit hook on every tool call",
   "blastRadiusLevels": {
-    "LOW":      "Single file, no runtime impact — proceed autonomously",
-    "MEDIUM":   "Multi-file or config change — proceed, summarise changes",
-    "HIGH":     "Cross-service, breaking, or hard-to-reverse — explain first",
-    "CRITICAL": "Irreversible, multi-system, or credential-touching — stop and get approval"
+    "LOW": "Single file, no runtime impact \u2014 proceed autonomously",
+    "MEDIUM": "Multi-file or config change \u2014 proceed, summarise changes",
+    "HIGH": "Cross-service, breaking, or hard-to-reverse \u2014 explain first",
+    "CRITICAL": "Irreversible, multi-system, or credential-touching \u2014 stop and get approval"
   },
   "rules": [
     {
@@ -55,12 +55,18 @@
       "severity": "BLOCK",
       "blastRadius": "CRITICAL",
       "category": "governance",
-      "protected": [".copilot", "sovereign", "copilot-config", "eroad-brain", "IdeaProjects"]
+      "protected": [
+        ".copilot",
+        "sovereign",
+        "copilot-config",
+        "eroad-brain",
+        "IdeaProjects"
+      ]
     },
     {
       "id": "gov-003",
       "name": "No force push",
-      "description": "git push --force rewrites shared history — requires explicit human decision",
+      "description": "git push --force rewrites shared history \u2014 requires explicit human decision",
       "severity": "BLOCK",
       "blastRadius": "HIGH",
       "category": "governance"
@@ -92,7 +98,7 @@
     {
       "id": "audit-002",
       "name": "Log all VCS writes",
-      "description": "git commit, push, rebase, reset — logged as MEDIUM",
+      "description": "git commit, push, rebase, reset \u2014 logged as MEDIUM",
       "severity": "LOG",
       "blastRadius": "MEDIUM",
       "category": "audit"
@@ -100,7 +106,7 @@
     {
       "id": "audit-003",
       "name": "Log all DB queries",
-      "description": "psql/mysql/sqlite3 commands — logged as MEDIUM",
+      "description": "psql/mysql/sqlite3 commands \u2014 logged as MEDIUM",
       "severity": "LOG",
       "blastRadius": "MEDIUM",
       "category": "audit"
@@ -108,10 +114,34 @@
     {
       "id": "audit-004",
       "name": "Log all file writes",
-      "description": "edit/create tool calls — logged as MEDIUM",
+      "description": "edit/create tool calls \u2014 logged as MEDIUM",
       "severity": "LOG",
       "blastRadius": "MEDIUM",
       "category": "audit"
+    },
+    {
+      "id": "sec-005",
+      "name": "Rate limiting awareness",
+      "description": "Flag when agent makes >10 identical API/tool calls in a single pipeline \u2014 likely a loop or hallucination",
+      "severity": "LOG",
+      "blastRadius": "MEDIUM",
+      "category": "security"
+    },
+    {
+      "id": "sec-006",
+      "name": "Credential rotation reminder",
+      "description": "If a session reads .env, application.yml, or mcp-config.json containing credentials, log a reminder to rotate those credentials",
+      "severity": "LOG",
+      "blastRadius": "LOW",
+      "category": "security"
+    },
+    {
+      "id": "gov-006",
+      "name": "No general-purpose agent as fallback",
+      "description": "general-purpose agent must NEVER be used as a routing fallback \u2014 use a specialist or invoke agent-factory",
+      "severity": "LOG",
+      "blastRadius": "LOW",
+      "category": "governance"
     }
   ]
 }

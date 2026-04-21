@@ -1,7 +1,7 @@
 {
   "week": "baseline",
   "date": "2026-04-16",
-  "note": "Week 0 baseline — captured before weekly learning experiments begin. Use this as the reference point for all trend analysis.",
+  "note": "Week 0 baseline \u2014 captured before weekly learning experiments begin. Use this as the reference point for all trend analysis.",
   "scores": {
     "code_generation": {
       "score": null,
@@ -12,7 +12,7 @@
         "javadoc": null,
         "test_quality": null
       },
-      "notes": "Baseline not yet run — execute benchmark-runner manually to populate: copilot agent run benchmark-runner"
+      "notes": "Baseline not yet run \u2014 execute benchmark-runner manually to populate: copilot agent run benchmark-runner"
     },
     "context_retrieval": {
       "score": null,
@@ -46,13 +46,13 @@
       "notes": "Baseline not yet run"
     },
     "learning_retention": {
-      "score": 3,
-      "result": "NEUTRAL",
+      "score": 2,
+      "result": "WARN",
       "experiment_branch": null,
       "baseline_score": null,
       "experiment_score": null,
       "delta": 0,
-      "notes": "No experiments exist yet — Week 0 baseline"
+      "notes": "No experiments exist yet \u2014 Week 0 baseline. Score: 2 (WARN) per spec \u2014 no experiment branch."
     }
   },
   "overall": null,

@@ -81,7 +81,7 @@
       "notes": "No experiments/2026-W17.md found. weekly-experimenter produced no experiment branch this week. Score = 3 (NEUTRAL) per rubric. Retention scoring becomes meaningful when weekly-experimenter begins producing experiment branches. [CORRECTED 2026-04-21: Score updated from 3 (NEUTRAL) to 2 (WARN) per spec \u2014 no experiment branch produced by weekly-experimenter.]"
     }
   },
-  "overall": 4.615,
+  "overall": 4.515,
   "vs_previous": 0.265,
   "experiment_branch": null,
   "score_breakdown": {
@@ -103,7 +103,7 @@
     },
     "learning_retention": {
       "weight": 0.1,
-      "contribution": 0.3
+      "contribution": 0.2
     }
   },
   "usage_summary": {
