@@ -118,6 +118,18 @@ cat "$BRAIN/Brain/Learnings/Domain_<slug>/Learnings - <Domain>.md"
 
 ---
 
+## Deduplication Check (run before every write)
+
+Before appending any learning to a brain file:
+1. `grep -i "{first 5 words of the learning}" {target file}` 
+2. If a semantically equivalent entry already exists, **skip** the write — do not duplicate
+3. If the existing entry is outdated or wrong, **update it** rather than appending a new one
+4. Only write if the learning is genuinely new
+
+Log: `Dedup check: {N} learnings skipped (already present), {M} written`
+
+---
+
 ## Step 4 — Write Brain Updates
 
 ### 4a. Service/Architecture/Decision Documents

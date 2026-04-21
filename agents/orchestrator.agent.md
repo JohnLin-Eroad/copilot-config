@@ -167,6 +167,8 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | Creating a missing specialist agent | `agent-factory` | No agent covers the task; do not use `general-purpose` as a fallback | Sonnet |
 | Fetching domain context mid-pipeline | `brain-data-retrieval` | Any agent signals `PIPELINE_SIGNAL: NEED_DATA` or you notice a context gap | Haiku |
 
+> ⚠️ `general-purpose` is **never** a valid routing choice. It exists only for unstick escalations with an explicit `model: claude-opus-4.6` override. Route every task to a specialist.
+
 ---
 
 ## Short-Term Memory (STM)
@@ -507,6 +509,7 @@ You are invoked automatically as the main CLI agent. Do NOT invoke this agent as
 - **Do NOT** proceed past a CRITICAL blast-radius action without panel review
 - **Do NOT** let STM grow unbounded — compress when it exceeds ~200KB
 - **Do NOT** route EROAD code tasks without the orchestrator — even small changes need brain context
+- **Do NOT** use `general-purpose` as a routing fallback — if no specialist fits, invoke `agent-factory` to create one. `general-purpose` is forbidden as a default.
 
 
 ## When Stuck
