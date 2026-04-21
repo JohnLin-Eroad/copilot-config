@@ -130,6 +130,7 @@ Classification:
                 "python3", str(DASHBOARD_SCRIPT),
                 str(stm_path),
                 "--port", str(DASHBOARD_PORT),
+                "--no-open",  # stm-init opens the browser; avoid double tab
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
