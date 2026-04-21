@@ -8,6 +8,7 @@ description: >
   pipeline by invoking brain-consolidation to write learnings back to the brain.
 model: claude-opus-4.7
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -123,46 +124,48 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 ### Specialist agent routing table
 
+> **Model dispatch reminder:** Opus = complex reasoning/security/architecture. Codex = code generation/review/tests. Haiku = fast cheap tasks. Sonnet = everything else. Apply the model column below when invoking agents via the `task` tool's `model` parameter.
+
 **EROAD / tasks (`BRAIN_TYPE: eroad`):**
 
-| Task | Use agent |
-|---|---|
-| Exploring / understanding a codebase or repo | `discovery` |
-| Implementing code (Java, Python, JS) in EROAD repos | `developer` |
-| Architecture design, ADRs, system design | `architect` |
-| Writing or running tests | `testing` or `qa-engineer` |
-| Security review (architecture or code level) | `security` |
-| Final pre-merge code review | `code-reviewer` |
-| CI/CD pipelines, Docker, infrastructure | `devops` |
-| Documentation, README, Confluence pages | `documentation` |
-| Database schema changes, data transforms | `data-migration` |
-| Compliance, regulatory requirements | `compliance` |
-| Performance profiling, bottleneck analysis | `performance` |
-| Service integrations, APIs, event flows | `integration` |
-| Blast radius assessment, governance rules | `governance` |
-| Sprint ceremonies, backlog, velocity | `scrum-master` |
-| Acceptance criteria, business value review | `product-owner` |
-| Specs, user stories, Jira tickets | `product-manager` |
+| Task | Use agent | Invoke when | Model |
+|---|---|---|---|
+| Exploring / understanding a codebase or repo | `discovery` | You need to map what exists before designing or changing anything | Haiku |
+| Implementing code (Java, Python, JS) in EROAD repos | `developer` | Architect has produced an ADR or design; implementation is defined | Codex |
+| Architecture design, ADRs, system design | `architect` | Task type is `architecture` or `full-transformation`; design is not yet settled | Opus |
+| Writing or running tests | `testing` or `qa-engineer` | Developer phase is complete; or test coverage needed before proceeding | Codex |
+| Security review (architecture or code level) | `security` | After architect output (arch pass) AND after developer output (code pass) — never skip either | Opus |
+| Final pre-merge code review | `code-reviewer` | All security and test phases are green; ready for final correctness pass | Codex |
+| CI/CD pipelines, Docker, infrastructure | `devops` | Code is merged/approved; deployment path needs to be defined | Sonnet |
+| Documentation, README, Confluence pages | `documentation` | Implementation is complete; docs need to catch up | Sonnet |
+| Database schema changes, data transforms | `data-migration` | Schema change is required as part of the task | Sonnet |
+| Compliance, regulatory requirements | `compliance` | Task touches HOS rules, NZ/AU transport regulation, GDPR, or data residency | Opus |
+| Performance profiling, bottleneck analysis | `performance` | A performance regression is suspected OR task involves high-throughput paths | Sonnet |
+| Service integrations, APIs, event flows | `integration` | Task spans service boundaries or introduces a new event/API contract | Sonnet |
+| Blast radius assessment, governance rules | `governance` | Task is HIGH or CRITICAL blast; before any panel review | Opus |
+| Sprint ceremonies, backlog, velocity | `scrum-master` | Task involves sprint planning, retros, or backlog grooming | Haiku |
+| Acceptance criteria, business value review | `product-owner` | Task needs ACs written or business value validated before implementation | Sonnet |
+| Specs, user stories, Jira tickets | `product-manager` | Task starts without a spec; spec must be written before architect | Sonnet |
 
 **Personal / General tasks (`BRAIN_TYPE: personal`):**
 
-| Task | Use agent |
-|---|---|
-| General code (any language, personal project) | `Senior Software Engineer` |
-| AI strategy, LLM tooling, agent design | `AI Master` |
-| Copilot config, agent/skill engineering | `agent-factory` or `AI Master` |
-| Architecture for personal projects | `architect` (still applies) |
-| Security review for personal projects | `security` (still applies) |
-| Weekly AI learnings | `ai-learner` |
-| Benchmark + usage stats | `benchmark-runner` |
+| Task | Use agent | Invoke when | Model |
+|---|---|---|---|
+| General code (any language, personal project) | `Senior Software Engineer` | Personal project coding task; no EROAD repo involved | Codex |
+| AI strategy, LLM tooling, agent design | `AI Master` | Task involves agent design, LLM selection, or AI pipeline strategy | Opus |
+| Copilot config, agent/skill engineering | `agent-factory` or `AI Master` | A capability gap exists or a new agent is needed | Opus |
+| Architecture for personal projects | `architect` (still applies) | Same trigger as EROAD — design not yet settled | Opus |
+| Security review for personal projects | `security` (still applies) | Same trigger as EROAD — after design and after code | Opus |
+| Weekly AI learnings | `ai-learner` | Scheduled weekly run OR manual "what did I learn this week?" | Haiku |
+| Benchmark + usage stats | `benchmark-runner` | Scheduled or manual benchmark evaluation | Sonnet |
 
 **Always available (any domain):**
 
-| Task | Use agent |
-|---|---|
-| Critical evaluation of any plan | `critical-thinker` |
-| Creating a missing specialist agent | `agent-factory` |
-| Fetching domain context mid-pipeline | `brain-data-retrieval` |
+| Task | Use agent | Invoke when | Model |
+|---|---|---|---|
+| Critical evaluation of any plan | `critical-thinker` | After `architect` on any `architecture` or `full-transformation` task — non-negotiable | Opus |
+| Creating a missing specialist agent | `agent-factory` | No agent covers the task; do not use `general-purpose` as a fallback | Sonnet |
+| Fetching domain context mid-pipeline | `brain-data-retrieval` | Any agent signals `PIPELINE_SIGNAL: NEED_DATA` or you notice a context gap | Haiku |
 
 ---
 
@@ -501,3 +504,17 @@ Options: [retry with new approach] [skip this phase] [get human input] [abort]
 - **Do NOT** let STM grow unbounded — compress when it exceeds ~200KB
 - **Do NOT** route EROAD code tasks without the orchestrator — even small changes need brain context
 
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.

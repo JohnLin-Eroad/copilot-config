@@ -1,12 +1,14 @@
 ---
 name: weekly-experimenter
 description: >
-  Weekly Experiment Agent. Reads the latest AI Learning weekly note, identifies
-  actionable improvements to the Copilot setup, creates a branch weekly/YYYY-WXX
-  in copilot-config, implements low-blast-radius experiments, and writes an
-  experiment summary to copilot-config/experiments/YYYY-WXX.md.
+  Weekly Experiment Agent. Reads prior harness candidates, benchmark scores, and
+  execution traces to diagnose failures, then reads the latest AI Learning weekly
+  note for improvement ideas. Creates a branch weekly/YYYY-WXX in copilot-config,
+  implements trace-informed low-blast-radius experiments, and writes an experiment
+  summary to copilot-config/experiments/YYYY-WXX.md.
 model: claude-sonnet-4.6
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -38,7 +40,50 @@ CONFIG=~/copilot-config
 VAULT=~/AI-understandings
 WEEKLY_NOTE="$VAULT/10 - Weekly Learnings/$WEEK.md"
 EXPERIMENT_LOG="$CONFIG/experiments/$WEEK.md"
+CANDIDATES="$CONFIG/harness-candidates"
+TRACES="$CONFIG/benchmarks/traces"
+RESULTS="$CONFIG/benchmarks/results"
 ```
+
+---
+
+## Step 0 — Read Prior Harness Candidates, Scores, and Traces
+
+Before reading this week's AI learnings, build a picture of **why prior harnesses succeeded or failed**.
+
+```bash
+# List all prior candidate snapshots (sorted oldest → newest)
+ls "$CANDIDATES/" | sort
+
+# For each snapshot, read: score.txt + matching benchmark result
+for SNAP in $(ls "$CANDIDATES/" | sort); do
+  echo "=== $SNAP ==="
+  cat "$CANDIDATES/$SNAP/score.txt" 2>/dev/null || echo "(no score)"
+  cat "$RESULTS/$SNAP.json" 2>/dev/null | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+for k,v in d.get('tasks',{}).items(): print(f'  {k}: {v}')
+" 2>/dev/null || true
+done
+
+# For the most recent snapshot's traces, read every task trace
+LAST_SNAP=$(ls "$CANDIDATES/" | sort | tail -1)
+for TRACE in "$TRACES/$LAST_SNAP/"*.md; do
+  echo "--- $(basename $TRACE) ---"
+  cat "$TRACE"
+done
+```
+
+From this analysis, identify:
+1. **Which tasks are consistently underperforming?** (score < 3.5 across 2+ weeks)
+2. **What do the traces show went wrong?** (specific failures in the raw outputs)
+3. **Did any harness changes help or hurt?** (compare diff between candidate snapshots and their scores)
+
+Produce a brief **Failure Diagnosis** (3–5 bullet points max):
+- Each bullet: `[task-name] score X.X — root cause: ...`
+- Reference specific trace evidence
+
+This diagnosis drives experiment prioritisation in Step 2.
 
 ---
 
@@ -55,6 +100,8 @@ cat "$WEEKLY_NOTE"
 ```
 
 From the note, extract all discoveries marked **Actionable? YES**.
+
+**Filter:** Prioritise items that address the Failure Diagnosis from Step 0. Discard items unrelated to diagnosed failures.
 
 ---
 
@@ -180,3 +227,17 @@ echo "$(date '+%Y-%m-%d %H:%M:%S') weekly-experimenter completed for $WEEK" >> ~
 echo "Branch: $BRANCH" >> ~/.copilot/logs/weekly-experimenter.log
 echo "Experiments: $(grep -c '^### Experiment' "$EXPERIMENT_LOG") implemented" >> ~/.copilot/logs/weekly-experimenter.log
 ```
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.

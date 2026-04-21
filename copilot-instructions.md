@@ -194,6 +194,23 @@ Context engineering is the most important skill for working with LLMs effectivel
 - **Negative constraints.** Say what NOT to do. "Do not add new dependencies." "Do not modify the public API." "Do not speculate on topics not in the STM."
 - **Most agent failures are context failures.** If an agent produces poor output, the fix is usually to improve what was in the context — not to retry with the same context.
 
+### The 3 sub-skills of context engineering (Karpathy framework)
+
+> *"The job of a good LLM engineer is not to write better prompts — it is to manage what goes into the context window with the same care that a backend engineer manages database queries."* — Andrej Karpathy, 2026
+
+Most agent failures are one of three kinds:
+
+| Sub-skill | Problem it solves | How it maps to this system |
+|---|---|---|
+| **Retrieval** — know what to pull | Relevant info isn't in context → model guesses | `brain-data-retrieval` + the STM Fetch Manifest; negative context for gaps |
+| **Compression** — reduce noise before injection | Irrelevant content fills the window → model diluted | Compress brain files >150 lines; extract headings + keyword-relevant lines only |
+| **Ordering** — sequence context to exploit attention | Model under-weights critical info buried in the middle | Inject STM in priority order (system → task → STM → brain → tools); put the most important constraint first |
+
+**The 3-question pre-flight check** — run this before invoking any agent:
+1. *Retrieval:* Does the context contain what this agent actually needs to do its job? (Check STM Brain Data + Fetch Manifest)
+2. *Compression:* Is there noise that could dilute the signal? (Remove stale decisions, trim verbose tool outputs)
+3. *Ordering:* Is the most critical constraint early in the context? (System prompt → task scope → negative constraints → then supporting data)
+
 ---
 
 ## Model Selection
@@ -352,6 +369,32 @@ If the orchestrator determines no existing agent covers the task well enough:
 
 ---
 
+## When Stuck — Escalate, Don't Loop
+
+**Recognise stuck early. Looping is always wrong.**
+
+You are stuck if any of these are true:
+- Same tool call attempted 3+ times with same or worsening result
+- 5+ tool calls with no measurable forward progress (no files written, no state changed)
+- Hard constraint hit (tool unavailable, permission denied) after one retry
+
+**When stuck:**
+
+1. **Stop immediately.** Do not retry.
+2. **Output the signal:**
+   ```
+   PIPELINE_SIGNAL: STUCK
+   Attempting: <what you were trying to do>
+   Constraint: <the specific barrier>
+   Tried: <list of attempts + results>
+   ```
+3. **Invoke the `unstick` skill** — it escalates to claude-opus-4.6 for a concrete alternative approach.
+4. **If escalation also fails** — gracefully stop. Output everything completed so far in structured form and surface the remaining gap to the caller. A clean handoff beats silent failure.
+
+See `Skill Dispatch Rules` for when to invoke `unstick` vs `advisor` vs `dual-critique`.
+
+---
+
 ## Know Your Limits — Jagged Intelligence
 
 LLMs have a **jagged capability profile**: superhuman at some tasks, surprisingly bad at others. Route around weaknesses by delegating to the right tool.
@@ -455,6 +498,7 @@ Skills are shared instruction sets loaded via the `skill` tool. Use this table a
 | Evaluating a plan, architecture, or multi-file proposal | `critical-thinker` | After drafting the plan, **before presenting it to John** |
 | Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
 | Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
+| Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
 | Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
 | Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
 | Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |

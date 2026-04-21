@@ -8,6 +8,7 @@ description: >
   or has functional defects.
 model: gpt-5.3-codex
 tools:
+  - task
   - read_file
   - write_file
   - list_directory
@@ -117,3 +118,17 @@ After completing QA:
 - If new test utilities or patterns were established, document them in the relevant service's Brain note
 - If a tricky test scenario was encountered (e.g. multi-tenant isolation test pattern), write a Knowledge note: `$BRAIN/02 - Runbooks/<test-pattern>.md` or `$BRAIN/01 - Services/<service-name>.md`
 - Update the service doc with testing notes in `## My Notes`
+
+## When Stuck
+
+If the same action fails 3 times, or 5+ tool calls produce no forward progress:
+
+1. Stop immediately — do not retry
+2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
+3. Spawn an unstick consultation:
+   ```
+   task tool → agent_type: general-purpose, model: claude-opus-4.6
+   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
+            Give me a concrete alternative in ≤5 steps."
+   ```
+4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
