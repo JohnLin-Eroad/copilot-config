@@ -36,6 +36,9 @@ RESULTS="$CONFIG/benchmarks/results/$WEEK.json"
 REPORT="$CONFIG/benchmarks/reports/$WEEK.md"
 TASKS="$CONFIG/benchmarks/tasks"
 EXPERIMENTS="$CONFIG/benchmarks/../experiments/$WEEK.md"
+TRACES="$CONFIG/benchmarks/traces/$WEEK"
+
+mkdir -p "$TRACES"
 
 # Find previous week's results
 PREV_RESULT=$(ls "$CONFIG/benchmarks/results/" | sort | tail -2 | head -1 2>/dev/null)
