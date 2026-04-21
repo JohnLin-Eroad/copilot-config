@@ -7,9 +7,68 @@ Tests the developer agent's ability to generate correct, idiomatic, hexagonally-
 
 > **Rotate this each week.** Pick the next variant from the list below and update "Active Variant" to point to it.
 
-**Current variant: B — Use Case + Port + Adapter**
+**Current variant: E — TDD Red-Green (Tier 3)** ← *hardened W18*
 
-## Input Prompt (Variant B)
+## Input Prompt (Variant E — Active)
+
+```
+The following JUnit 5 tests are failing. Your job is to implement the production classes
+that make ALL of them pass. Do not modify the tests.
+
+```java
+class FuelCardPolicyTest {
+
+    @Test void card_is_blocked_when_monthly_spend_exceeds_limit() {
+        var policy = new FuelCardPolicy(Money.of(500_00)); // $500 limit
+        var card = new FuelCard("FC-001", policy);
+        card.authorise(Money.of(300_00));
+        card.authorise(Money.of(150_00));
+        assertThrows(SpendLimitExceededException.class,
+            () -> card.authorise(Money.of(100_00))); // $550 total > $500
+    }
+
+    @Test void card_resets_spend_at_start_of_new_month() {
+        var policy = new FuelCardPolicy(Money.of(500_00));
+        var card = new FuelCard("FC-001", policy);
+        card.authorise(Money.of(400_00));
+        card.resetMonthlySpend(); // simulates month rollover
+        card.authorise(Money.of(400_00)); // should succeed — new month
+        assertEquals(Money.of(400_00), card.currentMonthSpend());
+    }
+
+    @Test void authorise_raises_domain_event() {
+        var policy = new FuelCardPolicy(Money.of(500_00));
+        var card = new FuelCard("FC-001", policy);
+        card.authorise(Money.of(100_00));
+        var events = card.domainEvents();
+        assertEquals(1, events.size());
+        assertInstanceOf(FuelCardAuthorisedEvent.class, events.get(0));
+    }
+
+    @Test void money_of_rejects_negative_amounts() {
+        assertThrows(IllegalArgumentException.class, () -> Money.of(-1));
+    }
+
+    @Test void money_of_accepts_zero() {
+        assertDoesNotThrow(() -> Money.of(0));
+    }
+
+    @Test void spend_limit_exceeded_message_includes_amount() {
+        var policy = new FuelCardPolicy(Money.of(100_00));
+        var card = new FuelCard("FC-001", policy);
+        var ex = assertThrows(SpendLimitExceededException.class,
+            () -> card.authorise(Money.of(200_00)));
+        assertTrue(ex.getMessage().contains("200"));
+    }
+}
+```
+
+Implement all required production classes in the correct hexagonal layers.
+You may create as many classes as needed. Decide where each class belongs
+(domain vs application) and justify your placement decisions in a comment block.
+```
+
+## Scoring Rubric (Variant E)
 
 ```
 You are implementing a feature in the EROAD sovereign platform (Java 21, Spring Boot 3.4, hexagonal architecture).
