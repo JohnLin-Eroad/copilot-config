@@ -446,6 +446,23 @@ If the orchestrator determines no existing agent covers the task well enough:
 | Validating database migration files | `migration-validator` |
 | No match found | → `agent-factory` |
 
+### ⏱ Background Agent Timeout — Auto-Unstick at 100s with 0 Turns
+
+When you launch a background agent and check its status with `read_agent`, apply this rule:
+
+> **If `elapsed > 100s` AND `total_turns == 0` → the agent is stuck. Invoke `unstick` immediately.**
+
+Do not wait for a completion notification. Do not retry the same agent. Take over and do the work yourself or escalate.
+
+```python
+# Pattern for checking background agents
+result = read_agent(agent_id="...", wait=False)
+# If result shows: elapsed > 100, total_turns == 0 → stuck
+# → invoke unstick skill, then do the work directly
+```
+
+This applies to ALL background agents: `brain-consolidation`, `developer`, `discovery`, `brain-data-retrieval`, etc.
+
 ---
 
 ## Know Your Limits — Jagged Intelligence
