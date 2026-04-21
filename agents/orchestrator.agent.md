@@ -6,6 +6,7 @@ description: >
   invokes brain-data-retrieval first, routes to specialist agents, monitors
   feedback/pushback signals, handles mid-pipeline data requests, and closes every
   pipeline by invoking brain-consolidation to write learnings back to the brain.
+handoff_description: "Top-level pipeline manager. Receives tasks, creates STM, routes to specialists, closes with brain-consolidation."
 model: claude-opus-4.7
 tools:
   - task

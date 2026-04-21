@@ -4,6 +4,7 @@ description: >
   Performance Agent. Identifies bottlenecks in the Sovereign platform and
   EROAD services, profiles code, recommends optimisations, and benchmarks results.
   Focuses on Java/Spring Boot performance and database query optimisation.
+handoff_description: "Profiles bottlenecks, benchmarks throughput, recommends optimisations."
 model: claude-sonnet-4.6
 tools:
   - task

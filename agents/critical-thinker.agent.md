@@ -4,6 +4,7 @@ description: >
   Critical Thinker Agent. Critically evaluates plans, proposals, and
   architectures for the transformation platform — surfaces both genuine
   risks and strengths with a direct, balanced assessment before committing.
+handoff_description: "Evaluates plans and proposals for risks and strengths before commitment."
 model: claude-opus-4.7
 tools:
   - task

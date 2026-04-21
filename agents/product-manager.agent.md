@@ -6,6 +6,7 @@ description: >
   Creates and maintains Jira tickets and Confluence spec pages. Ensures requirements
   are unambiguous before handing off to engineering. Can receive pushbacks from the
   Architect if specs are unclear or contradictory.
+handoff_description: "Transforms briefs into user stories, acceptance criteria, and Jira tickets."
 model: claude-sonnet-4.6
 tools:
   - task

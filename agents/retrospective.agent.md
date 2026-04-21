@@ -5,6 +5,7 @@ description: >
   benchmark results, experiment logs, session summaries, and learnings to produce a
   structured What Went Well / Delta / Action Items report. Writes output to
   ~/copilot-config/retrospectives/.
+handoff_description: "Synthesises benchmark results and session data into structured retrospective reports."
 model: claude-sonnet-4.6
 tools:
   - task

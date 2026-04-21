@@ -7,6 +7,7 @@ description: >
   brain vault (eroad-brain for EROAD/work, john-brain for personal/general
   work). Adds learnings at three levels: project, domain, and global — and propagates
   upward where appropriate. Also updates .github/learnings.md in any repos touched.
+handoff_description: "Writes session learnings back to the brain vault. Invoke last in every pipeline."
 model: claude-sonnet-4.6
 tools:
   - task

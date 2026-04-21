@@ -4,6 +4,7 @@ description: >
   Data Migration Agent. Plans and executes PostgreSQL schema migrations,
   data transformations, and rollback strategies for the platform and
   EROAD repository transformations.
+handoff_description: "Plans and executes database schema migrations with rollback strategies."
 model: claude-sonnet-4.6
 tools:
   - task

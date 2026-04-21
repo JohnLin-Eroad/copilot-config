@@ -4,6 +4,7 @@ description: >
   DevOps Agent. Manages CI/CD pipelines, Docker/LocalStack infrastructure,
   GitHub Actions workflows, and operational runbooks for the platform.
   Knows the ~/sovereign docker-compose setup and deployment patterns.
+handoff_description: "Manages CI/CD pipelines, Docker, GitHub Actions, and deployment runbooks."
 model: claude-sonnet-4.6
 tools:
   - task

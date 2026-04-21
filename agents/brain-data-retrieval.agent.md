@@ -6,6 +6,7 @@ description: >
   into the task's Short-Term Memory (STM). Maintains a fetch manifest to prevent
   duplicate fetches. Can be called at the start of a pipeline or mid-pipeline when an
   agent needs additional context. Always checks the STM manifest before fetching.
+handoff_description: "Fetches relevant context from the brain vault into the STM. Invoke first in every pipeline."
 model: claude-haiku-4.5
 tools:
   - task

@@ -4,6 +4,7 @@ description: >
   Scrum Master Agent. Manages sprint ceremonies, backlog health, velocity
   tracking, and team capacity for the transformation programme. Facilitates
   retrospectives and removes blockers.
+handoff_description: "Manages sprint ceremonies, backlog health, velocity tracking, and retrospectives."
 model: claude-haiku-4.5
 tools:
   - task

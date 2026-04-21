@@ -4,6 +4,7 @@ description: >
   Governance Agent. Enforces platform governance rules, blast radius assessment,
   and intervention decisions for EROAD's transformation programme. Manages the
   GovernanceEngine policy rules and audit trail in the ~/sovereign platform.
+handoff_description: "Assesses blast radius, enforces governance rules, produces intervention decisions."
 model: claude-opus-4.7
 tools:
   - task

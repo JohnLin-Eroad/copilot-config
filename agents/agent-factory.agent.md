@@ -6,6 +6,7 @@ description: >
   the Orchestrator via PIPELINE_SIGNAL: AGENT_MISSING. Synthesises a new .agent.md
   file and optionally a SKILL.md, then makes the agent available for immediate use.
   Also documents the new agent in the Brain.
+handoff_description: "Creates new specialist agents when no existing agent covers a capability gap."
 model: claude-sonnet-4.6
 tools:
   - task

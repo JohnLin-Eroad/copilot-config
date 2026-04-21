@@ -6,6 +6,7 @@ description: >
   note for improvement ideas. Creates a branch weekly/YYYY-WXX in copilot-config,
   implements trace-informed low-blast-radius experiments, and writes an experiment
   summary to copilot-config/experiments/YYYY-WXX.md.
+handoff_description: "Creates weekly/YYYY-WXX branch with low-blast-radius experiments targeting benchmark gaps."
 model: claude-sonnet-4.6
 tools:
   - task

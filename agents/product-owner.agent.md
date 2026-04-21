@@ -4,6 +4,7 @@ description: >
   Product Owner Agent. Reviews completed transformation work against acceptance
   criteria, validates business value delivery, and approves or rejects transformation
   items for EROAD's platform.
+handoff_description: "Validates business value and acceptance criteria. Approves or rejects transformation items."
 model: claude-sonnet-4.6
 tools:
   - task

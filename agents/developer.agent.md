@@ -4,6 +4,7 @@ description: >
   Developer Agent. Implements transformation work packages for EROAD repositories —
   writes clean Java/Spring Boot code aligned with hexagonal architecture, produces unit tests,
   and follows engineering standards. Works within the ~/sovereign codebase.
+handoff_description: "Implements Java/Spring Boot code in the Sovereign/EROAD codebase. Invoke after architect produces an ADR."
 model: gpt-5.3-codex
 tools:
   - task

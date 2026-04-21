@@ -4,6 +4,7 @@ description: >
   Compliance Agent. Ensures EROAD transformation changes comply with regulatory
   requirements (RUCUS, mass management, NZ/AU transport regulations), internal policies,
   and audit trail requirements.
+handoff_description: "Validates changes against RUCUS, NZ/AU transport regulations, and GDPR requirements."
 model: claude-opus-4.7
 tools:
   - task

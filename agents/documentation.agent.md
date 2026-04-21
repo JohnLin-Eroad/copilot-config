@@ -4,6 +4,7 @@ description: >
   Documentation Agent. Generates and maintains technical documentation for
   EROAD transformation work — ADRs, README files, API specs, runbooks, and Confluence
   pages. Writes clear, structured docs from code and context.
+handoff_description: "Generates README files, ADRs, API specs, Confluence pages, and runbooks."
 model: claude-sonnet-4.6
 tools:
   - task

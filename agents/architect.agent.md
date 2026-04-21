@@ -5,6 +5,7 @@ description: >
   produces Architecture Decision Records (ADRs), assesses blast radius, and ensures
   all changes align with the target hexagonal architecture. Knows the ~/sovereign codebase
   and EROAD's Java/Spring Boot stack deeply.
+handoff_description: "Produces Architecture Decision Records (ADRs) for new services, modules, and API contracts. Invoke when design is not settled."
 model: claude-opus-4.7
 tools:
   - task

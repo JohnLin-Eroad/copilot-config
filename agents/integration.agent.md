@@ -4,6 +4,7 @@ description: >
   Integration Agent. Designs and implements service integrations, API contracts,
   and event-driven flows for the platform — SQS messaging, AWS S3, external APIs,
   and inter-service communication patterns.
+handoff_description: "Designs service integrations, API contracts, and event-driven flows."
 model: claude-sonnet-4.6
 tools:
   - task

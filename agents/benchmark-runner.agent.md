@@ -5,6 +5,7 @@ description: >
   the current Copilot setup, scores each using defined rubrics, saves results to
   copilot-config/benchmarks/results/YYYY-WXX.json, and generates a comparison
   report at copilot-config/benchmarks/reports/YYYY-WXX.md.
+handoff_description: "Evaluates copilot performance across 5-7 benchmark categories. Produces weekly score report."
 model: claude-sonnet-4.6
 tools:
   - task

@@ -6,6 +6,7 @@ description: >
   every one of them. Produces a test report with pass/fail status and coverage analysis.
   Can push back to the Developer if code is untestable, doesn't meet acceptance criteria,
   or has functional defects.
+handoff_description: "Verifies acceptance criteria against implementation. Produces pass/fail test report."
 model: gpt-5.3-codex
 tools:
   - task

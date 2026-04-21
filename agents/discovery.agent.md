@@ -4,6 +4,7 @@ description: >
   Discovery Agent. Explores EROAD codebases, maps domain boundaries, produces
   domain dossiers and module inventories. Analyses GitHub repos for transformation
   readiness and generates structured findings for the platform.
+handoff_description: "Maps codebase structure, domain boundaries, and module inventories before design or refactoring."
 model: claude-haiku-4.5
 tools:
   - task

@@ -4,6 +4,7 @@ description: >
   Testing/QA Agent. Validates transformation outputs for EROAD repositories —
   produces test plans, writes integration and unit tests, identifies regressions, and
   ensures quality gates are met. Works with the ~/sovereign Java/Spring Boot + Next.js stack.
+handoff_description: "Writes and runs integration, E2E, and contract tests. Invoke after developer completes implementation."
 model: gpt-5.3-codex
 tools:
   - task

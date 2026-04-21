@@ -5,6 +5,7 @@ description: >
   Sovereign platform. Produces dependency maps, identifies circular dependencies, flags
   breaking changes, and supports blast radius assessment before refactors or new
   integrations.
+handoff_description: "Maps inter-service and inter-module dependencies. Flags violations and blast radius."
 model: claude-haiku-4.5
 tools:
   - task

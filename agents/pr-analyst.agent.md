@@ -5,6 +5,7 @@ description: >
   Surfaces PRs needing review, identifies stale PRs, flags PRs with failing CI checks,
   and produces a triage summary sorted by urgency. Fast and cheap — optimised for
   morning standup prep and review queue management.
+handoff_description: "Triages open PRs by urgency: needs review, failing CI, stale, changes requested."
 model: claude-haiku-4.5
 tools:
   - task

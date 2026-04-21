@@ -5,6 +5,7 @@ description: >
   Liquibase migration files for correctness, destructive operations, rollback safety,
   and compliance with EROAD data governance standards. Issues PASS / WARN / BLOCK
   verdicts. High-stakes agent — uses Opus for careful reasoning on irreversible changes.
+handoff_description: "Validates DB migration files for safety, rollback viability, and data governance compliance."
 model: claude-opus-4.7
 tools:
   - task

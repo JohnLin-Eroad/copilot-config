@@ -5,6 +5,7 @@ description: >
   eroad-brain Obsidian vault. Adds new endpoints, flags deprecated ones, updates
   integration flows, and creates stub entries for newly discovered repos.
   Runs on a nightly launchd schedule; can also be triggered manually.
+handoff_description: "Scans EROAD GitHub repos and updates eroad-brain with new endpoints and patterns."
 triggers:
   - scheduled: nightly (02:00 NZST via launchd)
   - manual: user invokes or orchestrator calls for a targeted sync

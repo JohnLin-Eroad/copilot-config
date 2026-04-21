@@ -5,6 +5,7 @@ description: >
   agents, context engineering, and tooling from the past 7 days. Deduplicates against
   the existing AI Understandings vault. Creates a new weekly note in
   ~/AI-understandings/10 - Weekly Learnings/. Commits and pushes to GitHub.
+handoff_description: "Captures weekly AI/LLM developments into the AI-understandings vault."
 model: claude-haiku-4.5
 tools:
   - task

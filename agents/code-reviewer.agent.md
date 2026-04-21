@@ -4,6 +4,7 @@ description: >
   Code Reviewer Agent. Reviews pull requests for EROAD transformation work —
   quality, correctness, security vulnerabilities, and standards compliance. High
   signal-to-noise: only surfaces genuine bugs, logic errors, and violations.
+handoff_description: "Final pre-merge correctness review. High signal-to-noise — bugs and logic errors only."
 model: gpt-5.3-codex
 tools:
   - task
