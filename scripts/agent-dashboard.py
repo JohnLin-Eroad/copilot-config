@@ -687,6 +687,8 @@ function escHtml(s) {
 
 // ── Main poll loop ────────────────────────────────────────────────────────────
 let lastUpdate = null;
+let lastGoodData = null;   // persist last known good state — prevents flicker on transient errors
+let errorCount = 0;        // only show "no active STM" after sustained errors
 
 async function fetchStatus() {
   try {
@@ -694,8 +696,22 @@ async function fetchStatus() {
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
 
-    document.getElementById("no-stm").classList.toggle("show", !data || data.error);
-    if (!data || data.error) return;
+    if (!data || data.error) {
+      // Transient: keep showing last known good data unless we've had 5+ consecutive errors
+      errorCount++;
+      if (errorCount >= 5 || !lastGoodData) {
+        document.getElementById("no-stm").classList.add("show");
+      }
+      // dim the conn dot to warn but don't blank the dashboard
+      document.getElementById("conn-dot").style.background = "#fbbf24";
+      document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #fbbf24";
+      return;
+    }
+
+    // Good data — reset error tracking and hide the "no active STM" banner
+    errorCount = 0;
+    lastGoodData = data;
+    document.getElementById("no-stm").classList.remove("show");
 
     document.getElementById("task-name").textContent = data.meta?.task || data.stm_name || "";
     document.getElementById("conn-dot").style.background = "#34d399";
@@ -707,6 +723,7 @@ async function fetchStatus() {
     renderTimeline(data.timeline);
     renderStmSections(data);
   } catch(e) {
+    errorCount++;
     document.getElementById("conn-dot").style.background = "#f87171";
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #f87171";
   }
