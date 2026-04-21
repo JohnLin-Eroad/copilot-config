@@ -65,15 +65,28 @@ STATUS_META = {
 DEFAULT_STATUS = {"color": "#94a3b8", "icon": "○", "label": "Idle"}
 
 
+_stm_cache: dict = {"path": None, "expires": 0.0}
+
 def find_active_stm() -> Path | None:
+    """Find the most recently modified STM file. Caches result for 10s to prevent flicker."""
+    import time
+    now = time.monotonic()
+    if now < _stm_cache["expires"] and _stm_cache["path"] is not None:
+        p = _stm_cache["path"]
+        if p.exists():
+            return p
     if not STM_DIR.exists():
         return None
     candidates = sorted(
-        [p for p in STM_DIR.rglob("short-term-memory.md")],
+        [p for p in STM_DIR.rglob("short-term-memory.md") if p.exists()],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    return candidates[0] if candidates else None
+    result = candidates[0] if candidates else None
+    if result is not None:
+        _stm_cache["path"] = result
+        _stm_cache["expires"] = now + 10.0  # re-evaluate every 10s
+    return result
 
 
 def parse_stm_entries(content: str) -> list[dict]:
