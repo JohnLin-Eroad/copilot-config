@@ -235,14 +235,29 @@ EOF
 echo "STM created at: $STM_PATH"
 ```
 
-### Passing STM to Agents
+### Passing STM to Agents — MANDATORY
 
-Every agent prompt you write must include:
+**Every agent prompt you write MUST include the STM path and write instructions.** Without this, the STM stays blank and the user cannot track pipeline progress.
+
+Always include this block verbatim at the top of every sub-agent prompt:
+
 ```
-STM: $STM_PATH
+STM_PATH: {STM_PATH}
 
-Read the STM before starting your work. Append your key outputs and findings to
-## [STM] Agent Contributions under ### [your-agent-name] — <ISO timestamp>
+MANDATORY: Write your progress to the STM at start, after each major step, and at completion:
+  bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: starting\nScope: ..."
+  bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: in_progress\nFINDINGS: ..."
+  bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: complete\nFINDINGS: ...\nFILES: ...\nNEXT: ..."
+
+This is non-negotiable. Do not skip STM writes even if the task is short.
+```
+
+After each background agent completes, the orchestrator (main agent) ALSO writes a summary to the STM:
+
+```bash
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: in_progress
+Agent {name} completed. Key output: {1-2 line summary}
+Next: launching {next-agent}"
 ```
 
 ### Mid-Pipeline Data Requests
