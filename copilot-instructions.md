@@ -311,88 +311,13 @@ brain-data-retrieval → [specialist agents] → brain-consolidation
 eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
 # → sets $STM_PATH and $STM_DIR, opens browser dashboard
 
-# Step 2: Write classification to STM
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: starting
-Task: <description>
-Brain type: eroad|personal"
-
+# Step 2: Write classification to STM (use Python helper or direct edit)
 # Step 3: Do brain-data-retrieval yourself (read files, write results to STM)
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: in_progress
-Brain fetch complete. Key context: <1-2 lines>"
-
-# Step 4: Launch specialists — pass STM_PATH in every prompt
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "orchestrator" "STATUS: in_progress
-Launching: <agent-name>"
-
-# After each agent completes — write its output to STM
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "<agent-name>" "STATUS: complete
-FINDINGS: <key output>
-FILES: <files changed>"
-
+# Step 4: Launch specialists as background tasks, write their output to STM
 # Step 5: Launch brain-consolidation as background task with STM_PATH
 ```
 
 **Why:** Background agents can't write to files on disk. Only the main CLI agent has direct file access, so only it can keep the STM (and dashboard) live and up to date.
-
-**Rule: every time you call a bash tool or read a file in service of the task, write a brief STM update. Do not batch up all the STM writes to the end — write progressively so the dashboard stays live.**
-
----
-
-### 📝 STM Write Protocol — MANDATORY for all agents
-
-**Every agent and sub-agent MUST write progress to the STM.** The STM is the single source of truth for pipeline state. An agent that doesn't write to the STM is invisible to the orchestrator and the user.
-
-#### Orchestrator responsibility
-When launching any sub-agent, **always** include `STM_PATH` in the prompt:
-
-```
-STM_PATH: /path/to/short-term-memory.md
-
-Write your progress to the STM using:
-  bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "AGENT-NAME" "content"
-```
-
-#### Sub-agent responsibility
-Every specialist agent must write to the STM at these checkpoints:
-
-| Checkpoint | What to write |
-|---|---|
-| **Start** | "Starting task. Scope: X. Files I'll touch: Y." |
-| **After each major step** | Brief summary of what was done, key findings, files changed |
-| **Completion** | Final summary, all files modified, decisions made, any blockers |
-| **On error/block** | What failed, what was tried, recommended next step |
-
-#### Standard write-stm.sh usage
-
-```bash
-# Single-line progress note
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "developer" "Updated auth.java — added JWT validation. Next: tests."
-
-# Multi-line completion summary
-bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "security" << 'EOF'
-STATUS: complete
-Files reviewed: src/auth/, src/api/
-Findings: 2 medium (SQL injection risk in UserRepo.java:45, missing rate limit on /login)
-No criticals. Changes recommended in STM security section.
-EOF
-```
-
-#### Standard section headers for STM entries
-
-Use these prefixes so the dashboard can parse them:
-
-```
-STATUS: starting | in_progress | complete | blocked | failed
-FILES: <comma-separated list of files touched>
-DECISIONS: <any architectural/implementation choices made>
-FINDINGS: <key discoveries, errors, or results>
-NEXT: <what should happen next>
-```
-
-#### Non-fatal if STM unavailable
-`write-stm.sh` exits 0 (success) even if `$STM_PATH` is empty or the file doesn't exist — it just logs a warning to stderr. Agents should never fail because STM writing failed.
-
----
 
 ### ✅ Always run the orchestrator pipeline
 
@@ -440,28 +365,34 @@ If the orchestrator determines no existing agent covers the task well enough:
 | Final code review | `code-reviewer` |
 | CI/CD / infrastructure | `devops` |
 | Documentation | `documentation` |
-| Mapping inter-service / inter-module dependencies | `dependency-tracker` |
-| Sprint retrospective or benchmark analysis | `retrospective` |
-| Triaging open pull requests by urgency | `pr-analyst` |
-| Validating database migration files | `migration-validator` |
 | No match found | → `agent-factory` |
 
-### ⏱ Background Agent Timeout — Auto-Unstick at 100s with 0 Turns
+---
 
-When you launch a background agent and check its status with `read_agent`, apply this rule:
+## When Stuck — Escalate, Don't Loop
 
-> **If `elapsed > 100s` AND `total_turns == 0` → the agent is stuck. Invoke `unstick` immediately.**
+**Recognise stuck early. Looping is always wrong.**
 
-Do not wait for a completion notification. Do not retry the same agent. Take over and do the work yourself or escalate.
+You are stuck if any of these are true:
+- Same tool call attempted 3+ times with same or worsening result
+- 5+ tool calls with no measurable forward progress (no files written, no state changed)
+- Hard constraint hit (tool unavailable, permission denied) after one retry
+- **Background agent: `elapsed > 100s` AND `total_turns == 0`** — agent is deadlocked
 
-```python
-# Pattern for checking background agents
-result = read_agent(agent_id="...", wait=False)
-# If result shows: elapsed > 100, total_turns == 0 → stuck
-# → invoke unstick skill, then do the work directly
-```
+**When stuck:**
 
-This applies to ALL background agents: `brain-consolidation`, `developer`, `discovery`, `brain-data-retrieval`, etc.
+1. **Stop immediately.** Do not retry.
+2. **Output the signal:**
+   ```
+   PIPELINE_SIGNAL: STUCK
+   Attempting: <what you were trying to do>
+   Constraint: <the specific barrier>
+   Tried: <list of attempts + results>
+   ```
+3. **Invoke the `unstick` skill** — it escalates to claude-opus-4.6 for a concrete alternative approach.
+4. **If escalation also fails** — gracefully stop. Output everything completed so far in structured form and surface the remaining gap to the caller. A clean handoff beats silent failure.
+
+See `Skill Dispatch Rules` for when to invoke `unstick` vs `advisor` vs `dual-critique`.
 
 ---
 
@@ -529,31 +460,6 @@ grep -n "\[STM\] Agent Contributions" "$STM_PATH"
 
 ---
 
-## Prompt Caching
-
-Prompt caching can reduce token costs by **60–80%** on stable context prefixes. Apply it whenever a large, stable block of text is being sent repeatedly across agent calls.
-
-### When to use
-- System prompt + brain context injected into every specialist agent call
-- STM content passed to multiple agents in a long pipeline
-- Any tool call where the same large prefix is repeated across turns
-
-### How to apply
-Mark stable prefixes with `cache_control: ephemeral` when constructing agent messages. The Anthropic API caches up to 4 breakpoints per request.
-
-```
-Priority order for cache breakpoints:
-1. System prompt (most stable — cache first)
-2. Brain vault excerpts injected as context
-3. STM content (changes each turn — cache last)
-4. Tool results (dynamic — do NOT cache)
-```
-
-### Orchestrator responsibility
-When invoking multiple specialist agents in sequence, pass the system prompt and brain excerpts as cached prefixes. Do not re-send large context blocks uncached — this is a primary driver of unnecessary token spend.
-
----
-
 ## ACI — Tool Documentation Standard
 
 Every tool used in agent prompts must be documented with the **Agent-Computer Interface (ACI)** standard. Good tool docs are as important as the model itself.
@@ -594,14 +500,10 @@ Skills are shared instruction sets loaded via the `skill` tool. Use this table a
 | Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
 | Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
 | Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
-| Background agent: `elapsed > 100s` AND `total_turns == 0` | `unstick` | **Immediately** — agent is deadlocked; do the work directly |
+| Background agent: `elapsed > 100s` AND `total_turns == 0` | `unstick` | **Immediately** — agent is deadlocked; do the work directly instead |
 | Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
 | Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
 | Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |
-| Implementing code when acceptance criteria exist | `tdd-workflow` | Before developer/qa-engineer writes any implementation code |
-| Any change touching >2 files, shared interface, or DB schema | `blast-radius` | Before implementation — assess impact first |
-| blast-radius returns MEDIUM, HIGH, or CRITICAL | `rollback-plan` | Immediately after blast-radius verdict — document undo path before proceeding |
-| STM exceeds 200KB or agent context is degrading | `context-compression` | Before passing STM to next agent; when orchestrator notices long pipeline |
 
 ### Hard auto-invoke rules — fire WITHOUT being asked
 
