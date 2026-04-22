@@ -203,6 +203,31 @@ def extract_agents(contributions: str) -> list[dict]:
     return agents
 
 
+def build_gauge_html(label: str, used, maximum, unit: str = "", warn: int = 60, danger: int = 80) -> str:
+    """Build a mini progress bar gauge."""
+    if used is None:
+        return f"""<div class="gauge-row">
+          <span class="gauge-label">{label}</span>
+          <span class="gauge-unknown">—</span>
+        </div>"""
+    pct = min(100, int(used / maximum * 100)) if maximum else 0
+    color = "#34d399"  # green
+    if pct >= danger:
+        color = "#f87171"   # red
+    elif pct >= warn:
+        color = "#fb923c"   # orange
+    elif pct >= warn - 20:
+        color = "#facc15"   # yellow
+    label_str = f"{used}/{maximum} {unit}".strip() if maximum else f"{used} {unit}".strip()
+    return f"""<div class="gauge-row">
+      <span class="gauge-label">{label}</span>
+      <div class="gauge-bar-wrap">
+        <div class="gauge-bar-fill" style="width:{pct}%;background:{color}"></div>
+      </div>
+      <span class="gauge-value" style="color:{color}">{label_str}</span>
+    </div>"""
+
+
 def md_to_html(text: str) -> str:
     """Minimal markdown → HTML converter for dashboard display."""
     if not text:
