@@ -156,16 +156,23 @@ def parse_stm_entries(content: str) -> list[dict]:
             findings = (findings + " " + " ".join(extra_lines)).strip()
 
         # Resource metrics
-        tool_used = tool_max = context_tokens = context_pct = None
+        tool_used = tool_max = context_tokens = context_pct = context_max = None
         model = ""
         for line in body.splitlines():
             stripped = line.strip()
             m_tool = re.match(r"TOOL_CALLS:\s*(\d+)\s*/\s*(\d+)", stripped, re.IGNORECASE)
             if m_tool:
                 tool_used, tool_max = int(m_tool.group(1)), int(m_tool.group(2))
+            # CONTEXT: N/M  (absolute tokens, e.g. "CONTEXT: 108000/128000")
+            m_ctx_abs = re.match(r"CONTEXT:\s*(\d+)\s*/\s*(\d+)", stripped, re.IGNORECASE)
+            if m_ctx_abs:
+                context_tokens = int(m_ctx_abs.group(1))
+                context_max    = int(m_ctx_abs.group(2))
+            # CONTEXT: ~Nk tokens
             m_ctx_k = re.match(r"CONTEXT:\s*~?(\d+(?:\.\d+)?)k\s*tokens?", stripped, re.IGNORECASE)
             if m_ctx_k:
                 context_tokens = int(float(m_ctx_k.group(1)) * 1000)
+            # CONTEXT: N%
             m_ctx_p = re.match(r"CONTEXT:\s*~?(\d+(?:\.\d+)?)%", stripped, re.IGNORECASE)
             if m_ctx_p:
                 context_pct = float(m_ctx_p.group(1))
@@ -186,6 +193,7 @@ def parse_stm_entries(content: str) -> list[dict]:
             "tool_max":       tool_max,
             "context_tokens": context_tokens,
             "context_pct":    context_pct,
+            "context_max":    context_max,
             "model":          model,
         })
 
