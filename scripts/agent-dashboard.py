@@ -137,15 +137,38 @@ def parse_stm_entries(content: str) -> list[dict]:
         if extra_lines:
             findings = (findings + " " + " ".join(extra_lines)).strip()
 
+        # Resource metrics
+        tool_used = tool_max = context_tokens = context_pct = None
+        model = ""
+        for line in body.splitlines():
+            stripped = line.strip()
+            m_tool = re.match(r"TOOL_CALLS:\s*(\d+)\s*/\s*(\d+)", stripped, re.IGNORECASE)
+            if m_tool:
+                tool_used, tool_max = int(m_tool.group(1)), int(m_tool.group(2))
+            m_ctx_k = re.match(r"CONTEXT:\s*~?(\d+(?:\.\d+)?)k\s*tokens?", stripped, re.IGNORECASE)
+            if m_ctx_k:
+                context_tokens = int(float(m_ctx_k.group(1)) * 1000)
+            m_ctx_p = re.match(r"CONTEXT:\s*~?(\d+(?:\.\d+)?)%", stripped, re.IGNORECASE)
+            if m_ctx_p:
+                context_pct = float(m_ctx_p.group(1))
+            m_model = re.match(r"MODEL:\s*(.+)", stripped, re.IGNORECASE)
+            if m_model:
+                model = m_model.group(1).strip()
+
         entries.append({
-            "agent":     agent,
-            "timestamp": ts,
-            "status":    status,
-            "findings":  findings,
-            "files":     files,
-            "decisions": decisions,
-            "next":      next_step,
-            "raw":       body,
+            "agent":          agent,
+            "timestamp":      ts,
+            "status":         status,
+            "findings":       findings,
+            "files":          files,
+            "decisions":      decisions,
+            "next":           next_step,
+            "raw":            body,
+            "tool_used":      tool_used,
+            "tool_max":       tool_max,
+            "context_tokens": context_tokens,
+            "context_pct":    context_pct,
+            "model":          model,
         })
 
     return entries
