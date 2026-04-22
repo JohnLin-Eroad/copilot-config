@@ -344,11 +344,576 @@ def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
     contributions = sections.get("Agent Contributions", "")
     agents = extract_agents(contributions)
 
+    # Filter out meta/wrapper entries — keep only real agent blocks
+    agents = [a for a in agents if not re.match(
+        r"(task brief|fetch manifest|brain data|negative context|retrieval log|agent contributions)\s*[—–-]",
+        a["name"], re.IGNORECASE
+    )]
+
     brain_type = classification.get("BRAIN_TYPE", "—")
-    domain = classification.get("Domain", "—")
-    blast = classification.get("Blast", "—")
-    pipeline = classification.get("Pipeline", "—")
-    task_type = classification.get("Type", "—")
+    domain     = classification.get("Domain", "—")
+    blast      = classification.get("Blast", "—")
+    pipeline   = classification.get("Pipeline", "—")
+    task_type  = classification.get("Type", "—")
+
+    blast_colors = {"LOW": "#34d399", "MEDIUM": "#facc15", "HIGH": "#fb923c", "CRITICAL": "#f87171"}
+    brain_colors = {"eroad": "#4f9cf9", "personal": "#a78bfa"}
+    phase_colors = {"done": "#34d399", "failed": "#f87171", "warning": "#fb923c", "running": "#facc15"}
+    phase_icons  = {"done": "✅", "failed": "❌", "warning": "⚠️", "running": "⏳"}
+
+    blast_color = blast_colors.get(blast, "#94a3b8")
+    brain_color = brain_colors.get(brain_type, "#94a3b8")
+
+    # ── Summary stats ──
+    n_done    = sum(1 for a in agents if a["status"] == "done")
+    n_running = sum(1 for a in agents if a["status"] == "running")
+    n_warn    = sum(1 for a in agents if a["status"] in ("warning", "failed"))
+    n_total   = len(agents)
+
+    # ── Agent Timeline (sidebar, compact) ──
+    timeline_html = ""
+    if agents:
+        for ag in agents:
+            sc = phase_colors.get(ag["status"], "#94a3b8")
+            ic = phase_icons.get(ag["status"], "❓")
+            model_raw = ag["metrics"].get("model") or ""
+            model_label = MODEL_SHORT.get(model_raw, model_raw) if model_raw else ""
+            model_pill = f'<span class="model-pill">{html_escape(model_label)}</span>' if model_label else ""
+            timeline_html += f"""
+            <div class="timeline-item">
+              <div class="timeline-dot" style="background:{sc}">{ic}</div>
+              <div class="timeline-info">
+                <div class="timeline-name">{html_escape(ag['name'])}</div>
+                {model_pill}
+              </div>
+            </div>"""
+    else:
+        timeline_html = "<div class='empty-state'>No agents dispatched yet</div>"
+
+    # ── Resource Monitor (sidebar) ──
+    resource_html = ""
+    if agents:
+        for ag in agents:
+            m  = ag["metrics"]
+            sc = phase_colors.get(ag["status"], "#94a3b8")
+            ctx_pct    = m["context_pct"]
+            ctx_tokens = m["context_tokens"]
+            model      = m["model"] or "unknown"
+            ctx_limit  = MODEL_CONTEXT_WINDOWS.get(model, DEFAULT_CONTEXT_WINDOW)
+
+            tool_gauge = build_gauge_html("tools", m["tool_used"], m["tool_max"], "calls", warn=60, danger=90)
+
+            if ctx_tokens:
+                ctx_gauge = build_gauge_html("ctx", ctx_tokens, ctx_limit, f"~{ctx_tokens//1000}k", warn=50, danger=75)
+            elif ctx_pct is not None:
+                ctx_gauge = build_gauge_html("ctx", int(ctx_pct/100*ctx_limit), ctx_limit, f"{ctx_pct}%", warn=50, danger=75)
+            else:
+                ctx_gauge = build_gauge_html("ctx", None, None)
+
+            warn_badge = ""
+            eff_pct = ctx_pct or (int(ctx_tokens/ctx_limit*100) if ctx_tokens else None)
+            if eff_pct and eff_pct >= 75:
+                badge_color = "#f87171" if eff_pct >= 90 else "#fb923c"
+                warn_badge = f'<span class="ctx-warning-badge" style="background:{badge_color}22;color:{badge_color}">{"🔴 CRIT" if eff_pct >= 90 else "⚠ HIGH"}</span>'
+
+            resource_html += f"""
+            <div class="resource-agent">
+              <div class="resource-agent-name">
+                <div class="resource-status-dot" style="background:{sc}"></div>
+                {html_escape(ag['name'][:28])}{'…' if len(ag['name'])>28 else ''}
+                {warn_badge}
+              </div>
+              {tool_gauge}{ctx_gauge}
+            </div>"""
+    else:
+        resource_html = "<div class='empty-state'>No agents yet</div>"
+
+    # ── Agent Detail Cards (main area) ──
+    agent_cards_html = ""
+    if agents:
+        for ag in agents:
+            sc  = phase_colors.get(ag["status"], "#94a3b8")
+            ic  = phase_icons.get(ag["status"], "❓")
+            m   = ag["metrics"]
+            ctx_pct    = m["context_pct"]
+            ctx_tokens = m["context_tokens"]
+            model      = m["model"] or "unknown"
+            ctx_limit  = MODEL_CONTEXT_WINDOWS.get(model, DEFAULT_CONTEXT_WINDOW)
+            model_label = MODEL_SHORT.get(model, model)
+
+            tool_gauge = build_gauge_html("tools", m["tool_used"], m["tool_max"], "calls", warn=60, danger=90)
+            if ctx_tokens:
+                ctx_gauge = build_gauge_html("ctx", ctx_tokens, ctx_limit, f"~{ctx_tokens//1000}k tokens", warn=50, danger=75)
+            elif ctx_pct is not None:
+                ctx_gauge = build_gauge_html("ctx", int(ctx_pct/100*ctx_limit), ctx_limit, f"{ctx_pct}%", warn=50, danger=75)
+            else:
+                ctx_gauge = build_gauge_html("ctx", None, None)
+
+            model_badge = f'<span class="model-badge">{html_escape(model_label)}</span>' if model_label and model_label != "unknown" else ""
+
+            agent_cards_html += f"""
+            <div class="agent-card" style="border-left: 4px solid {sc}">
+              <div class="agent-header">
+                <span class="agent-icon">{ic}</span>
+                <span class="agent-name">{html_escape(ag['name'])}</span>
+                {model_badge}
+                <span class="agent-status-badge" style="background:{sc}22;color:{sc}">{ag['status'].upper()}</span>
+              </div>
+              <div class="agent-gauges">
+                {tool_gauge}
+                {ctx_gauge}
+              </div>
+              <div class="agent-body">{md_to_html(ag['body'])}</div>
+            </div>"""
+    else:
+        agent_cards_html = """
+        <div class="empty-agents">
+          <div style="font-size:48px;margin-bottom:16px">🤖</div>
+          <div style="font-size:16px;color:var(--text-dim)">Waiting for agents to be dispatched…</div>
+        </div>"""
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agents — {html_escape(task_name)}</title>
+  <meta http-equiv="refresh" content="3">
+  <style>
+    :root {{
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3347;
+      --text: #e2e8f0;
+      --text-dim: #94a3b8;
+      --text-bright: #f8fafc;
+      --green: #34d399;
+      --blue: #4f9cf9;
+      --purple: #a78bfa;
+      --yellow: #facc15;
+      --orange: #fb923c;
+      --red: #f87171;
+    }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }}
+
+    /* ── Header ── */
+    .header {{
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }}
+    .header-logo {{ font-size: 22px; }}
+    .header-title {{
+      flex: 1;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }}
+    .header-title span {{
+      color: var(--text-dim);
+      font-weight: 400;
+      font-size: 12px;
+      margin-left: 8px;
+    }}
+    .header-stats {{
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }}
+    .stat-pill {{
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }}
+    .live-badge {{
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 600;
+    }}
+    .live-dot {{
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s infinite;
+    }}
+    @keyframes pulse {{
+      0%, 100% {{ opacity: 1; }}
+      50% {{ opacity: 0.3; }}
+    }}
+    .last-updated {{ color: var(--text-dim); font-size: 12px; }}
+
+    /* ── Layout ── */
+    .container {{
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px 24px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+      align-items: start;
+    }}
+    .sidebar {{ display: flex; flex-direction: column; gap: 14px; position: sticky; top: 60px; }}
+    .main {{ display: flex; flex-direction: column; gap: 14px; }}
+
+    /* ── Cards ── */
+    .card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .card-header {{
+      padding: 10px 14px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }}
+    .card-header-count {{
+      margin-left: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }}
+    .card-body {{ padding: 14px; }}
+
+    /* ── Classification ── */
+    .meta-grid {{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }}
+    .meta-item {{
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 10px;
+    }}
+    .meta-item.full {{ grid-column: span 2; }}
+    .meta-label {{
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 3px;
+    }}
+    .meta-value {{
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-bright);
+    }}
+
+    /* ── Timeline ── */
+    .timeline-item {{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+    }}
+    .timeline-item:last-child {{ border-bottom: none; }}
+    .timeline-dot {{
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }}
+    .timeline-info {{ flex: 1; min-width: 0; }}
+    .timeline-name {{
+      font-size: 12px;
+      color: var(--text-bright);
+      font-family: monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }}
+    .model-pill {{
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      display: inline-block;
+      margin-top: 2px;
+      font-family: monospace;
+    }}
+
+    /* ── Agent Cards (main) ── */
+    .agent-card {{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }}
+    .agent-header {{
+      padding: 12px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }}
+    .agent-icon {{ font-size: 18px; flex-shrink: 0; }}
+    .agent-name {{
+      flex: 1;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text-bright);
+      font-family: monospace;
+    }}
+    .model-badge {{
+      font-size: 11px;
+      color: var(--purple);
+      background: #a78bfa18;
+      border: 1px solid #a78bfa44;
+      border-radius: 5px;
+      padding: 2px 8px;
+      font-family: monospace;
+      flex-shrink: 0;
+    }}
+    .agent-status-badge {{
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.06em;
+      flex-shrink: 0;
+    }}
+    .agent-gauges {{
+      padding: 8px 16px;
+      background: #0f111788;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }}
+    .agent-body {{
+      padding: 16px;
+    }}
+
+    /* ── Empty agents state ── */
+    .empty-agents {{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      color: var(--text-dim);
+    }}
+
+    /* ── Gauges ── */
+    .gauge-row {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 2px 0;
+    }}
+    .gauge-label {{
+      font-size: 10px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      width: 38px;
+      flex-shrink: 0;
+    }}
+    .gauge-bar-wrap {{
+      flex: 1;
+      height: 5px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }}
+    .gauge-bar-fill {{
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }}
+    .gauge-value {{
+      font-size: 11px;
+      font-family: monospace;
+      width: 100px;
+      text-align: right;
+      flex-shrink: 0;
+      color: var(--text-dim);
+    }}
+    .gauge-unknown {{
+      font-size: 11px;
+      color: var(--border);
+      font-style: italic;
+    }}
+    .resource-agent {{
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }}
+    .resource-agent:last-child {{ border-bottom: none; }}
+    .resource-agent-name {{
+      font-size: 11px;
+      font-family: monospace;
+      color: var(--text);
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }}
+    .resource-status-dot {{
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }}
+    .ctx-warning-badge {{
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 8px;
+      font-weight: 700;
+      margin-left: auto;
+    }}
+
+    /* ── Markdown ── */
+    code {{
+      background: var(--surface2);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 12px;
+      color: var(--purple);
+    }}
+    pre {{
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }}
+    pre code {{ background: none; padding: 0; color: var(--text); font-size: 12px; }}
+    p {{ margin: 4px 0; color: var(--text); }}
+    h2 {{ font-size: 15px; color: var(--text-bright); margin: 12px 0 6px; }}
+    h3 {{ font-size: 13px; color: var(--text-bright); margin: 10px 0 4px; }}
+    h4 {{ font-size: 12px; color: var(--text-dim); margin: 8px 0 4px; }}
+    ul {{ padding-left: 18px; margin: 4px 0; }}
+    li {{ margin: 2px 0; }}
+    strong {{ color: var(--text-bright); }}
+    em {{ color: var(--text-dim); font-style: italic; }}
+    .empty {{ color: var(--text-dim); font-style: italic; }}
+    .empty-state {{
+      color: var(--text-dim);
+      font-style: italic;
+      text-align: center;
+      padding: 16px;
+      font-size: 12px;
+    }}
+    ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
+    ::-webkit-scrollbar-track {{ background: var(--surface); }}
+    ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 3px; }}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-logo">🤖</div>
+    <div class="header-title">
+      {html_escape(task_name)}
+      <span>started {html_escape(created)}</span>
+    </div>
+    <div class="header-stats">
+      {f'<span class="stat-pill" style="background:#34d39922;color:#34d399">{n_done} done</span>' if n_done else ''}
+      {f'<span class="stat-pill" style="background:#facc1522;color:#facc15">{n_running} running</span>' if n_running else ''}
+      {f'<span class="stat-pill" style="background:#f8717122;color:#f87171">{n_warn} issues</span>' if n_warn else ''}
+      {f'<span class="stat-pill" style="background:#2e334722;color:#94a3b8">{n_total} agents</span>' if n_total else ''}
+    </div>
+    <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+    <div class="last-updated">{mod_str}</div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+
+      <div class="card">
+        <div class="card-header">🏷️ Task</div>
+        <div class="card-body">
+          <div class="meta-grid">
+            <div class="meta-item">
+              <div class="meta-label">Brain</div>
+              <div class="meta-value" style="color:{brain_color}">{html_escape(brain_type)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Blast</div>
+              <div class="meta-value" style="color:{blast_color}">{html_escape(blast)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Domain</div>
+              <div class="meta-value">{html_escape(domain)}</div>
+            </div>
+            <div class="meta-item">
+              <div class="meta-label">Type</div>
+              <div class="meta-value">{html_escape(task_type)}</div>
+            </div>
+            <div class="meta-item full">
+              <div class="meta-label">Pipeline</div>
+              <div class="meta-value">{html_escape(pipeline)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">⚡ Pipeline
+          <span class="card-header-count">{n_total}</span>
+        </div>
+        <div class="card-body" style="padding:8px 14px">
+          {timeline_html}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">🔬 Resources</div>
+        <div class="card-body" style="padding:8px 14px">
+          {resource_html}
+        </div>
+      </div>
+
+    </div>
+
+    <div class="main">
+      {agent_cards_html}
+    </div>
+  </div>
+</body>
+</html>"""
+
+
+
 
     blast_colors = {
         "LOW": "#34d399", "MEDIUM": "#facc15",
