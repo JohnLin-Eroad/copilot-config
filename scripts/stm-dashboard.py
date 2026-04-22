@@ -886,6 +886,14 @@ def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
         </div>
       </div>
 
+      <!-- Resource Monitor -->
+      <div class="card">
+        <div class="card-header">🔬 Resource Monitor</div>
+        <div class="card-body">
+          {resource_rows_html}
+        </div>
+      </div>
+
       <!-- STM File Path -->
       <div class="card">
         <div class="card-header">📁 STM File</div>
