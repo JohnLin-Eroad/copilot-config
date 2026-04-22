@@ -522,6 +522,8 @@ function statusMeta(s) {
 function agentEmoji(name) {
   const map = {
     orchestrator:"🎯", developer:"💻", architect:"🏛️", security:"🔒",
+    "developer-a":"💻", "developer-b":"💻", "developer-c":"💻",
+    "developer-d":"💻", "developer-e":"💻", "developer-f":"💻",
     "code-reviewer":"👁️", testing:"🧪", "qa-engineer":"🧪", devops:"⚙️",
     discovery:"🔍", documentation:"📝", "brain-data-retrieval":"🧠",
     "brain-consolidation":"💾", "benchmark-runner":"📊", "product-manager":"📋",
