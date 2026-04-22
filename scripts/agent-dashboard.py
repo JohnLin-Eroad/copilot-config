@@ -786,9 +786,9 @@ function inlineGauges(a) {
     const pct = (a.tool_used / a.tool_max) * 100;
     html += gaugeHtml("Tools", pct, `${a.tool_used}/${a.tool_max} calls`);
   }
-  // Context gauge
+  // Context gauge — prefer explicit context_max from N/M format, else model-based limit
   if (a.context_tokens != null || a.context_pct != null) {
-    const limit = ctxLimit(a.model);
+    const limit = a.context_max || ctxLimit(a.model);
     let pct = a.context_pct;
     let valText;
     if (pct == null && a.context_tokens != null && limit) {
