@@ -695,11 +695,79 @@ function hexToRgb(hex) {
   return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : "108,142,247";
 }
 
+// ── Resource monitor constants ────────────────────────────────────────────────
+const MODEL_CTX = {
+  "claude-opus-4.7": 200000,
+  "claude-opus-4.6": 200000,
+  "claude-sonnet-4.6": 200000,
+  "claude-sonnet-4.5": 200000,
+  "claude-haiku-4.5": 200000,
+  "gpt-5.4":   128000,
+  "gpt-5.4-mini": 128000,
+  "gpt-5.3-codex": 128000,
+  "gpt-5.2-codex": 128000,
+  "gpt-5.2":   128000,
+  "gpt-5-mini":128000,
+  "gpt-4.1":   128000,
+};
+function ctxLimit(model) {
+  if (!model) return null;
+  const key = Object.keys(MODEL_CTX).find(k => model.toLowerCase().includes(k));
+  return key ? MODEL_CTX[key] : null;
+}
+function gaugeColor(pct, warnAt=60, critAt=85) {
+  if (pct >= critAt) return "var(--red)";
+  if (pct >= warnAt) return "var(--yellow)";
+  return "var(--green)";
+}
+function warnBadge(pct) {
+  if (pct >= 90) return `<span class="res-warn-badge" style="background:rgba(248,113,113,.18);color:var(--red);border:1px solid rgba(248,113,113,.3)">🔴 CRIT</span>`;
+  if (pct >= 75) return `<span class="res-warn-badge" style="background:rgba(251,191,36,.12);color:var(--yellow);border:1px solid rgba(251,191,36,.28)">⚠ HIGH</span>`;
+  return "";
+}
+function gaugeHtml(label, pct, valText) {
+  const col = gaugeColor(pct);
+  return `<div class="gauge-row">
+    <span class="gauge-lbl">${label}</span>
+    <div class="gauge-track"><div class="gauge-fill" style="width:${Math.min(pct,100).toFixed(1)}%;background:${col}"></div></div>
+    <span class="gauge-val" style="color:${col}">${valText}</span>
+  </div>`;
+}
+
 // ── Agent cards ───────────────────────────────────────────────────────────────
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
 
 function isStale(isoTs) {
   try { return (Date.now() - new Date(isoTs)) > STALE_MS; } catch { return false; }
+}
+
+function inlineGauges(a) {
+  let html = "";
+  // Tool gauge
+  if (a.tool_used != null && a.tool_max != null) {
+    const pct = (a.tool_used / a.tool_max) * 100;
+    html += gaugeHtml("Tools", pct, `${a.tool_used}/${a.tool_max} calls`);
+  }
+  // Context gauge
+  if (a.context_tokens != null || a.context_pct != null) {
+    const limit = ctxLimit(a.model);
+    let pct = a.context_pct;
+    let valText;
+    if (pct == null && a.context_tokens != null && limit) {
+      pct = (a.context_tokens / limit) * 100;
+    }
+    if (a.context_tokens != null) {
+      const kk = a.context_tokens >= 1000 ? `~${(a.context_tokens/1000).toFixed(0)}k` : a.context_tokens;
+      valText = limit ? `${kk} / ${(limit/1000).toFixed(0)}k tokens` : `${kk} tokens`;
+    } else if (pct != null) {
+      valText = `${pct.toFixed(0)}%`;
+    }
+    if (pct != null) {
+      html += gaugeHtml("Ctx", pct, valText || `${pct.toFixed(0)}%`);
+    }
+  }
+  if (!html) return "";
+  return `<div class="card-gauges">${html}</div>`;
 }
 
 function renderAgentCards(agents) {
@@ -715,14 +783,16 @@ function renderAgentCards(agents) {
     const sm  = statusMeta(a.status);
     const isActive = a.status === "in_progress" || a.status === "starting";
     const stale = !isActive && isStale(a.timestamp);
+    const modelPill = a.model ? `<span style="font-size:0.63rem;color:var(--text3);background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:4px;padding:1px 5px;font-family:var(--mono);margin-left:auto">${escHtml(a.model)}</span>` : '';
     return `<div class="agent-card ${isActive ? 'active' : ''} ${stale ? 'stale' : ''}"
       style="--agent-color:${col}">
       <div class="card-header">
         <div class="card-ring">${agentEmoji(a.agent)}</div>
-        <div>
+        <div style="flex:1;min-width:0">
           <div class="card-name">${a.agent}</div>
           <div class="card-ts">${relTime(a.timestamp)}</div>
         </div>
+        ${modelPill}
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
         <div class="card-status" style="color:${sm.color};border-color:${sm.color}33;background:${sm.color}18;margin-bottom:0">
@@ -730,11 +800,98 @@ function renderAgentCards(agents) {
         </div>
         ${stale ? `<span class="stale-badge">⏱ stale</span>` : ''}
       </div>
+      ${inlineGauges(a)}
       <div class="card-body">
         ${a.findings ? `<div class="card-findings">${escHtml(a.findings.slice(0,120))}${a.findings.length>120?'…':''}</div>` : ''}
         ${a.files ? `<div class="card-files">📄 ${escHtml(a.files.slice(0,80))}</div>` : ''}
         ${a.next && a.next !== 'none' ? `<div style="margin-top:6px;font-size:0.72rem;color:#64748b">→ ${escHtml(a.next.slice(0,80))}</div>` : ''}
       </div>
+    </div>`;
+  }).join("");
+}
+
+// ── Resource sidebar ──────────────────────────────────────────────────────────
+function renderResources(agents) {
+  const sumEl = document.getElementById("res-summary");
+  const agEl  = document.getElementById("res-agents");
+  if (!sumEl || !agEl) return;
+
+  if (!agents || agents.length === 0) {
+    sumEl.innerHTML = "";
+    agEl.innerHTML = `<div class="gauge-unknown" style="padding:12px 0">No agents yet</div>`;
+    return;
+  }
+
+  // Summary pills: overall tool pressure + context pressure
+  const withTools = agents.filter(a => a.tool_used != null && a.tool_max != null);
+  const withCtx   = agents.filter(a => a.context_tokens != null || a.context_pct != null);
+  const avgTool = withTools.length ? withTools.reduce((s,a) => s + a.tool_used/a.tool_max, 0) / withTools.length * 100 : null;
+  let sumHtml = "";
+  if (avgTool != null) {
+    const col = gaugeColor(avgTool);
+    sumHtml += `<div style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:${col}18;
+      border:1px solid ${col}35;color:${col}">🛠 Avg tools ${avgTool.toFixed(0)}%</div>`;
+  }
+  const highCtx = withCtx.filter(a => {
+    let pct = a.context_pct;
+    if (pct == null && a.context_tokens != null) {
+      const lim = ctxLimit(a.model); if (lim) pct = a.context_tokens / lim * 100;
+    }
+    return pct != null && pct >= 75;
+  });
+  if (highCtx.length) {
+    sumHtml += `<div style="font-size:0.65rem;padding:3px 8px;border-radius:6px;background:rgba(248,113,113,.12);
+      border:1px solid rgba(248,113,113,.28);color:var(--red)">🔴 ${highCtx.length} high ctx</div>`;
+  }
+  sumEl.innerHTML = sumHtml;
+
+  // Per-agent resource rows
+  agEl.innerHTML = agents.map(a => {
+    const col = agentColor(a.agent);
+    const sm  = statusMeta(a.status);
+
+    // Tool gauge row
+    let toolGauge = "";
+    if (a.tool_used != null && a.tool_max != null) {
+      const pct = (a.tool_used / a.tool_max) * 100;
+      toolGauge = gaugeHtml("🛠", pct, `${a.tool_used}/${a.tool_max} calls`) + warnBadge(pct);
+    } else {
+      toolGauge = `<div class="gauge-unknown">no tool data</div>`;
+    }
+
+    // Context gauge row
+    let ctxGauge = "";
+    if (a.context_tokens != null || a.context_pct != null) {
+      const limit = ctxLimit(a.model);
+      let pct = a.context_pct;
+      let valText;
+      if (pct == null && a.context_tokens != null && limit) {
+        pct = (a.context_tokens / limit) * 100;
+      }
+      if (a.context_tokens != null) {
+        const kk = a.context_tokens >= 1000 ? `~${(a.context_tokens/1000).toFixed(0)}k` : a.context_tokens;
+        valText = limit ? `${kk}/${(limit/1000).toFixed(0)}k` : `${kk} tok`;
+      } else {
+        valText = `${pct ? pct.toFixed(0) : '?'}%`;
+      }
+      if (pct != null) {
+        ctxGauge = gaugeHtml("📊", pct, valText) + warnBadge(pct);
+      }
+    } else {
+      ctxGauge = `<div class="gauge-unknown">no ctx data</div>`;
+    }
+
+    const modelPill = a.model
+      ? `<span class="res-model-pill">${escHtml(a.model)}</span>` : "";
+
+    return `<div class="res-agent">
+      <div class="res-agent-name">
+        <div class="res-status-dot" style="background:${sm.color}"></div>
+        ${escHtml(a.agent)}
+        ${modelPill}
+      </div>
+      ${toolGauge}
+      ${ctxGauge}
     </div>`;
   }).join("");
 }
