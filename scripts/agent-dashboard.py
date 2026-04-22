@@ -1065,7 +1065,7 @@ async function fetchStatus() {
     drawPipeline(data.agents, data.timeline);
     renderAgentCards(data.agents);
     renderTimeline(data.timeline);
-    renderStmSections(data);
+    renderResources(data.agents);
   } catch(e) {
     errorCount++;
     document.getElementById("conn-dot").style.background = "#f87171";
