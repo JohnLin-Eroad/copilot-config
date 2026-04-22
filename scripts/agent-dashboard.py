@@ -427,6 +427,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <!-- Stat strip -->
     <div class="stat-strip">
       <div class="stat-box">
+        <div class="stat-val" id="stat-workers" style="color:#34d399">0</div>
+        <div class="stat-lbl">👷 Workers</div>
+      </div>
+      <div class="stat-box">
         <div class="stat-val" id="stat-active" style="color:var(--blue)">0</div>
         <div class="stat-lbl">Active</div>
       </div>
