@@ -129,6 +129,56 @@ def extract_classification(task_brief: str) -> dict:
     return fields
 
 
+def extract_metrics(body: str) -> dict:
+    """Extract tool call budget and context window usage from agent body text."""
+    metrics = {
+        "tool_used": None, "tool_max": None,
+        "context_tokens": None, "context_pct": None,
+        "model": None,
+    }
+
+    # TOOL_CALLS: 3/5 or TOOL_CALLS: 3 / 5
+    m = re.search(r"TOOL[_\s]CALLS?:\s*(\d+)\s*/\s*(\d+)", body, re.IGNORECASE)
+    if m:
+        metrics["tool_used"] = int(m.group(1))
+        metrics["tool_max"]  = int(m.group(2))
+
+    # CONTEXT: ~45k tokens (22%) or CONTEXT: 22% or CONTEXT_TOKENS: 45000
+    m = re.search(r"CONTEXT[_\s]TOKENS?:\s*~?(\d+)k?\b", body, re.IGNORECASE)
+    if m:
+        raw = int(m.group(1))
+        metrics["context_tokens"] = raw * 1000 if raw < 10000 else raw
+
+    m = re.search(r"CONTEXT:\s*~?(\d+)k\s*tokens?", body, re.IGNORECASE)
+    if m:
+        metrics["context_tokens"] = int(m.group(1)) * 1000
+
+    m = re.search(r"CONTEXT:\s*(\d+)%", body, re.IGNORECASE)
+    if m:
+        metrics["context_pct"] = int(m.group(1))
+
+    # MODEL: claude-sonnet-4.6
+    m = re.search(r"MODEL:\s*([\w.\-]+)", body, re.IGNORECASE)
+    if m:
+        metrics["model"] = m.group(1).lower()
+
+    # Compute pct from tokens if we have both
+    if metrics["context_tokens"] and not metrics["context_pct"] and metrics["model"]:
+        limit = MODEL_CONTEXT_WINDOWS.get(metrics["model"], DEFAULT_CONTEXT_WINDOW)
+        metrics["context_pct"] = min(100, int(metrics["context_tokens"] / limit * 100))
+
+    return metrics
+
+
+def infer_tool_budget(name: str) -> int:
+    """Infer default tool budget from agent name."""
+    name_lower = name.lower()
+    for role, budget in ROLE_TOOL_BUDGETS.items():
+        if role in name_lower:
+            return budget
+    return ROLE_TOOL_BUDGETS["default"]
+
+
 def extract_agents(contributions: str) -> list[dict]:
     """Parse agent contribution entries."""
     agents = []
@@ -145,7 +195,11 @@ def extract_agents(contributions: str) -> list[dict]:
             status = "failed"
         elif re.search(r"status.*?⚠️|warning|blocked", body, re.IGNORECASE):
             status = "warning"
-        agents.append({"name": name, "body": body, "status": status})
+        metrics = extract_metrics(body)
+        # Fill tool_max from inferred budget if not explicit
+        if metrics["tool_max"] is None:
+            metrics["tool_max"] = infer_tool_budget(name)
+        agents.append({"name": name, "body": body, "status": status, "metrics": metrics})
     return agents
 
 
