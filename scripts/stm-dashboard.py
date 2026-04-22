@@ -25,6 +25,37 @@ from pathlib import Path
 STM_DIR = Path.home() / ".copilot" / "stm"
 
 # ─────────────────────────────────────────────
+# Model context window sizes (tokens)
+# ─────────────────────────────────────────────
+MODEL_CONTEXT_WINDOWS = {
+    "claude-sonnet-4.6": 200_000,
+    "claude-sonnet-4.5": 200_000,
+    "claude-opus-4.7":   200_000,
+    "claude-opus-4.6":   200_000,
+    "claude-haiku-4.5":  200_000,
+    "gpt-5.3-codex":     128_000,
+    "gpt-5.2-codex":     128_000,
+    "gpt-5.4":           128_000,
+    "gpt-5.2":           128_000,
+    "gpt-4.1":           128_000,
+    "gpt-5-mini":        128_000,
+    "gpt-5.4-mini":      128_000,
+}
+DEFAULT_CONTEXT_WINDOW = 200_000
+
+# Default tool budgets by role keyword in agent name
+ROLE_TOOL_BUDGETS = {
+    "explore":    999,  # unlimited
+    "discovery":  999,
+    "developer":    8,
+    "architect":    6,
+    "planner":      3,
+    "critiquer":    3,
+    "reviewer":     5,
+    "default":      5,
+}
+
+# ─────────────────────────────────────────────
 # Section metadata: colour + icon per STM key
 # ─────────────────────────────────────────────
 SECTION_META = {
