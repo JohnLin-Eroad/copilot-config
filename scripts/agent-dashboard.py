@@ -409,10 +409,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <span class="topbar-time" id="topbar-time"></span>
   </header>
 
-  <!-- Left sidebar: STM meta + sections -->
+  <!-- Left sidebar: Resource Monitor -->
   <aside id="sidebar">
-    <div class="section-label">STM Memory</div>
-    <div id="stm-sections"></div>
+    <div class="section-label">🔋 Resources</div>
+    <div id="res-summary" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+    <div id="res-agents"></div>
   </aside>
 
   <!-- Main: pipeline + agent cards -->
