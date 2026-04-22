@@ -711,6 +711,73 @@ def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
     ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
     ::-webkit-scrollbar-track {{ background: var(--surface); }}
     ::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 3px; }}
+
+    /* ── Gauges ── */
+    .gauge-row {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 5px 0;
+    }}
+    .gauge-label {{
+      font-size: 11px;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      width: 42px;
+      flex-shrink: 0;
+    }}
+    .gauge-bar-wrap {{
+      flex: 1;
+      height: 6px;
+      background: var(--surface2);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }}
+    .gauge-bar-fill {{
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.4s ease, background 0.4s ease;
+    }}
+    .gauge-value {{
+      font-size: 11px;
+      font-family: monospace;
+      width: 80px;
+      text-align: right;
+      flex-shrink: 0;
+    }}
+    .gauge-unknown {{
+      font-size: 11px;
+      color: var(--text-dim);
+      font-style: italic;
+    }}
+    .resource-agent {{
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }}
+    .resource-agent:last-child {{ border-bottom: none; }}
+    .resource-agent-name {{
+      font-size: 12px;
+      font-family: monospace;
+      color: var(--text-bright);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }}
+    .resource-status-dot {{
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }}
+    .ctx-warning-badge {{
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-weight: 700;
+      margin-left: auto;
+    }}
   </style>
 </head>
 <body>
