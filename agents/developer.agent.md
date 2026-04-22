@@ -7,11 +7,12 @@ description: >
 handoff_description: "Implements Java/Spring Boot code in the Sovereign/EROAD codebase. Invoke after architect produces an ADR."
 model: gpt-5.3-codex
 tools:
-  - task
-  - read_file
-  - write_file
-  - list_directory
-  - run_command
+  - bash
+  - view
+  - edit
+  - create
+  - glob
+  - grep
   - github
 ---
 
