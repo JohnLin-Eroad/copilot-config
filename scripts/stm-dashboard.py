@@ -415,6 +415,53 @@ def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
     else:
         agent_detail_html = "<div class='empty-state'>Waiting for agent contributions…</div>"
 
+    # ── Resource Monitor (tool budget + context window per agent) ──
+    resource_rows_html = ""
+    if agents:
+        for ag in agents:
+            m = ag["metrics"]
+            sc = phase_colors.get(ag["status"], "#94a3b8")
+            tool_gauge = build_gauge_html(
+                "tools", m["tool_used"], m["tool_max"], "calls",
+                warn=60, danger=90
+            )
+            ctx_pct = m["context_pct"]
+            ctx_tokens = m["context_tokens"]
+            model = m["model"] or "unknown"
+            ctx_limit = MODEL_CONTEXT_WINDOWS.get(model, DEFAULT_CONTEXT_WINDOW)
+            if ctx_tokens:
+                ctx_gauge = build_gauge_html(
+                    "ctx", ctx_tokens, ctx_limit,
+                    f"~{ctx_tokens//1000}k", warn=50, danger=75
+                )
+            elif ctx_pct is not None:
+                approx_tokens = int(ctx_pct / 100 * ctx_limit)
+                ctx_gauge = build_gauge_html(
+                    "ctx", approx_tokens, ctx_limit,
+                    f"{ctx_pct}%", warn=50, danger=75
+                )
+            else:
+                ctx_gauge = build_gauge_html("ctx", None, None)
+
+            # Warning badge if context > 75%
+            warn_badge = ""
+            if ctx_pct and ctx_pct >= 75:
+                badge_color = "#f87171" if ctx_pct >= 90 else "#fb923c"
+                warn_badge = f'<span class="ctx-warning-badge" style="background:{badge_color}22;color:{badge_color}">{"🔴 CRITICAL" if ctx_pct >= 90 else "⚠ HIGH"}</span>'
+
+            resource_rows_html += f"""
+            <div class="resource-agent">
+              <div class="resource-agent-name">
+                <div class="resource-status-dot" style="background:{sc}"></div>
+                {html_escape(ag['name'])}
+                {warn_badge}
+              </div>
+              {tool_gauge}
+              {ctx_gauge}
+            </div>"""
+    else:
+        resource_rows_html = "<div class='empty-state'>No agents dispatched yet</div>"
+
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
