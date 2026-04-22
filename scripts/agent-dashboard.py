@@ -349,6 +349,28 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tl-time{font-size:0.68rem;color:var(--text3);font-family:var(--mono);flex-shrink:0;padding-top:2px}
 
 /* ── STM section label → Resources label ── */
+/* ── Resource gauge styles ── */
+.res-agent{padding:9px 0;border-bottom:1px solid var(--border)}
+.res-agent:last-child{border-bottom:none}
+.res-agent-name{display:flex;align-items:center;gap:6px;font-size:0.75rem;
+  font-family:var(--mono);color:var(--text);margin-bottom:5px}
+.res-status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.res-model-pill{font-size:0.63rem;color:var(--text3);background:rgba(167,139,250,.1);
+  border:1px solid rgba(167,139,250,.25);border-radius:4px;padding:1px 5px;
+  font-family:var(--mono);margin-left:auto;flex-shrink:0;max-width:130px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.res-warn-badge{font-size:0.62rem;padding:1px 5px;border-radius:8px;font-weight:700;flex-shrink:0}
+.gauge-row{display:flex;align-items:center;gap:7px;margin:2px 0}
+.gauge-lbl{font-size:0.62rem;color:var(--text3);text-transform:uppercase;
+  letter-spacing:.04em;width:34px;flex-shrink:0}
+.gauge-track{flex:1;height:4px;background:var(--bg);border-radius:2px;overflow:hidden;
+  border:1px solid var(--border)}
+.gauge-fill{height:100%;border-radius:2px;transition:width .4s ease,background .4s ease}
+.gauge-val{font-size:0.62rem;font-family:var(--mono);width:88px;
+  text-align:right;flex-shrink:0;color:var(--text3)}
+.gauge-unknown{font-size:0.62rem;color:var(--text3);font-style:italic}
+/* card-level inline gauge */
+.card-gauges{padding:4px 0 8px;margin-bottom:8px;border-bottom:1px solid var(--border)}
 
 /* ── Empty state ── */
 .empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
