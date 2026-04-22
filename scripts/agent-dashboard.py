@@ -126,6 +126,18 @@ def parse_stm_entries(content: str) -> list[dict]:
                 decisions = line.split(":", 1)[1].strip()
             elif low.startswith("next:"):
                 next_step = line.split(":", 1)[1].strip()
+            elif low.startswith("phase:"):
+                # PHASE: is written by developer agents — map to dashboard status
+                # Only use it if STATUS: wasn't explicitly set
+                if status == "idle":
+                    phase_val = line.split(":", 1)[1].strip().lower()
+                    phase_map = {
+                        "starting": "starting", "code": "in_progress",
+                        "in_progress": "in_progress", "compile": "in_progress",
+                        "compile_checked": "in_progress", "done": "complete",
+                        "failed": "failed", "deferred": "blocked",
+                    }
+                    status = phase_map.get(phase_val, status)
 
         # Multi-line findings (lines after FINDINGS: that don't start with a key)
         in_findings = False
