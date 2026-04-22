@@ -477,6 +477,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 const AGENT_COLORS = {
   "orchestrator":         "#6c8ef7",
   "developer":            "#34d399",
+  "developer-a":          "#34d399",
+  "developer-b":          "#38bdf8",
+  "developer-c":          "#fb923c",
+  "developer-d":          "#a78bfa",
+  "developer-e":          "#f472b6",
+  "developer-f":          "#fbbf24",
   "architect":            "#a78bfa",
   "security":             "#f87171",
   "code-reviewer":        "#fb923c",
