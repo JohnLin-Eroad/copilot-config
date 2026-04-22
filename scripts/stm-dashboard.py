@@ -55,19 +55,20 @@ ROLE_TOOL_BUDGETS = {
     "default":      5,
 }
 
-# ─────────────────────────────────────────────
-# Section metadata: colour + icon per STM key
-# ─────────────────────────────────────────────
-SECTION_META = {
-    "Task Brief":       {"color": "#4f9cf9", "icon": "📋", "order": 0},
-    "Fetch Manifest":   {"color": "#a78bfa", "icon": "📚", "order": 1},
-    "Brain Data":       {"color": "#34d399", "icon": "🧠", "order": 2},
-    "Negative Context": {"color": "#f87171", "icon": "⛔", "order": 3},
-    "Retrieval Log":    {"color": "#fb923c", "icon": "🔍", "order": 4},
-    "Agent Contributions": {"color": "#facc15", "icon": "🤖", "order": 5},
+MODEL_SHORT = {
+    "claude-sonnet-4.6": "Sonnet 4.6",
+    "claude-sonnet-4.5": "Sonnet 4.5",
+    "claude-opus-4.7":   "Opus 4.7",
+    "claude-opus-4.6":   "Opus 4.6",
+    "claude-haiku-4.5":  "Haiku 4.5",
+    "gpt-5.3-codex":     "Codex 5.3",
+    "gpt-5.2-codex":     "Codex 5.2",
+    "gpt-5.4":           "GPT-5.4",
+    "gpt-5.2":           "GPT-5.2",
+    "gpt-4.1":           "GPT-4.1",
+    "gpt-5-mini":        "GPT-5 mini",
+    "gpt-5.4-mini":      "GPT-5.4 mini",
 }
-
-DEFAULT_META = {"color": "#94a3b8", "icon": "📄", "order": 99}
 
 
 def find_latest_stm() -> Path | None:
