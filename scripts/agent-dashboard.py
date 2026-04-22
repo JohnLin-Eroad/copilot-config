@@ -348,13 +348,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl-time{font-size:0.68rem;color:var(--text3);font-family:var(--mono);flex-shrink:0;padding-top:2px}
 
-/* ── STM Viewer (right panel) ── */
-.stm-section{margin-bottom:16px}
-.stm-section-title{font-size:0.75rem;font-weight:600;color:var(--blue);margin-bottom:6px;
-  display:flex;align-items:center;gap:6px}
-.stm-content{font-size:0.72rem;color:var(--text2);line-height:1.6;
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  padding:10px 12px;white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:var(--mono)}
+/* ── STM section label → Resources label ── */
 
 /* ── Empty state ── */
 .empty-state{text-align:center;padding:48px 24px;color:var(--text3)}
