@@ -403,12 +403,29 @@ def build_html(stm_path: Path, parsed: dict, last_modified: float) -> str:
         for ag in agents:
             sc = phase_colors.get(ag["status"], "#94a3b8")
             ic = phase_icons.get(ag["status"], "❓")
+            m = ag["metrics"]
+            # Inline tool + context gauges for agent card
+            inline_tool = build_gauge_html("tools", m["tool_used"], m["tool_max"], "calls", warn=60, danger=90)
+            ctx_pct = m["context_pct"]
+            ctx_tokens = m["context_tokens"]
+            model = m["model"] or "unknown"
+            ctx_limit = MODEL_CONTEXT_WINDOWS.get(model, DEFAULT_CONTEXT_WINDOW)
+            if ctx_tokens:
+                inline_ctx = build_gauge_html("ctx", ctx_tokens, ctx_limit, f"~{ctx_tokens//1000}k", warn=50, danger=75)
+            elif ctx_pct is not None:
+                inline_ctx = build_gauge_html("ctx", int(ctx_pct/100*ctx_limit), ctx_limit, f"{ctx_pct}%", warn=50, danger=75)
+            else:
+                inline_ctx = build_gauge_html("ctx", None, None)
             agent_detail_html += f"""
             <div class="agent-card" style="border-left:3px solid {sc}">
               <div class="agent-header">
                 <span class="agent-icon">{ic}</span>
                 <span class="agent-name">{html_escape(ag['name'])}</span>
                 <span class="agent-status" style="color:{sc}">{ag['status'].upper()}</span>
+              </div>
+              <div style="padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border)">
+                {inline_tool}
+                {inline_ctx}
               </div>
               <div class="agent-body">{md_to_html(ag['body'])}</div>
             </div>"""
