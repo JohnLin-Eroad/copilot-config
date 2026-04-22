@@ -35,6 +35,49 @@ MODEL: gpt-5.3-codex
 
 ## When to Use
 
+## ⚡ MANDATORY: STM Dashboard Visibility
+
+**If your task prompt includes an `STM` path or `STM_PATH` variable — the VERY FIRST thing you do (before reading any file, before planning) is write your init entry.**
+
+```bash
+# Extract from prompt — replace with actual values
+STM_PATH="<value from prompt>"
+AGENT_NAME="<value from prompt>"
+WRITE=~/.copilot/scripts/write-stm.sh
+
+# FIRST ACTION — run this immediately:
+bash "$WRITE" "$STM_PATH" "$AGENT_NAME" \
+  "PHASE: in_progress
+UNIT: <unit-id>
+CONTEXT: 0/128000
+TOOL_CALLS: 0/<budget>
+WORKING_ON: Starting — reading owned files" \
+  --state IN_PROGRESS
+```
+
+**Checkpoint writes — run after EVERY file you modify or create:**
+```bash
+bash "$WRITE" "$STM_PATH" "$AGENT_NAME" \
+  "PHASE: in_progress
+TOOL_CALLS: <N>/<budget>
+CONTEXT: <estimate>/128000
+WORKING_ON: <what you just finished> → <what's next>" \
+  --state IN_PROGRESS
+```
+
+**Completion — run as your final action:**
+```bash
+bash "$WRITE" "$STM_PATH" "$AGENT_NAME" \
+  "PHASE: done
+TOOL_CALLS: <N>/<budget>
+CONTEXT: <estimate>/128000
+FILES: <comma-separated list of all files written>
+NEXT: <next stage>" \
+  --state DONE
+```
+
+> ⚠️ You are running as a background sub-agent. Do NOT use the `task` tool — it will hit depth limits. Use only: `bash`, `view`, `edit`, `create`, `glob`, `grep`.
+
 ## DO NOT
 
 - **Do NOT** add new external Maven dependencies without explicit architect approval — flag the need and wait
