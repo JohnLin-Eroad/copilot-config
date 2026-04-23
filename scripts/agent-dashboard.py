@@ -938,12 +938,14 @@ function renderAgentCards(agents) {
     const isActive = a.status === "in_progress" || a.status === "starting";
     const stale = !isActive && isStale(a.timestamp);
     const modelPill = a.model ? `<span style="font-size:0.63rem;color:var(--text3);background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:4px;padding:1px 5px;font-family:var(--mono);margin-left:auto">${escHtml(a.model)}</span>` : '';
+    const parentBadge = a.parent ? `<span style="font-size:0.6rem;color:var(--text3);background:rgba(96,165,250,.1);border:1px solid rgba(96,165,250,.2);border-radius:3px;padding:0 4px;margin-left:4px">↑ ${escHtml(a.parent)}</span>` : '';
+    const unitBadge = a.unit ? `<span style="font-size:0.6rem;color:var(--text3);background:rgba(250,204,21,.1);border:1px solid rgba(250,204,21,.2);border-radius:3px;padding:0 4px;margin-left:4px">Unit ${escHtml(a.unit)}</span>` : '';
     return `<div class="agent-card ${isActive ? 'active' : ''} ${stale ? 'stale' : ''}"
       style="--agent-color:${col}">
       <div class="card-header">
         <div class="card-ring">${agentEmoji(a.agent)}</div>
         <div style="flex:1;min-width:0">
-          <div class="card-name">${a.agent}</div>
+          <div class="card-name">${a.agent}${unitBadge}${parentBadge}</div>
           <div class="card-ts">${relTime(a.timestamp)}</div>
         </div>
         ${modelPill}
