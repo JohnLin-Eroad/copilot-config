@@ -1729,6 +1729,13 @@ function escHtml(s) {
     .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
+// Extract a short summary from raw STM body when no Findings: line exists
+function summarizeRaw(raw) {
+  const skip = /^(status:|phase:|findings:|files:|decisions:|next:|parent:|unit:|tool_calls:|context:|model:)/i;
+  const lines = raw.split('\n').filter(l => l.trim() && !skip.test(l.trim()));
+  return lines.slice(0, 2).join(' · ').slice(0, 120) + (lines.length > 2 ? '…' : '');
+}
+
 // ── Main poll loop ────────────────────────────────────────────────────────────
 let lastUpdate = null;
 let lastGoodData = null;   // persist last known good state — prevents flicker on transient errors
