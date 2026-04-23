@@ -81,6 +81,296 @@ STATUS_META = {
 }
 DEFAULT_STATUS = {"color": "#94a3b8", "icon": "○", "label": "Idle"}
 
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+# ── Multi-workflow data model ─────────────────────────────────────────────
+
+@dataclasses.dataclass
+class WorkflowIdentity:
+    """Immutable identity for a discovered STM workflow."""
+    uuid: str               # UUID4 from .dashboard-id sidecar
+    directory: Path          # Absolute path — I/O locator only, NOT identity
+    slug: str               # Directory name as human-readable label
+    created_at: str          # ISO timestamp from frontmatter or dir mtime fallback
+
+
+@dataclasses.dataclass
+class WorkflowState:
+    """Mutable state for a tracked workflow — updated by poller."""
+    identity: WorkflowIdentity
+    entries: list           # Parsed timeline entry dicts
+    meta: dict              # Parsed STM frontmatter + sections
+    content_hash: str       # md5 hex of file content (change detection)
+    file_mtime: float       # os.stat st_mtime
+    file_size: int          # os.stat st_size
+    last_refreshed_at: float   # time.monotonic() — last successful parse
+    last_accessed_at: float    # time.monotonic() — bumped on tab view (LRU)
+    consecutive_errors: int    # 0 = healthy
+    last_error: Optional[str]  # last error message
+    parse_ok: bool             # False after 3 consecutive errors
+
+
+@dataclasses.dataclass
+class DashboardState:
+    """Top-level mutable state — lock-protected."""
+    workflows: dict          # {uuid: WorkflowState}
+    active_workflow_id: Optional[str]    # UUID of .active target
+    selected_workflow_id: Optional[str]  # UUID user is viewing (defaults to active)
+    tab_order: list          # UUIDs in display order
+
+
+# ── WorkflowRegistry ─────────────────────────────────────────────────────
+
+class WorkflowRegistry:
+    """Discovers STM directories and manages workflow lifecycle.
+
+    Thread-safe: all public methods acquire self._lock.
+    Discovery is rate-limited to avoid excessive filesystem scans.
+    """
+
+    DISCOVERY_WINDOW_H = 72         # scan dirs modified in last 72h
+    MAX_TRACKED = 30                # max workflows in memory
+    DISCOVERY_INTERVAL_S = 10       # re-scan filesystem every 10s
+
+    def __init__(self, stm_dir: Path):
+        self._stm_dir = stm_dir
+        self._lock = threading.Lock()
+        self._workflows: dict[str, WorkflowState] = {}   # uuid → state
+        self._active_uuid: Optional[str] = None
+        self._selected_uuid: Optional[str] = None
+        self._tab_order: list[str] = []
+        self._last_discovery: float = 0.0
+
+    # ── Public accessors (lock-protected) ─────────────────────────────
+
+    def get_state_snapshot(self) -> DashboardState:
+        """Return a shallow copy of current state for API serialisation."""
+        with self._lock:
+            return DashboardState(
+                workflows=dict(self._workflows),
+                active_workflow_id=self._active_uuid,
+                selected_workflow_id=self._selected_uuid or self._active_uuid,
+                tab_order=list(self._tab_order),
+            )
+
+    def get_workflow(self, uuid: str) -> Optional[WorkflowState]:
+        """Get a single workflow by UUID. Returns None if not found."""
+        with self._lock:
+            return self._workflows.get(uuid)
+
+    def get_all_workflows(self) -> list[WorkflowState]:
+        """Return a copy of all tracked workflows."""
+        with self._lock:
+            return list(self._workflows.values())
+
+    def select_workflow(self, uuid: str) -> bool:
+        """Set selected tab. Returns False if UUID not found."""
+        with self._lock:
+            if uuid not in self._workflows:
+                return False
+            self._selected_uuid = uuid
+            self._workflows[uuid].last_accessed_at = time.monotonic()
+            return True
+
+    def bump_accessed(self, uuid: str) -> None:
+        """Bump last_accessed_at for LRU tracking (called on serve)."""
+        with self._lock:
+            wf = self._workflows.get(uuid)
+            if wf:
+                wf.last_accessed_at = time.monotonic()
+
+    @property
+    def lock(self) -> threading.Lock:
+        """Expose lock for poller snapshot swap."""
+        return self._lock
+
+    # ── Discovery ─────────────────────────────────────────────────────
+
+    def discover(self) -> None:
+        """Scan STM_DIR for workflow directories. Thread-safe."""
+        now_mono = time.monotonic()
+        if now_mono - self._last_discovery < self.DISCOVERY_INTERVAL_S:
+            return
+        self._last_discovery = now_mono
+
+        # 1. Find candidate directories (modified within rolling window)
+        cutoff = time.time() - (self.DISCOVERY_WINDOW_H * 3600)
+        candidates: list[tuple[Path, float]] = []
+
+        try:
+            for entry in self._stm_dir.iterdir():
+                if not entry.is_dir() or entry.name.startswith("."):
+                    continue
+                stm_file = entry / STM_FILENAME
+                try:
+                    st = stm_file.stat()
+                    if st.st_mtime >= cutoff:
+                        candidates.append((entry, st.st_mtime))
+                except OSError:
+                    continue
+        except OSError:
+            return
+
+        # 2. Resolve .active target
+        active_dir = self._resolve_active_dir()
+
+        # 3. Force-include .active target (never evict active)
+        if active_dir:
+            cand_dirs = {c[0].resolve() for c in candidates}
+            resolved_active = active_dir.resolve()
+            if resolved_active not in cand_dirs:
+                try:
+                    mtime = (active_dir / STM_FILENAME).stat().st_mtime
+                    candidates.append((active_dir, mtime))
+                except OSError:
+                    pass
+
+        # 4. LRU eviction — sort by max(last_accessed_at, file_mtime)
+        def lru_key(item: tuple[Path, float]) -> float:
+            d, mtime = item
+            uid = self._read_dashboard_id(d)
+            with self._lock:
+                existing = self._workflows.get(uid)
+            if existing:
+                return max(existing.last_accessed_at, mtime)
+            return mtime
+
+        candidates.sort(key=lru_key, reverse=True)
+
+        # 5. Cap + force-pin active
+        if len(candidates) > self.MAX_TRACKED:
+            candidates = candidates[: self.MAX_TRACKED]
+
+        # Force active back in if evicted by cap
+        if active_dir:
+            cand_dirs_post = {c[0].resolve() for c in candidates}
+            resolved_active = active_dir.resolve()
+            if resolved_active not in cand_dirs_post and candidates:
+                candidates[-1] = (active_dir, time.time())
+
+        # 6. Register new workflows, prune removed — under lock
+        with self._lock:
+            seen_uuids: set[str] = set()
+            for d, _ in candidates:
+                uid = self._ensure_dashboard_id(d)
+                if not uid:
+                    continue
+                seen_uuids.add(uid)
+                if uid not in self._workflows:
+                    self._workflows[uid] = WorkflowState(
+                        identity=WorkflowIdentity(
+                            uuid=uid,
+                            directory=d,
+                            slug=d.name,
+                            created_at=self._read_created(d),
+                        ),
+                        entries=[],
+                        meta={},
+                        content_hash="",
+                        file_mtime=0.0,
+                        file_size=0,
+                        last_refreshed_at=0.0,
+                        last_accessed_at=time.monotonic(),
+                        consecutive_errors=0,
+                        last_error=None,
+                        parse_ok=True,
+                    )
+
+            # Prune workflows no longer discovered
+            for uid in list(self._workflows.keys()):
+                if uid not in seen_uuids:
+                    del self._workflows[uid]
+
+            # Update active UUID
+            active_uuid = None
+            if active_dir:
+                active_uuid = self._read_dashboard_id(active_dir)
+                if active_uuid and active_uuid not in self._workflows:
+                    active_uuid = None
+            self._active_uuid = active_uuid
+
+            # If selected no longer exists, reset to active
+            if self._selected_uuid and self._selected_uuid not in self._workflows:
+                self._selected_uuid = self._active_uuid
+
+            # Deterministic tab order: by created_at, ties broken by UUID
+            self._tab_order = sorted(
+                self._workflows.keys(),
+                key=lambda uid: (self._workflows[uid].identity.created_at, uid),
+            )
+
+    # ── Internal helpers (no locking — caller holds lock or uses try/except) ──
+
+    def _resolve_active_dir(self) -> Optional[Path]:
+        """Resolve .active symlink with containment check."""
+        active_link = self._stm_dir / ".active"
+        if not active_link.is_symlink():
+            return None
+        try:
+            target = active_link.resolve()
+            # Containment check — must be under STM_DIR
+            stm_real = self._stm_dir.resolve()
+            if not str(target).startswith(str(stm_real) + os.sep):
+                return None
+            if target.is_dir() and (target / STM_FILENAME).exists():
+                return target
+        except OSError:
+            pass
+        return None
+
+    def _read_dashboard_id(self, d: Path) -> str:
+        """Read .dashboard-id sidecar. Returns '' if missing/invalid."""
+        try:
+            content = (d / ".dashboard-id").read_text(encoding="utf-8").strip()
+            if UUID_RE.match(content):
+                return content
+        except OSError:
+            pass
+        return ""
+
+    def _ensure_dashboard_id(self, d: Path) -> str:
+        """Read or create .dashboard-id sidecar with atomic create."""
+        # Try read first
+        uid = self._read_dashboard_id(d)
+        if uid:
+            return uid
+
+        # Create atomically
+        uid = str(uuid_mod.uuid4())
+        id_path = d / ".dashboard-id"
+        try:
+            fd = os.open(str(id_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            try:
+                os.write(fd, uid.encode("utf-8"))
+            finally:
+                os.close(fd)
+            return uid
+        except FileExistsError:
+            # Race: another process created it — read theirs
+            return self._read_dashboard_id(d)
+        except OSError:
+            # Disk full / permissions — generate ephemeral ID (not persisted)
+            return uid
+
+    def _read_created(self, d: Path) -> str:
+        """Extract created timestamp from frontmatter, fallback to dir mtime."""
+        try:
+            content = (d / STM_FILENAME).read_text(
+                encoding="utf-8", errors="replace"
+            )[:2000]
+            m = re.search(r'created:\s*"?(\d{4}-\d{2}-\d{2}T[\d:]+Z?)"?', content)
+            if m:
+                return m.group(1)
+        except OSError:
+            pass
+        try:
+            return datetime.fromtimestamp(
+                d.stat().st_mtime, tz=timezone.utc
+            ).isoformat()
+        except OSError:
+            return datetime.now(timezone.utc).isoformat()
+
 
 # ── Snapshot type ─────────────────────────────────────────────────────────
 
