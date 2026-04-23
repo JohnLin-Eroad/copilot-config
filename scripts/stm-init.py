@@ -115,6 +115,19 @@ def main():
 
     stm_path = stm_dir / "short-term-memory.md"
 
+    # Build daily digest from prior sessions today
+    daily_digest = _build_daily_digest(date_str + "-", stm_dir)
+    digest_section = ""
+    if daily_digest:
+        digest_section = f"""
+---
+
+## [STM] Prior Sessions Today
+<!-- Auto-injected by stm-init.py — knowledge from earlier sessions today -->
+
+{daily_digest}
+"""
+
     # Write template
     stm_path.write_text(
         f"""---
@@ -140,7 +153,7 @@ Classification:
   Blast:      —
   Pipeline:   —
   BRAIN_TYPE: —
-
+{digest_section}
 ---
 
 ## [STM] Fetch Manifest
