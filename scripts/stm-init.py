@@ -212,7 +212,8 @@ Classification:
         encoding="utf-8",
     )
 
-    # Write .active symlink atomically so agent-dashboard picks up new task instantly
+    # Write .active symlink — optional hint for agent-dashboard (auto-selects this workflow).
+    # Dashboard uses WorkflowRegistry for discovery and does NOT require .active to function.
     active_link = STM_ROOT / ".active"
     tmp_link = STM_ROOT / f".active.tmp.{os.getpid()}"
     try:
