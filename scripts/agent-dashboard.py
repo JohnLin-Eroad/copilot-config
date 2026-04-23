@@ -18,16 +18,20 @@ Usage:
 """
 
 import argparse
+import fcntl
 import http.server
 import json
 import os
 import re
+import signal
 import sys
 import threading
 import time
+import urllib.request
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import NamedTuple, Optional
 
 STM_DIR = Path.home() / ".copilot" / "stm"
 
