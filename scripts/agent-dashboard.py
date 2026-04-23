@@ -34,6 +34,10 @@ from pathlib import Path
 from typing import NamedTuple, Optional
 
 STM_DIR = Path.home() / ".copilot" / "stm"
+PORT = 8765
+STM_FILENAME = "short-term-memory.md"
+LOCK_FILE = Path.home() / ".copilot" / "run" / "agent-dashboard.lock"
+ACTIVE_LINK = STM_DIR / ".active"
 
 AGENT_COLORS = {
     "orchestrator":          "#6c8ef7",
