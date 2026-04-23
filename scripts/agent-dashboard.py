@@ -1895,6 +1895,7 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "last_error":         wf.last_error,
                 "entry_count":        len(wf.entries),
                 "agent_count":        len({e["agent"] for e in wf.entries}),
+                "last_modified":      wf.file_mtime,
             })
 
         # Build selected workflow full data
