@@ -1050,6 +1050,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <span class="topbar-time" id="topbar-time"></span>
   </header>
 
+  <!-- Tab bar: workflow tabs -->
+  <nav id="tab-bar"></nav>
+
   <!-- Left sidebar: Resource Monitor -->
   <aside id="sidebar">
     <div class="section-label">🔋 Resources</div>
