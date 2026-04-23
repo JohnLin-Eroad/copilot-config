@@ -502,6 +502,189 @@ def _refresh_loop():
             pass
 
 
+# ── WorkflowPoller ────────────────────────────────────────────────────────
+
+class WorkflowPoller:
+    """Single-thread, sleep-after-completion poller for all tracked workflows.
+
+    Design choices from dual-critique:
+    - sleep-after-completion (NOT threading.Timer) — no overlap risk
+    - Three-tier change detection: (mtime,size) → md5 → forced reparse
+    - Parse outside lock — lock only for snapshot swap (<1μs)
+    - Per-file try/except — skip on error, don't crash
+    - Error tracking with explicit reset on success
+    - Adaptive polling: 2s active, 10s idle
+    """
+
+    ACTIVE_INTERVAL_S = 2.0     # any workflow changed recently
+    IDLE_INTERVAL_S = 10.0      # no changes in last 60s
+    FORCE_REPARSE_S = 30.0      # bypass fast-path every 30s
+    IDLE_THRESHOLD_S = 60.0     # no change for this long → idle mode
+
+    def __init__(self, registry: WorkflowRegistry, shutdown: threading.Event):
+        self._registry = registry
+        self._shutdown = shutdown
+        self._last_any_change: float = time.monotonic()
+        self._poll_running = False
+        self._thread: Optional[threading.Thread] = None
+
+    def start(self) -> None:
+        """Start the poller background thread."""
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name="workflow-poller"
+        )
+        self._thread.start()
+
+    def _run(self) -> None:
+        """Main loop: poll → sleep → repeat. Sleep AFTER completion (no overlap)."""
+        while not self._shutdown.is_set():
+            interval = self._poll_cycle()
+            self._shutdown.wait(interval)
+
+    def _poll_cycle(self) -> float:
+        """Run one poll cycle. Returns next sleep interval."""
+        if self._poll_running:
+            return self.ACTIVE_INTERVAL_S
+        self._poll_running = True
+        try:
+            # 1. Let registry discover/prune workflows
+            self._registry.discover()
+
+            # 2. Get current workflow list (snapshot under lock)
+            workflows = self._registry.get_all_workflows()
+
+            any_change = False
+            for wf in workflows:
+                try:
+                    changed = self._poll_workflow(wf)
+                    if changed:
+                        any_change = True
+                except Exception:
+                    pass  # per-file try/except — never crash the loop
+
+            if any_change:
+                self._last_any_change = time.monotonic()
+
+            # Also maintain v1 compat: update _current_snapshot for active workflow
+            self._update_v1_snapshot()
+
+        except Exception:
+            pass  # Never crash the poller
+        finally:
+            self._poll_running = False
+
+        # Adaptive interval
+        idle_seconds = time.monotonic() - self._last_any_change
+        return self.IDLE_INTERVAL_S if idle_seconds > self.IDLE_THRESHOLD_S else self.ACTIVE_INTERVAL_S
+
+    def _poll_workflow(self, wf: WorkflowState) -> bool:
+        """Poll a single workflow. Returns True if content changed."""
+        stm_file = wf.identity.directory / STM_FILENAME
+        now = time.monotonic()
+
+        # ── Tier 1: fast stat check ──────────────────────────
+        try:
+            st = stm_file.stat()
+        except OSError as e:
+            wf.consecutive_errors += 1
+            wf.last_error = f"stat failed: {e}"
+            if wf.consecutive_errors >= 3:
+                wf.parse_ok = False
+            return False
+
+        force_reparse = (now - wf.last_refreshed_at) >= self.FORCE_REPARSE_S
+        if not force_reparse and st.st_mtime == wf.file_mtime and st.st_size == wf.file_size:
+            return False  # fast-path: nothing changed
+
+        # ── Tier 2: read + hash ──────────────────────────────
+        content, mtime = _atomic_read_stm(stm_file)
+        if content is None:
+            wf.consecutive_errors += 1
+            wf.last_error = "atomic read failed (mtime changed during read)"
+            if wf.consecutive_errors >= 3:
+                wf.parse_ok = False
+            return False
+
+        content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+        if content_hash == wf.content_hash and not force_reparse:
+            # Content identical (e.g. file touched but not modified)
+            wf.file_mtime = mtime
+            wf.file_size = st.st_size
+            return False
+
+        # ── Tier 3: parse (outside lock) ─────────────────────
+        try:
+            entries = parse_stm_entries(content)
+            meta = parse_stm_meta(content)
+        except Exception as e:
+            wf.consecutive_errors += 1
+            wf.last_error = f"parse failed: {e}"
+            if wf.consecutive_errors >= 3:
+                wf.parse_ok = False
+            return False
+
+        # Build timeline entry keys with byte offsets
+        for i, entry in enumerate(entries):
+            entry["_key"] = f"{entry['agent']}::{entry['timestamp']}::{i}"
+
+        # ── Snapshot swap (under lock, <1μs) ──────────────────
+        with self._registry.lock:
+            wf.entries = entries
+            wf.meta = meta
+            wf.content_hash = content_hash
+            wf.file_mtime = mtime
+            wf.file_size = st.st_size
+            wf.last_refreshed_at = now
+            # Explicit reset on success
+            wf.consecutive_errors = 0
+            wf.last_error = None
+            wf.parse_ok = True
+
+        return True
+
+    def _update_v1_snapshot(self) -> None:
+        """Keep the old _current_snapshot in sync for v1 API compat."""
+        global _current_snapshot
+        state = self._registry.get_state_snapshot()
+        sel_id = state.selected_workflow_id or state.active_workflow_id
+        if not sel_id or sel_id not in state.workflows:
+            return
+        wf = state.workflows[sel_id]
+        if not wf.entries:
+            return
+        stm_path = wf.identity.directory / STM_FILENAME
+
+        # Build v1-shaped data from workflow state
+        agent_latest: dict[str, dict] = {}
+        for e in wf.entries:
+            agent_latest[e["agent"]] = e
+        agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
+        latest_ts = {a["agent"]: a["timestamp"] for a in agents_sorted}
+        timeline_raw = list(reversed(wf.entries[-40:]))
+        for e in timeline_raw:
+            e["is_latest"] = (e["timestamp"] == latest_ts.get(e["agent"]))
+
+        data = {
+            "stm_path":    str(stm_path),
+            "stm_name":    re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "",
+                                  stm_path.parent.name.replace("-", " ")).title(),
+            "meta":        wf.meta,
+            "agents":      agents_sorted,
+            "timeline":    timeline_raw,
+            "entry_count": len(wf.entries),
+            "updated_at":  datetime.now(timezone.utc).isoformat(),
+        }
+
+        with _snapshot_lock:
+            _current_snapshot = STMSnapshot(
+                stm_path=stm_path,
+                content="",  # not needed for v1 API
+                mtime=wf.file_mtime,
+                data=data,
+                refreshed_at=time.monotonic(),
+            )
+
+
 def parse_stm_entries(content: str) -> list[dict]:
     """Parse write-stm.sh entries: ### AGENT — TIMESTAMP\\nBody"""
     entries = []
