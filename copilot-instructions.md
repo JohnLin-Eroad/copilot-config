@@ -169,6 +169,53 @@ Proceeding with: <what>
 
 ---
 
+## STM-First Protocol
+
+**The Short-Term Memory (STM) is the single source of truth for every in-flight task.** Every agent's first action is to consume the STM — not to explore, search, or fetch independently.
+
+### The rule
+
+> **Before using ANY tool (grep, view, bash, search), read the STM.**
+> If the answer is in the STM, use it. If the STM says a topic has no brain coverage (Negative Context), do NOT search for it — raise `PIPELINE_SIGNAL: NEED_DATA` instead.
+
+### Why this matters
+
+1. **Eliminates redundant work** — prior agents have already explored, fetched, and synthesised. Re-exploring wastes tool calls and context tokens.
+2. **Prevents hallucination** — the Negative Context section explicitly lists what is NOT known. Agents that skip this will fill gaps with fabrication.
+3. **Respects restrictions** — gates and constraints live in the STM Task Brief. An agent that doesn't read them first may violate user-specified restrictions.
+4. **Maintains pipeline coherence** — the STM is the shared memory. Agents that ignore it produce disconnected, contradictory outputs.
+
+### What agents find in the STM
+
+| Section | What it contains | How to use it |
+|---|---|---|
+| `Task Brief` | Classification, restrictions, scope | Your mandate — respect every restriction |
+| `Brain Data` | Pre-fetched domain knowledge | **USE THIS** instead of searching brain/code yourself |
+| `Negative Context` | Topics NOT in the brain | **DO NOT speculate** on these; raise NEED_DATA if critical |
+| `Agent Contributions` | Prior agent outputs | Build on their work — don't repeat it |
+| `Fetch Manifest` | Files already retrieved | Don't re-fetch these |
+
+### Agent behaviour priority order
+
+1. **Read STM** — consume Task Brief, Brain Data, Negative Context, prior contributions
+2. **Use STM content first** — if the STM has what you need, do NOT make tool calls to find it again
+3. **Explore only gaps** — make tool calls ONLY for information NOT already in the STM
+4. **Write back to STM** — so the next agent doesn't have to repeat your work
+
+### Enforcement for the orchestrator
+
+When spawning sub-agents, the orchestrator MUST inject key STM sections directly into the prompt (see orchestrator agent docs). This ensures agents have the context at zero tool-call cost and cannot skip reading it.
+
+### Anti-patterns (never do these)
+
+- ❌ Grepping the codebase for patterns that are already described in STM Brain Data
+- ❌ Searching the brain vault for files already listed in the Fetch Manifest
+- ❌ Speculating about a topic that is listed in Negative Context
+- ❌ Re-running a discovery that a prior agent already completed (check Agent Contributions)
+- ❌ Ignoring restrictions in the Task Brief
+
+---
+
 ## Context Engineering
 
 Context engineering is the most important skill for working with LLMs effectively. **Output quality is determined primarily by what's in the context window, not by clever prompts.** Before blaming a model for bad output, check what it was given.
