@@ -22,7 +22,48 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 STM_ROOT = Path.home() / ".copilot" / "stm"
+STM_FILENAME = "short-term-memory.md"
 DASHBOARD_SCRIPT = Path.home() / ".copilot" / "scripts" / "stm-dashboard.py"
+DIGEST_MAX_BYTES = 2048  # ~2KB cap for prior-session digest
+
+
+def _build_daily_digest(today_prefix: str, exclude_dir: Path) -> str:
+    """Scan today's prior STM files, extract key knowledge, compress to ~2KB."""
+    if not STM_ROOT.exists():
+        return ""
+    digests = []
+    for entry in sorted(os.scandir(str(STM_ROOT)), key=lambda e: e.name):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if not entry.name.startswith(today_prefix):
+            continue
+        stm_path = Path(entry.path) / STM_FILENAME
+        if not stm_path.exists() or stm_path.parent == exclude_dir:
+            continue
+        try:
+            content = stm_path.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        # Extract decisions, findings, file paths
+        lines = content.splitlines()
+        slug = entry.name[len(today_prefix):]  # strip date prefix
+        extracted = []
+        for line in lines:
+            ls = line.strip()
+            # Capture decision/finding/file lines from agent contributions
+            if any(ls.startswith(k) for k in ("Decisions:", "Findings:", "Files:", "Next:", "Status:")):
+                extracted.append(ls)
+        if extracted:
+            digests.append(f"### {slug}\n" + "\n".join(extracted))
+    if not digests:
+        return ""
+    # Assemble and cap at DIGEST_MAX_BYTES
+    full = "\n\n".join(digests)
+    if len(full.encode("utf-8")) > DIGEST_MAX_BYTES:
+        # Truncate to fit, preserving complete lines
+        cut = full.encode("utf-8")[:DIGEST_MAX_BYTES]
+        full = cut.decode("utf-8", errors="ignore").rsplit("\n", 1)[0] + "\n…(truncated)"
+    return full
 
 
 def slugify(text: str) -> str:
