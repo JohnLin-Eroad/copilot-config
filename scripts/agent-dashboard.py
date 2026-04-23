@@ -1708,12 +1708,12 @@ function restoreScrollPositions(pos) {
 
 function renderTabBar(workflows, activeId, selectedId) {
   const bar = document.getElementById("tab-bar");
-  if (!bar || !workflows || workflows.length <= 1) {
-    if (bar) bar.innerHTML = "";
-    return;
-  }
+  if (!bar || !workflows) { if (bar) bar.innerHTML = ""; return; }
+  // Only show workflows that have entries (active work)
+  const visible = workflows.filter(w => w.entry_count > 0 || w.uuid === activeId || w.uuid === selectedId);
+  if (visible.length <= 1) { bar.innerHTML = ""; return; }
   let html = "";
-  for (const w of workflows) {
+  for (const w of visible) {
     const isSelected = w.uuid === selectedId;
     const isActive = w.uuid === activeId;
     // Truncate slug and clean it up
