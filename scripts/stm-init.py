@@ -25,6 +25,33 @@ STM_ROOT = Path.home() / ".copilot" / "stm"
 STM_FILENAME = "short-term-memory.md"
 DASHBOARD_SCRIPT = Path.home() / ".copilot" / "scripts" / "stm-dashboard.py"
 DIGEST_MAX_BYTES = 2048  # ~2KB cap for prior-session digest
+PRUNE_AGE_DAYS = 7      # prune STM dirs older than this
+
+
+def _prune_old_stm_dirs():
+    """Remove STM directories older than PRUNE_AGE_DAYS (by file mtime)."""
+    if not STM_ROOT.exists():
+        return
+    cutoff = datetime.now().timestamp() - (PRUNE_AGE_DAYS * 86400)
+    for entry in os.scandir(str(STM_ROOT)):
+        if not entry.is_dir(follow_symlinks=False) or entry.name.startswith("."):
+            continue
+        stm_file = Path(entry.path) / STM_FILENAME
+        try:
+            mtime = stm_file.stat().st_mtime if stm_file.exists() else entry.stat().st_mtime
+        except OSError:
+            continue
+        if mtime < cutoff:
+            # Remove files inside the dir, then the dir itself
+            try:
+                for f in os.scandir(entry.path):
+                    try:
+                        os.unlink(f.path)
+                    except OSError:
+                        pass
+                os.rmdir(entry.path)
+            except OSError:
+                pass  # partially cleaned — next run will finish
 
 
 def _build_daily_digest(today_prefix: str, exclude_dir: Path) -> str:
