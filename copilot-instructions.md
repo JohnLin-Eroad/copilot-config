@@ -631,6 +631,80 @@ These are **not suggestions**. If the condition is met, invoke the skill immedia
 
 ---
 
+## Agent Spawning Policy
+
+Every time you spawn a sub-agent, apply these rules. **This is non-negotiable.**
+
+### Agent Type Routing
+
+| Goal | Use agent type | Tool limit |
+|---|---|---|
+| Discover facts, explore a codebase | `explore` | Unlimited (that's its job) |
+| Produce a plan/analysis from known context | `general-purpose` + `"do not use tools"` | 0 |
+| Execute code changes | `developer` / `task` | Budget below |
+| Background work where you'll wait for result | `general-purpose` background | Budget below |
+
+**Never mix exploration and planning in the same agent.** If you need to discover facts AND produce a plan, run an `explore` first, then pass its output to a constrained planning agent with no tool access.
+
+### Mandatory Tool Budget Header
+
+Include this block at the top of **every** non-`explore` agent prompt:
+
+```
+## Tool Use Policy
+- Exploration budget: MAX {N} tool calls before you MUST produce output
+- After {N/2} tool calls: you must have a working draft — do not make 3+ consecutive
+  tool calls without writing any output
+- If something is unknown after your budget: state the assumption and proceed — do not
+  explore to fill the gap
+- On EVERY write-stm.sh call, include: TOOL_CALLS: <used>/<max>, CONTEXT: ~<N>k tokens, MODEL: <model-id>
+```
+
+Default budgets by role:
+
+| Agent role | Max tool calls |
+|---|---|
+| `explore` / `discovery` | unlimited |
+| `developer` / `coding` | 15 |
+| `architect` / `design` | 12 |
+| `reviewer` / `security` | 10 |
+| `planner` / `analyst` / `reasoning` | 6 |
+| Any agent given full context in prompt | 0 |
+
+### Context Window Monitoring Protocol
+
+Agents MUST emit these structured markers in **every** STM write so the dashboard can display real-time resource usage:
+
+```
+TOOL_CALLS: <used>/<max>       # emit on EVERY write-stm.sh call
+CONTEXT: ~<N>k tokens          # emit on EVERY write-stm.sh call — estimate your current context usage
+MODEL: <model-id>              # emit on EVERY write-stm.sh call
+```
+
+**How to estimate context tokens:** Count approximate input tokens consumed so far — system prompt (~3k) + task prompt + all tool call inputs and outputs. Round to nearest 5k. If unsure, estimate conservatively high.
+
+Example STM entry body:
+```
+Status: in_progress
+Model: gpt-5.3-codex
+TOOL_CALLS: 7/15
+CONTEXT: ~45k tokens
+Findings: Implementing AuthController. 3 files created.
+Files: src/AuthController.java, src/JwtService.java
+Next: Write integration tests.
+```
+
+**Context pressure thresholds:**
+- **50%**: compress prior tool outputs in your context before continuing
+- **75%**: wrap up current section, produce output for what you have, flag remaining gaps
+- **90%**: STOP. Produce final output immediately with explicit "CONTEXT LIMIT REACHED" marker
+
+### Progressive Commitment Rule
+
+An agent must never make more than 3 consecutive tool calls without producing output. After every 3 tool calls, write a draft section or intermediate finding. This prevents silent infinite exploration loops.
+
+---
+
 ## General Behaviour
 
 - Always check `.github/copilot-instructions.md` in the current repo for project-specific instructions.
