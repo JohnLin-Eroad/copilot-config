@@ -661,3 +661,108 @@ NEXT: <recommended next step or none>"
 ```
 
 **Non-fatal:** If `STM_PATH` is empty or the file is missing, `write-stm.sh` exits cleanly — never let STM writing fail the task.
+
+---
+
+## Context Window Budget
+
+The context window is finite. Every low-value token displaces a high-value one.
+
+### STM size discipline
+- Target STM size: **under 50k tokens** (~200KB of text)
+- When STM approaches 50k tokens, trigger compression:
+  1. Summarise the `## [STM] Agent Contributions` section into a 200-word summary preserving all decisions, file paths, and action items
+  2. Replace verbose tool output with key findings only
+  3. Drop superseded drafts — keep only the latest version
+
+### What to include vs. exclude in STM
+| Include | Exclude |
+|---|---|
+| Task brief and acceptance criteria | Verbose build logs (extract errors only) |
+| Relevant brain excerpts (compressed) | Full file contents if >150 lines |
+| Decisions and their rationale | Intermediate drafts once superseded |
+| Error messages and stack traces | Successful command output that adds no signal |
+| Current file paths and schemas | Repeated context already stated earlier |
+
+### Compression commands
+```bash
+wc -c "$STM_PATH" | awk '{print $1/1024 " KB"}'
+grep -n "\[STM\] Agent Contributions" "$STM_PATH"
+```
+
+---
+
+## Agent Spawning Policy
+
+Every time you spawn a sub-agent, apply these rules.
+
+### Agent Type Routing
+
+| Goal | Use agent type | Tool limit |
+|---|---|---|
+| Discover facts, explore a codebase | `explore` | Unlimited |
+| Produce a plan/analysis from known context | `general-purpose` + `"do not use tools"` | 0 |
+| Execute code changes | `developer` / `task` | Budget below |
+| Background work where you'll wait for result | `general-purpose` background | Budget below |
+
+**Never mix exploration and planning in the same agent.** Run `explore` first, then pass its output to a constrained planning agent with no tool access.
+
+### Mandatory Tool Budget Header
+
+Include at the top of **every** non-`explore` agent prompt:
+
+```
+## Tool Use Policy
+- Exploration budget: MAX {N} tool calls before you MUST produce output
+- After {N/2} tool calls: you must have a working draft
+- If something is unknown after your budget: state the assumption and proceed
+- On EVERY write-stm.sh call, include: TOOL_CALLS: <used>/<max>, CONTEXT: ~<N>k tokens, MODEL: <model-id>
+```
+
+Default budgets: `explore`/`discovery` = unlimited, `developer` = 15, `architect` = 12, `reviewer`/`security` = 10, `planner`/`analyst` = 6, full-context agents = 0.
+
+### Context Monitoring
+
+Agents MUST emit on **every** STM write: `TOOL_CALLS: <used>/<max>`, `CONTEXT: ~<N>k tokens`, `MODEL: <model-id>`.
+
+Context pressure thresholds: **50%** = compress prior outputs. **75%** = wrap up, produce output, flag gaps. **90%** = STOP immediately with `CONTEXT LIMIT REACHED`.
+
+### Progressive Commitment
+
+Never make more than 3 consecutive tool calls without producing output. Write a draft or finding after every 3 calls.
+
+---
+
+## Skill Auto-Invoke Rules
+
+These fire WITHOUT being asked — if the condition is met, invoke immediately:
+
+- **`brain-sync`** — first coding turn of the session (skip if pure question with zero file changes)
+- **`critical-thinker`** — after drafting a plan touching >2 files or >1 module (skip for single-file edits)
+- **`session-summary`** — at session end (user wrapping up, "good job", etc.)
+- **`advisor`** — proactively offer for directional "what to build / which approach" decisions
+
+When NOT to invoke skills: routine single-file edits, user already framed the analysis, speed is critical and blast radius is LOW.
+
+---
+
+## Session End Protocol
+
+At the end of **every session**, automatically run these syncs **without waiting to be asked**:
+
+1. **Session summary:**
+   ```bash
+   python3 ~/.copilot/scripts/summarize-session.py <session-id> \
+     --prose "Your summary here" \
+     --learnings "learning 1\nlearning 2\n..."
+   ```
+   Get session ID: `ls -t ~/.copilot/session-state/ | head -1`
+
+2. **Global learnings:**
+   ```bash
+   bash ~/.copilot/scripts/add-learning.sh --global "[TYPE] Learning text"
+   ```
+
+3. **Brain consolidation** — if the session involved EROAD work, launch `brain-consolidation` in background.
+
+4. **Brain push** — the `copilot()` zsh wrapper handles this on exit automatically.
