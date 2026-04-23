@@ -1780,7 +1780,7 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    global _exit_code, _pinned_stm_path
+    global _exit_code, _pinned_stm_path, _workflow_registry, _workflow_poller
 
     parser = argparse.ArgumentParser(description="Agent Visibility Dashboard")
     parser.add_argument("--stm",     help="Path to short-term-memory.md (default: auto-detect)")
