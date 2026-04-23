@@ -262,7 +262,7 @@ def parse_stm_entries(content: str) -> list[dict]:
         # Multi-line findings (lines after FINDINGS: that don't start with a key)
         in_findings = False
         extra_lines = []
-        keys = {"status:", "files:", "decisions:", "next:", "findings:"}
+        keys = {"status:", "files:", "decisions:", "next:", "findings:", "parent:", "unit:"}
         for line in body.splitlines():
             low = line.strip().lower()
             if low.startswith("findings:"):
