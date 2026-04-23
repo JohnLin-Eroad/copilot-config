@@ -1229,19 +1229,23 @@ setInterval(fetchStatus, 2000);
 """
 
 
+class DashboardServer(http.server.ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
-    stm_path: Path | None = None
-    _cache: dict = {}
-    _cache_mtime: float = 0.0
 
     def log_message(self, *args):
         pass  # silence access logs
 
     def do_GET(self):
-        if self.path == "/" or self.path == "/index.html":
+        if self.path in ("/", "/index.html"):
             self._serve_html()
         elif self.path == "/api/status":
             self._serve_status()
+        elif self.path == "/health":
+            self._serve_health()
         else:
             self.send_error(404)
 
@@ -1254,16 +1258,12 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _serve_status(self):
-        stm = AgentDashboardHandler.stm_path or find_active_stm()
-        if stm is None:
+        with _snapshot_lock:
+            snap = _current_snapshot
+        if snap is None:
             payload = {"error": "No active STM found", "agents": [], "timeline": [], "meta": {}}
         else:
-            mtime = stm.stat().st_mtime if stm.exists() else 0
-            if mtime != AgentDashboardHandler._cache_mtime:
-                AgentDashboardHandler._cache = get_dashboard_data(stm)
-                AgentDashboardHandler._cache_mtime = mtime
-            payload = AgentDashboardHandler._cache
-
+            payload = snap.data
         body = json.dumps(payload, default=str).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
@@ -1272,51 +1272,124 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-
-def find_free_port(start: int = 8765) -> int:
-    import socket
-    for port in range(start, start + 50):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(("", port))
-                return port
-            except OSError:
-                continue
-    raise RuntimeError("No free port in range")
+    def _serve_health(self):
+        with _snapshot_lock:
+            snap = _current_snapshot
+        payload = {
+            "status":           "ok",
+            "pid":              os.getpid(),
+            "ready":            snap is not None,
+            "active_stm_path":  str(snap.stm_path) if snap else None,
+            "last_parse_mtime": snap.mtime if snap else None,
+            "uptime_s":         round(time.monotonic() - _start_time, 1),
+        }
+        body = json.dumps(payload).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
 
 def main():
+    global _exit_code, _pinned_stm_path
+
     parser = argparse.ArgumentParser(description="Agent Visibility Dashboard")
-    parser.add_argument("--stm", help="Path to short-term-memory.md (default: auto-detect latest)")
-    parser.add_argument("--port", type=int, default=0, help="Port (default: 8765)")
-    parser.add_argument("--no-open", action="store_true", help="Don't open browser")
+    parser.add_argument("--stm",     help="Path to short-term-memory.md (default: auto-detect)")
+    parser.add_argument("--port",    type=int, default=PORT)
+    parser.add_argument("--no-open", action="store_true")
     args = parser.parse_args()
 
+    # ── Singleton: acquire OS-level exclusive lock ────────────────────────────
+    if not _acquire_singleton():
+        deadline = time.monotonic() + 10.0
+        healthy = False
+        while time.monotonic() < deadline:
+            try:
+                with urllib.request.urlopen(
+                    f"http://localhost:{args.port}/health", timeout=2
+                ) as resp:
+                    health = json.loads(resp.read())
+                    if health.get("status") == "ok":
+                        healthy = True
+                        break
+            except Exception:
+                pass
+            time.sleep(0.5)
+        if healthy:
+            print(f"[agent-dashboard] healthy copy running on :{args.port} — exiting (no restart)")
+            sys.exit(0)   # SuccessfulExit → launchd does NOT restart
+        else:
+            print(f"[agent-dashboard] lock held but /health unresponsive — will retry", file=sys.stderr)
+            sys.exit(2)   # launchd restarts after ThrottleInterval
+
+    # ── Ensure STM dir exists (never fail on missing dir) ─────────────────────
+    STM_DIR.mkdir(parents=True, exist_ok=True)
+
+    # ── Optional pinned STM path ──────────────────────────────────────────────
     if args.stm:
         p = Path(args.stm).expanduser().resolve()
         if not p.exists():
-            print(f"STM file not found: {p}", file=sys.stderr)
-            sys.exit(1)
-        AgentDashboardHandler.stm_path = p
-    else:
-        AgentDashboardHandler.stm_path = None  # auto-detect
+            print(f"[agent-dashboard] STM file not found: {p}", file=sys.stderr)
+            _release_singleton()
+            sys.exit(2)
+        _pinned_stm_path = p
 
-    port = args.port if args.port else find_free_port()
-    server = http.server.HTTPServer(("", port), AgentDashboardHandler)
-    url = f"http://localhost:{port}"
+    # ── Signal handlers ───────────────────────────────────────────────────────
+    def _sigterm(signum, frame):
+        _shutdown_event.set()           # exit(1) → launchd restarts
 
+    def _sigusr1(signum, frame):
+        global _exit_code
+        _exit_code = 0                  # operator stop → exit(0) → launchd does NOT restart
+        _shutdown_event.set()
+
+    signal.signal(signal.SIGTERM, _sigterm)
+    signal.signal(signal.SIGUSR1, _sigusr1)
+
+    # ── Eager first refresh before binding ───────────────────────────────────
+    try:
+        _do_refresh()
+    except Exception:
+        pass
+
+    # ── Background refresh thread ─────────────────────────────────────────────
+    refresh_thread = threading.Thread(target=_refresh_loop, daemon=True, name="stm-refresh")
+    refresh_thread.start()
+
+    # ── Bind HTTP server ──────────────────────────────────────────────────────
+    try:
+        server = DashboardServer(("", args.port), AgentDashboardHandler)
+    except OSError as e:
+        print(f"[agent-dashboard] cannot bind :{args.port}: {e}", file=sys.stderr)
+        _release_singleton()
+        sys.exit(2)
+
+    url = f"http://localhost:{args.port}"
     print(f"⚡ Agent Dashboard running at {url}")
-    print(f"   STM: {'auto-detect latest' if not args.stm else args.stm}")
-    print(f"   Polls every 2 seconds · Ctrl+C to stop")
+    print(f"   STM: {'auto-detect (.active symlink + mtime scan)' if not args.stm else args.stm}")
+    print(f"   SIGTERM=restart · SIGUSR1=graceful-stop-no-restart")
 
     if not args.no_open:
         threading.Timer(0.5, lambda: webbrowser.open(url)).start()
 
+    # ── Serve until shutdown signal ───────────────────────────────────────────
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True, name="http-server")
+    server_thread.start()
+
+    _shutdown_event.wait()
+
     try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nDashboard stopped.")
+        server.shutdown()
+        server.server_close()
+    except Exception:
+        pass
+    finally:
+        _release_singleton()
+
+    sys.exit(_exit_code)
 
 
 if __name__ == "__main__":
     main()
+
