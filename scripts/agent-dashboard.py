@@ -1486,7 +1486,7 @@ function renderAgentCards(agents) {
       </div>
       ${inlineGauges(a)}
       <div class="card-body">
-        ${a.findings ? `<div class="card-findings">${escHtml(a.findings.slice(0,120))}${a.findings.length>120?'…':''}</div>` : ''}
+        ${a.findings ? `<div class="card-findings">${escHtml(a.findings.slice(0,120))}${a.findings.length>120?'…':''}</div>` : (a.raw ? `<div class="card-findings" style="color:var(--text3)">${escHtml(summarizeRaw(a.raw))}</div>` : '')}
         ${a.files ? `<div class="card-files">📄 ${escHtml(a.files.slice(0,80))}</div>` : ''}
         ${a.next && a.next !== 'none' ? `<div style="margin-top:6px;font-size:0.72rem;color:#64748b">→ ${escHtml(a.next.slice(0,80))}</div>` : ''}
       </div>
