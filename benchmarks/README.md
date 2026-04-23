@@ -87,7 +87,7 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 | Week | Overall | Code (20%) | Context (20%) | Security (15%) | Planning (15%) | Pipeline (15%) | Halluc. (10%) | Error (5%) | vs Prev |
 |---|---|---|---|---|---|---|---|---|---|
 | **2026-W16** 🏁 | **87.0** | 100 | 72 | 92 | 98 | — | — | — | baseline |
-| **2026-W17** | **90.9** | 100 | 90 | 94 | 100 | — | — | — | +3.9 |
+| **2026-W17** ⭐ | **87.1** | 92.5 | 85.0 | 69.0 | 92.4 | 84.5 | 100.0 | 94.0 | v2 baseline |
 | **2026-W18** | *config-audit* | — | — | — | — | — | — | — | *invalid* |
 
 *W16/W17 scores back-converted from 1-5 scale (×20). W18 was config-audit only (not real execution) — excluded from trend analysis. W19+ will use the new system with all 7 categories, rotating prompts, separate grading, and mandatory traces. Expect scores to drop initially — this is correct behavior, not regression.*
