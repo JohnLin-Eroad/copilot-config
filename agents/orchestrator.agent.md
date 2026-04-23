@@ -54,17 +54,50 @@ Write this block into the STM Task Brief immediately:
 ```
 Classification:
   Domain:     eroad | personal
-  Type:       code-change | architecture | discovery | documentation | question | ops | general
+  Type:       code-change | architecture | discovery | documentation | research | question | ops | general
   Blast:      LOW | MEDIUM | HIGH | CRITICAL
   Pipeline:   minimal | standard | full-transformation
   BRAIN_TYPE: eroad | personal
+
+Restrictions:
+  - <parsed from user's message — see below>
 ```
 
 **Domain rules:**
-- `eroad` — task involves EROAD services, platform, EROAD repos, RUCUS, NZ/AU transport, company infrastructure
+- `eroad` — task involves EROAD services, platform, EROAD repos, RUCUS, NZ/AU transport, company infrastructure. **All EROAD tasks MUST go through the pipeline — no exceptions, including research and investigation.**
 - `personal` — task involves copilot config, personal projects, general coding, AI/LLM learnings, benchmarking, vault setup, anything non-company
 
 The `BRAIN_TYPE` in the STM is read by `brain-data-retrieval` and `brain-consolidation` to select the correct vault.
+
+### 🚧 Parsing Restrictions from User Requests
+
+**Scan the user's message for constraints/restrictions BEFORE classifying.** Look for phrases like:
+- "pause before commit", "let me review", "review the code first" → `GATE: pre-commit`
+- "don't push", "local only", "no push" → `GATE: no-push`
+- "research only", "just investigate", "don't change anything" → `GATE: read-only`
+- "explain before acting", "check with me first" → `GATE: explain-first`
+- "no new dependencies" → `CONSTRAINT: no-deps`
+- "stay in this repo" → `CONSTRAINT: repo-scoped`
+- "draft mode" → `GATE: draft-only`
+
+**If no restrictions are mentioned, write `Restrictions: none`.**
+
+**Gate enforcement:**
+- `GATE: pre-commit` — After code changes, run `git diff` and present it to the user via `ask_user`. Wait for explicit "go ahead" / "commit" before running `git commit`. Repeat for EVERY commit.
+- `GATE: no-push` — Commit locally. Never run `git push`.
+- `GATE: read-only` — No `write_file`, `edit`, `create`, or file-modifying bash commands. Output findings only.
+- `GATE: explain-first` — Before every significant action (agent spawn, file edit, command), explain what you're about to do and wait for user approval via `ask_user`.
+- `GATE: draft-only` — Create content but don't publish, send, or merge.
+
+**Constraints are silent — agents simply comply. Gates require stopping and asking the user.**
+
+When passing restrictions to sub-agents, include them in the prompt:
+```
+## Restrictions (from user)
+- GATE: pre-commit — pause and show diff before every commit
+- CONSTRAINT: no-deps — do not add new dependencies
+You MUST respect these restrictions. For GATE restrictions, use ask_user to pause and get approval.
+```
 
 ### No specialist agent? → agent-factory
 
