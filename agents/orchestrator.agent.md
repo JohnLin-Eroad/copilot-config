@@ -297,7 +297,8 @@ Phase 0  → brain-data-retrieval    (populate STM from brain)
 Phase 1  → product-manager         (spec, Jira ticket, Confluence page)
 Phase 2  → architect               (ADRs, system design)
 Phase 3  → security                (architecture-level review)
-Phase 4  → developer               (implementation)
+Phase 3.5 → tech-lead             (decompose into parallel developer units)
+Phase 4  → developer-a, b, c...   (parallel implementation of units)
 Phase 5  → testing / qa-engineer   (tests, validation)        ← see Eval Loop below
 Phase 6  → security                (code-level review)
 Phase 7  → code-reviewer           (final review)
@@ -307,6 +308,14 @@ Phase 10 → brain-consolidation     (write all new knowledge back to brain)
 ```
 
 Not every task needs all phases — skip what's not relevant. **You must always run Phase 0 and Phase 10.**
+
+**Phase 3.5 (tech-lead) rules:**
+- **ALWAYS run** if implementation touches ≥4 files or ≥2 modules
+- **Skip** only for single-file or single-module trivial changes (≤3 files)
+- Tech-lead returns a decomposition with named units (A, B, C...)
+- Spawn developers in parallel: `developer-a`, `developer-b`, `developer-c`...
+- Each developer gets: its unit scope, owned files list, STM_PATH, and agent name
+- All developers write independently to the STM — the dashboard shows each one
 
 **Checkpoint after every phase** — present results to user and wait for `continue` before proceeding.
 
