@@ -6,6 +6,7 @@ description: >
   every one of them. Produces a test report with pass/fail status and coverage analysis.
   Can push back to the Developer if code is untestable, doesn't meet acceptance criteria,
   or has functional defects.
+handoff_description: "Verifies acceptance criteria against implementation. Produces pass/fail test report."
 model: gpt-5.3-codex
 tools:
   - task
@@ -132,3 +133,33 @@ If the same action fails 3 times, or 5+ tool calls produce no forward progress:
             Give me a concrete alternative in ≤5 steps."
    ```
 4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
+
+## When to Use
+
+Invoke when: implementation is complete and ACs need formal verification; integration or E2E tests are required; a test report is needed before promotion.
+
+
+---
+
+## STM Write Protocol
+
+**Always write progress to the STM when `STM_PATH` is set in your prompt.**
+
+```bash
+# Start of task
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "qa-engineer" "STATUS: starting
+Scope: <brief description of what this agent will do>"
+
+# After each major step
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "qa-engineer" "STATUS: in_progress
+FINDINGS: <what was discovered or done>
+FILES: <files touched>"
+
+# Completion
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "qa-engineer" "STATUS: complete
+FINDINGS: <summary of all findings and decisions>
+FILES: <all files changed>
+NEXT: <recommended next step or none>"
+```
+
+**Non-fatal:** If `STM_PATH` is empty or the file is missing, `write-stm.sh` exits cleanly — never let STM writing fail the task.

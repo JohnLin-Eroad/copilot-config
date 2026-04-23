@@ -4,6 +4,7 @@ description: >
   Performance Agent. Identifies bottlenecks in the Sovereign platform and
   EROAD services, profiles code, recommends optimisations, and benchmarks results.
   Focuses on Java/Spring Boot performance and database query optimisation.
+handoff_description: "Profiles bottlenecks, benchmarks throughput, recommends optimisations."
 model: claude-sonnet-4.6
 tools:
   - task
@@ -100,3 +101,33 @@ If the same action fails 3 times, or 5+ tool calls produce no forward progress:
             Give me a concrete alternative in ≤5 steps."
    ```
 4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
+
+## When to Use
+
+Invoke when: a performance regression is suspected; task involves high-throughput paths; profiling or benchmarking is needed.
+
+
+---
+
+## STM Write Protocol
+
+**Always write progress to the STM when `STM_PATH` is set in your prompt.**
+
+```bash
+# Start of task
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "performance" "STATUS: starting
+Scope: <brief description of what this agent will do>"
+
+# After each major step
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "performance" "STATUS: in_progress
+FINDINGS: <what was discovered or done>
+FILES: <files touched>"
+
+# Completion
+bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "performance" "STATUS: complete
+FINDINGS: <summary of all findings and decisions>
+FILES: <all files changed>
+NEXT: <recommended next step or none>"
+```
+
+**Non-fatal:** If `STM_PATH` is empty or the file is missing, `write-stm.sh` exits cleanly — never let STM writing fail the task.
