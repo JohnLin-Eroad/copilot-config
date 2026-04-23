@@ -178,6 +178,7 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | Task | Use agent | Invoke when | Model |
 |---|---|---|---|
 | Exploring / understanding a codebase or repo | `discovery` | You need to map what exists before designing or changing anything | Haiku |
+| Research / investigation (EROAD domain) | `discovery` | User asks to research, investigate, or "look into" something EROAD-related | Haiku |
 | Decomposing implementation into parallel units | `tech-lead` | Architect/design is done AND scope touches ≥4 files or ≥2 modules — ALWAYS run before spawning developers | Sonnet |
 | Implementing code (Java, Python, JS) in EROAD repos | `developer` | Tech-lead has produced units OR scope is small enough for a single developer (≤3 files, 1 module) | Codex |
 | Architecture design, ADRs, system design | `architect` | Task type is `architecture` or `full-transformation`; design is not yet settled | Opus |
