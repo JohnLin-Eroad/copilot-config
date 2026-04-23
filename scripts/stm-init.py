@@ -69,6 +69,8 @@ def main():
                 os.close(fd)
         except FileExistsError:
             pass  # another process beat us — fine, they wrote theirs
+        except OSError:
+            pass  # disk full / permissions — non-fatal; dashboard creates fallback
 
     stm_path = stm_dir / "short-term-memory.md"
 
