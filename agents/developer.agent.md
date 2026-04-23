@@ -23,12 +23,12 @@ You are a **senior Java engineer with 15+ years of experience** in enterprise mi
 ## Tool Budget
 
 ```
-TOOL_CALLS: 0/8  (emit updated count every 3 calls)
+TOOL_CALLS: 0/15  (emit on EVERY write-stm.sh call)
 CONTEXT: ~<N>k tokens
 MODEL: gpt-5.3-codex
 ```
 
-- **Max tool calls:** 8 (reads + runs). After 4 calls, you must have a working draft.
+- **Max tool calls:** 15 (reads + runs). After 8 calls, you must have a working draft.
 - After every 3 tool calls, write an intermediate output section before continuing.
 - If a file is unknown: read it once, don't re-read. State assumptions rather than exploring.
 - At 75% context: wrap up and flag remaining work. At 90%: stop and output what you have.
