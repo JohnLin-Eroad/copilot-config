@@ -1712,6 +1712,12 @@ let lastUpdate = null;
 let lastGoodData = null;   // persist last known good state — prevents flicker on transient errors
 let errorCount = 0;        // only show "no active STM" after sustained errors
 let currentSelectedId = null;
+let showAllWorkflows = false;
+
+function toggleShowAll() {
+  showAllWorkflows = !showAllWorkflows;
+  fetchStatus();
+}
 
 // Scroll preservation — save positions before render, restore after
 function saveScrollPositions() {
