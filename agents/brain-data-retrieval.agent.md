@@ -70,13 +70,21 @@ If the STM file does not exist yet, **create it** using the template at the bott
 
 ## Retrieval Protocol
 
-### Step 1 — Read the STM Fetch Manifest
+### Step 1 — Read the STM (your starting point)
 
-Before fetching anything, read the STM file and find the `## [STM] Fetch Manifest` section. This lists every brain file already fetched in this task. **Never fetch the same file twice.**
+Before fetching ANYTHING, read the full STM file. You need to know:
+
+1. **Fetch Manifest** (`## [STM] Fetch Manifest`) — what has already been fetched. **Never fetch the same file twice.**
+2. **Brain Data** (`## [STM] Brain Data`) — what context is already available. If a prior retrieval run has already fetched relevant content, do NOT re-fetch it.
+3. **Agent Contributions** (`## [STM] Agent Contributions`) — prior agents may have surfaced knowledge that makes some brain fetches unnecessary.
+4. **Task Brief** — what the task actually needs, including classification and restrictions.
 
 ```bash
-grep -A 100 "\[STM\] Fetch Manifest" "$STM_PATH"
+# Read the full STM to understand current state
+cat "$STM_PATH"
 ```
+
+**STM-First rule:** If the STM already contains sufficient context for the task (e.g., a prior retrieval run covered the domain), you may skip fetching entirely and output `DATA_RETRIEVAL: SUFFICIENT`. Only fetch if there are genuine gaps.
 
 ### Step 2 — Analyse the Request
 
