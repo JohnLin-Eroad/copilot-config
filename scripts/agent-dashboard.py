@@ -2029,6 +2029,25 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
             agent_latest = {}
             for e in wf.entries:
                 agent_latest[e["agent"]] = e
+
+            # Infer implied completion (same logic as other code paths)
+            if agent_latest:
+                _pipeline_done = any(
+                    e["status"] == "complete" for e in agent_latest.values()
+                )
+                if _pipeline_done:
+                    _latest_done_ts = max(
+                        (e["timestamp"] for e in agent_latest.values() if e["status"] == "complete"),
+                        default="",
+                    )
+                    for e in agent_latest.values():
+                        if (
+                            e["status"] == "in_progress"
+                            and e["timestamp"] < _latest_done_ts
+                        ):
+                            e["status"] = "complete"
+                            e["_implied_complete"] = True
+
             agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
             latest_ts = {a["agent"]: a["timestamp"] for a in agents_sorted}
             timeline = list(reversed(wf.entries[-40:]))
