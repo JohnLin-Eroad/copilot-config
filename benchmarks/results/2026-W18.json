@@ -46,5 +46,8 @@
       "status": "WARN",
       "notes": "NEW category. instruction-following.md task file MISSING (using default rubric). Signals: STM created when reminded \u2705, pipeline followed after corrections \u2705, no general-purpose fallback \u2705, unstick protocol not needed \u2705. Two reminders required: (1) create STM for research phase, (2) create new STM for implementation phase. Rubric: 3 = Two reminders needed."
     }
-  }
+  },
+  "system_version": "v1-config-audit",
+  "self_graded": true,
+  "note": "INVALID: Config-audit only (checked file existence, not agent capability). Excluded from trend analysis. Retained for historical record."
 }

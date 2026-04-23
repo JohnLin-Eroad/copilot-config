@@ -1,24 +1,36 @@
 {
   "week": "2026-W16",
   "date": "2026-04-16",
-  "run_type": "manual",
-  "executor": "Claude Sonnet 4.6 (direct execution, benchmark-runner agent pattern)",
+  "system_version": "v1-legacy",
+  "self_graded": true,
+  "note": "Back-converted from 1-5 scale (\u00d720). Self-graded (same model executed and scored). No trace files exist.",
+  "prompt_rotation": {
+    "code_generation": "P1-vehicle-odometer",
+    "context_retrieval": "P1-architecture-overview",
+    "security_review": "P1-vehicle-controller",
+    "planning": "P1-driver-hours"
+  },
   "scores": {
     "code_generation": {
-      "score": 5.0,
-      "max": 5,
+      "score": 100.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "self-graded",
+      "notes": "Generated VehicleOdometer record (domain layer), OdometerRepository port (application layer), JUnit 5 test suite. Used Java record, constructor injection, Optional correctly. All 4 test cases covered (valid, zero, negative, addition). Full @param/@return/@throws Javadoc. No cross-layer imports. Perfect compliance.",
       "dimensions": {
         "correctness": 5,
         "hexagonal_compliance": 5,
         "java21_idioms": 5,
         "javadoc_completeness": 5,
         "test_quality": 5
-      },
-      "notes": "Generated VehicleOdometer record (domain layer), OdometerRepository port (application layer), JUnit 5 test suite. Used Java record, constructor injection, Optional correctly. All 4 test cases covered (valid, zero, negative, addition). Full @param/@return/@throws Javadoc. No cross-layer imports. Perfect compliance."
+      }
     },
     "context_retrieval": {
-      "score": 3.6,
-      "max": 5,
+      "score": 72.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "self-graded",
+      "notes": "Brain fetched correct architecture files. EROAD multi-cloud architecture and Sovereign role answered well. Java 21 / Spring Boot 3.4 NOT in brain vault (lives in pom.xml + copilot-instructions.md) \u2014 gap correctly flagged. Domain entity coverage partial: asset-{machines,devices,trailers}-{entities,telemetry} mentioned in arch doc but no detailed breakdown. Brain coverage is strong for architecture, weak for domain entities. Score held down by incomplete brain coverage on entities and missing Java version from vault.",
       "brain_data_used": true,
       "files_fetched": [
         "03 - Architecture/eroad-platform-architecture.md (629 lines)",
@@ -26,12 +38,14 @@
       ],
       "accuracy": 3.5,
       "explicit_gaps_handled": true,
-      "hallucination_detected": false,
-      "notes": "Brain fetched correct architecture files. EROAD multi-cloud architecture and Sovereign role answered well. Java 21 / Spring Boot 3.4 NOT in brain vault (lives in pom.xml + copilot-instructions.md) \u2014 gap correctly flagged. Domain entity coverage partial: asset-{machines,devices,trailers}-{entities,telemetry} mentioned in arch doc but no detailed breakdown. Brain coverage is strong for architecture, weak for domain entities. Score held down by incomplete brain coverage on entities and missing Java version from vault."
+      "hallucination_detected": false
     },
     "security_review": {
-      "score": 4.6,
-      "max": 5,
+      "score": 92.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "self-graded",
+      "notes": "Found all 3 planted vulns at correct severity. 1 bonus real finding (missing auth, OWASP A01). Resource leak downgraded to code quality note via self-critique (B2 improvement). Precision=0.75 counts 4 true security findings vs 3 planted. Score formula: (1.0\u00d70.5)+(0.75\u00d70.3)+(1.0\u00d70.2)\u00d75 = 4.625",
       "recall": 1.0,
       "precision": 0.75,
       "severity_accuracy": 1.0,
@@ -71,12 +85,14 @@
           "severity": "MEDIUM",
           "note": "Connection/Statement/ResultSet not closed. Code quality concern, not OWASP Top 10. Security agent (post B2 self-critique) correctly downgraded to code-quality note rather than security finding."
         }
-      ],
-      "notes": "Found all 3 planted vulns at correct severity. 1 bonus real finding (missing auth, OWASP A01). Resource leak downgraded to code quality note via self-critique (B2 improvement). Precision=0.75 counts 4 true security findings vs 3 planted. Score formula: (1.0\u00d70.5)+(0.75\u00d70.3)+(1.0\u00d70.2)\u00d75 = 4.625"
+      ]
     },
     "planning": {
-      "score": 4.9,
-      "max": 5,
+      "score": 98.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "self-graded",
+      "notes": "Prompt: driver hours compliance \u2014 warn at 11h, block at 13h. Plan identified: 4 domain types (DrivingSession, ComplianceThreshold, ComplianceStatus, ComplianceEvent), perfect hexagonal placement across 4 layers, 13-step dependency order, 6 edge cases (midnight boundary, timezone, multi-fleet, clock drift, retroactive entry, rest break validation), 5 measurable Given/When/Then ACs. Blast radius assessment solid: new table, new SQS dependency, new endpoint, config keys \u2014 minor deduction for not specifying estimated migration cardinality.",
       "dimensions": {
         "domain_understanding": 5,
         "hexagonal_architecture": 5,
@@ -84,41 +100,32 @@
         "edge_cases": 5,
         "dependency_ordering": 5,
         "acceptance_criteria": 5
-      },
-      "notes": "Prompt: driver hours compliance \u2014 warn at 11h, block at 13h. Plan identified: 4 domain types (DrivingSession, ComplianceThreshold, ComplianceStatus, ComplianceEvent), perfect hexagonal placement across 4 layers, 13-step dependency order, 6 edge cases (midnight boundary, timezone, multi-fleet, clock drift, retroactive entry, rest break validation), 5 measurable Given/When/Then ACs. Blast radius assessment solid: new table, new SQS dependency, new endpoint, config keys \u2014 minor deduction for not specifying estimated migration cardinality."
+      }
     },
     "learning_retention": {
-      "score": 3.0,
-      "max": 5,
+      "score": 60.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "self-graded",
+      "notes": "NEUTRAL \u2014 no experiment branches exist yet. First real retention score will be 2026-W17+ after weekly-experimenter runs for the first time on Sunday 2026-04-19.",
       "pass": null,
-      "delta": null,
-      "notes": "NEUTRAL \u2014 no experiment branches exist yet. First real retention score will be 2026-W17+ after weekly-experimenter runs for the first time on Sunday 2026-04-19."
+      "delta": null
     }
+  },
+  "weights": {
+    "code_generation": 0.25,
+    "context_retrieval": 0.25,
+    "security_review": 0.2,
+    "planning": 0.2,
+    "learning_retention": 0.1
+  },
+  "_legacy_1to5": {
+    "code_generation": 5.0,
+    "context_retrieval": 3.6,
+    "security_review": 4.6,
+    "planning": 4.9,
+    "learning_retention": 3.0
   },
   "overall": 87.0,
-  "vs_previous": null,
-  "experiment_branch": null,
-  "score_breakdown": {
-    "code_generation": {
-      "weight": 0.25,
-      "contribution": 1.25
-    },
-    "context_retrieval": {
-      "weight": 0.25,
-      "contribution": 0.9
-    },
-    "security_review": {
-      "weight": 0.2,
-      "contribution": 0.92
-    },
-    "planning": {
-      "weight": 0.2,
-      "contribution": 0.98
-    },
-    "learning_retention": {
-      "weight": 0.1,
-      "contribution": 0.3
-    }
-  },
-  "summary": "Strong baseline. Code generation and planning are near-perfect. Security review finds all planted vulns with low noise. Main opportunity: expand brain vault domain entity coverage to lift context_retrieval from 3.6 to 4.5+. Learning retention will become meaningful from W17 onward."
+  "vs_previous": null
 }
