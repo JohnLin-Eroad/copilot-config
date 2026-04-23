@@ -1863,8 +1863,10 @@ def main():
         sys.exit(2)
 
     url = f"http://localhost:{args.port}"
+    wf_count = len(_workflow_registry.get_state_snapshot().workflows) if _workflow_registry else 0
     print(f"⚡ Agent Dashboard running at {url}")
     print(f"   STM: {'auto-detect (.active symlink + mtime scan)' if not args.stm else args.stm}")
+    print(f"   Workflows: {wf_count} discovered")
     print(f"   SIGTERM=restart · SIGUSR1=graceful-stop-no-restart")
 
     if not args.no_open:
