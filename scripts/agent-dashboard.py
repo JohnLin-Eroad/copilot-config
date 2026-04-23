@@ -1687,26 +1687,86 @@ function escHtml(s) {
 let lastUpdate = null;
 let lastGoodData = null;   // persist last known good state — prevents flicker on transient errors
 let errorCount = 0;        // only show "no active STM" after sustained errors
+let currentSelectedId = null;
+
+// Scroll preservation — save positions before render, restore after
+function saveScrollPositions() {
+  return {
+    main: document.getElementById("main")?.scrollTop || 0,
+    right: document.getElementById("rightpanel")?.scrollTop || 0,
+    sidebar: document.getElementById("sidebar")?.scrollTop || 0,
+  };
+}
+function restoreScrollPositions(pos) {
+  const m = document.getElementById("main");
+  const r = document.getElementById("rightpanel");
+  const s = document.getElementById("sidebar");
+  if (m) m.scrollTop = pos.main;
+  if (r) r.scrollTop = pos.right;
+  if (s) s.scrollTop = pos.sidebar;
+}
+
+function renderTabBar(workflows, activeId, selectedId) {
+  const bar = document.getElementById("tab-bar");
+  if (!bar || !workflows || workflows.length <= 1) {
+    if (bar) bar.innerHTML = "";
+    return;
+  }
+  let html = "";
+  for (const w of workflows) {
+    const isSelected = w.uuid === selectedId;
+    const isActive = w.uuid === activeId;
+    // Truncate slug and clean it up
+    let label = w.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
+    if (label.length > 30) label = label.slice(0, 28) + "…";
+    const dotClass = isActive ? "green" : "gray";
+    const errorBadge = w.consecutive_errors >= 10 ? ' <span class="tab-badge">🔴</span>'
+                     : w.consecutive_errors >= 3  ? ' <span class="tab-badge">⚠️</span>'
+                     : "";
+    const entries = w.entry_count > 0 ? ` <span class="tab-entries">(${w.entry_count})</span>` : "";
+    html += `<div class="tab${isSelected ? ' active' : ''}" data-uuid="${w.uuid}" onclick="selectTab('${w.uuid}')">`;
+    html += `<span class="tab-dot ${dotClass}"></span>`;
+    html += `${escHtml(label)}${entries}${errorBadge}`;
+    html += `</div>`;
+  }
+  bar.innerHTML = html;
+}
+
+async function selectTab(uuid) {
+  try {
+    const r = await fetch("/api/v2/select/" + uuid);
+    if (r.ok) {
+      currentSelectedId = uuid;
+      fetchStatus(); // immediately refresh
+    }
+  } catch(e) { /* silent */ }
+}
 
 async function fetchStatus() {
   try {
-    const r = await fetch("/api/status");
+    const r = await fetch("/api/v2/status");
     if (!r.ok) throw new Error(r.status);
-    const data = await r.json();
+    const v2 = await r.json();
 
-    if (!data || data.error) {
-      // Transient: keep showing last known good data unless we've had 5+ consecutive errors
+    // v2 wraps the selected workflow's data under "selected"
+    const data = v2.selected;
+    const workflows = v2.workflows || [];
+    currentSelectedId = v2.selected_workflow_id;
+
+    if (!data || !data.agents || data.agents.length === 0) {
+      // No data for selected workflow — check if any workflow has data
       errorCount++;
       if (errorCount >= 5 || !lastGoodData) {
         document.getElementById("no-stm").classList.add("show");
       }
-      // dim the conn dot to warn but don't blank the dashboard
       document.getElementById("conn-dot").style.background = "#fbbf24";
       document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #fbbf24";
+      // Still render tabs even when no data
+      renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
       return;
     }
 
-    // Good data — reset error tracking and hide the "no active STM" banner
+    // Good data — reset error tracking
     errorCount = 0;
     lastGoodData = data;
     document.getElementById("no-stm").classList.remove("show");
@@ -1715,11 +1775,14 @@ async function fetchStatus() {
     document.getElementById("conn-dot").style.background = "#34d399";
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
 
+    const scrollPos = saveScrollPositions();
+    renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
     renderStats(data);
     drawPipeline(data.agents, data.timeline);
     renderAgentCards(data.agents);
     renderTimeline(data.timeline);
     renderResources(data.agents);
+    restoreScrollPositions(scrollPos);
   } catch(e) {
     errorCount++;
     document.getElementById("conn-dot").style.background = "#f87171";
