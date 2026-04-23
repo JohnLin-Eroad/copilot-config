@@ -1739,20 +1739,29 @@ function restoreScrollPositions(pos) {
 function renderTabBar(workflows, activeId, selectedId) {
   const bar = document.getElementById("tab-bar");
   if (!bar || !workflows) { if (bar) bar.innerHTML = ""; return; }
-  // Only show workflows modified in the last 6 hours, plus active/selected
   const sixHoursAgo = Date.now() / 1000 - 6 * 3600;
-  const visible = workflows.filter(w =>
-    (w.entry_count > 0 && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
-  );
-  if (visible.length <= 1) { bar.innerHTML = ""; return; }
+  let visible;
+  if (showAllWorkflows) {
+    // Show all workflows with entries in the last 6 hours
+    visible = workflows.filter(w =>
+      (w.entry_count > 0 && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
+    );
+  } else {
+    // Only show workflows with running agents, plus active/selected
+    visible = workflows.filter(w =>
+      (w.has_running_agents && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
+    );
+  }
+  // Count how many are hidden for the toggle label
+  const allRecent = workflows.filter(w => w.entry_count > 0 && w.last_modified > sixHoursAgo);
+  const hiddenCount = allRecent.length - visible.length;
   let html = "";
   for (const w of visible) {
     const isSelected = w.uuid === selectedId;
     const isActive = w.uuid === activeId;
-    // Truncate slug and clean it up
     let label = w.slug.replace(/^\d{4}-\d{2}-\d{2}-/, "").replace(/-/g, " ");
     if (label.length > 30) label = label.slice(0, 28) + "…";
-    const dotClass = isActive ? "green" : "gray";
+    const dotClass = w.has_running_agents ? "green" : (isActive ? "green" : "gray");
     const errorBadge = w.consecutive_errors >= 10 ? ' <span class="tab-badge">🔴</span>'
                      : w.consecutive_errors >= 3  ? ' <span class="tab-badge">⚠️</span>'
                      : "";
@@ -1762,6 +1771,9 @@ function renderTabBar(workflows, activeId, selectedId) {
     html += `${escHtml(label)}${entries}${errorBadge}`;
     html += `</div>`;
   }
+  // Toggle button
+  const toggleLabel = showAllWorkflows ? "Active only" : `Show all (${hiddenCount > 0 ? '+' + hiddenCount : '0'} more)`;
+  html += `<div class="tab-toggle${showAllWorkflows ? ' on' : ''}" onclick="toggleShowAll()">${toggleLabel}</div>`;
   bar.innerHTML = html;
 }
 
