@@ -108,18 +108,36 @@ Classification:
         encoding="utf-8",
     )
 
-    # Open the persistent agent-dashboard (port 8765, always running via LaunchD).
-    # It auto-detects the latest STM — no need to spin up a per-task process.
-    import socket
+    # Write .active symlink atomically so agent-dashboard picks up new task instantly
+    active_link = STM_ROOT / ".active"
+    tmp_link = STM_ROOT / f".active.tmp.{os.getpid()}"
+    try:
+        if tmp_link.exists() or tmp_link.is_symlink():
+            tmp_link.unlink()
+        os.symlink(stm_dir, tmp_link)
+        os.replace(str(tmp_link), str(active_link))
+    except Exception:
+        pass  # non-fatal; dashboard falls back to mtime scan
+
+    # Open the persistent agent-dashboard (port 8765, always running via launchd).
+    # Use /health for accurate readiness — TCP connect only proves socket is open, not serving.
+    import time
+    import urllib.request
     AGENT_DASHBOARD_PORT = 8765
 
-    import time
     dashboard_up = False
-    for _ in range(5):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("localhost", AGENT_DASHBOARD_PORT)) == 0:
-                dashboard_up = True
-                break
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(
+                f"http://localhost:{AGENT_DASHBOARD_PORT}/health", timeout=1
+            ) as resp:
+                health = json.loads(resp.read())
+                if health.get("status") == "ok":
+                    dashboard_up = True
+                    break
+        except Exception:
+            pass
         time.sleep(0.5)
 
     if dashboard_up:
