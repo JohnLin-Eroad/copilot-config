@@ -1851,6 +1851,7 @@ async function fetchStatus() {
 
     const scrollPos = saveScrollPositions();
     renderStats(data);
+    renderStmSections(data);
     drawPipeline(data.agents, data.timeline);
     renderAgentCards(data.agents);
     renderTimeline(data.timeline);
