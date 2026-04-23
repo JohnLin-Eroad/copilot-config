@@ -1793,7 +1793,6 @@ async function fetchStatus() {
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
 
     const scrollPos = saveScrollPositions();
-    renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
     renderStats(data);
     drawPipeline(data.agents, data.timeline);
     renderAgentCards(data.agents);
