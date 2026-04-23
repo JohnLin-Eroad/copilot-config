@@ -12,6 +12,7 @@ Output (stdout):
   STM_DIR=/path/to/dir
 """
 
+import json
 import os
 import re
 import subprocess
