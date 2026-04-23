@@ -283,15 +283,49 @@ EOF
 echo "STM created at: $STM_PATH"
 ```
 
-### Passing STM to Agents — MANDATORY
+### Passing STM to Agents — MANDATORY (STM-First Injection)
 
-**Every agent prompt you write MUST include the STM path and write instructions.** Without this, the STM stays blank and the user cannot track pipeline progress.
+**Every agent prompt you write MUST inject key STM sections directly into the prompt.** This is the STM-First Protocol — agents get their context at zero tool-call cost and cannot skip reading it.
 
-Always include this block verbatim at the top of every sub-agent prompt:
+**Before spawning each sub-agent, read the current STM and extract these sections:**
+
+1. `## [STM] Task Brief` — classification, restrictions, scope
+2. `## [STM] Brain Data` — pre-fetched domain knowledge (compress if >80 lines)
+3. `## [STM] Negative Context` — what is NOT known
+4. `## [STM] Agent Contributions` — prior agent outputs (summarise to ~10 lines per agent)
+
+**Include this block at the top of EVERY sub-agent prompt:**
 
 ```
+## 🧠 STM Context (READ THIS FIRST — this is your starting point)
+
 STM_PATH: {STM_PATH}
 
+### Task Brief
+{paste ## [STM] Task Brief contents}
+
+### Brain Data (pre-fetched — do NOT re-fetch or re-search for this)
+{paste ## [STM] Brain Data contents, compressed if needed}
+
+### Negative Context (DO NOT speculate on these topics)
+{paste ## [STM] Negative Context contents, or "No negative context recorded."}
+
+### Restrictions
+{paste restrictions from Task Brief, or "Restrictions: none"}
+
+### Prior Agent Work (build on this — do NOT repeat their analysis)
+{paste summary of prior Agent Contributions, or "No prior contributions."}
+
+---
+
+## STM-First Rule
+Your FIRST source of truth is the STM content above. Before making ANY tool call:
+1. Check if the answer is already in the Brain Data or Prior Agent Work sections
+2. Check if the topic is listed in Negative Context (if so: do NOT search for it)
+3. Check Restrictions for any gates/constraints you must respect
+Only use tool calls for information NOT covered by the STM above.
+
+## Write Progress
 MANDATORY: Write your progress to the STM at start, after each major step, and at completion:
   bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: starting\nScope: ..."
   bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: in_progress\nFINDINGS: ..."
@@ -299,6 +333,8 @@ MANDATORY: Write your progress to the STM at start, after each major step, and a
 
 This is non-negotiable. Do not skip STM writes even if the task is short.
 ```
+
+**Key principle:** The more context you inject into the prompt, the fewer tool calls the agent wastes on redundant exploration. Dense, relevant STM content = faster, cheaper, better agents.
 
 After each background agent completes, the orchestrator (main agent) ALSO writes a summary to the STM:
 
