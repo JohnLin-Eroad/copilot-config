@@ -867,6 +867,26 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
     for e in entries:
         agent_latest[e["agent"]] = e
 
+    # Infer implied completion: if an agent's last status is "in_progress"
+    # but a later agent has already reached "complete", the stuck agent is
+    # implicitly done (it handed off and was never updated).
+    if agent_latest:
+        pipeline_complete = any(
+            e["status"] == "complete" for e in agent_latest.values()
+        )
+        if pipeline_complete:
+            latest_complete_ts = max(
+                (e["timestamp"] for e in agent_latest.values() if e["status"] == "complete"),
+                default="",
+            )
+            for e in agent_latest.values():
+                if (
+                    e["status"] == "in_progress"
+                    and e["timestamp"] < latest_complete_ts
+                ):
+                    e["status"] = "complete"
+                    e["_implied_complete"] = True
+
     agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
     latest_ts_per_agent = {a["agent"]: a["timestamp"] for a in agents_sorted}
 
