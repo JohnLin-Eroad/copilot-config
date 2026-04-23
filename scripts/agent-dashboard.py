@@ -1084,9 +1084,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <!-- Tab bar: workflow tabs -->
   <nav id="tab-bar"></nav>
 
-  <!-- Left sidebar: Resource Monitor -->
+  <!-- Left sidebar: Task Context + Resources -->
   <aside id="sidebar">
-    <div class="section-label">🔋 Resources</div>
+    <div id="stm-sections"></div>
+    <div class="section-label" style="margin-top:12px">🔋 Resources</div>
     <div id="res-summary" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
     <div id="res-agents"></div>
   </aside>
