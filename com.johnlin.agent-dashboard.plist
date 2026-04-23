@@ -19,13 +19,19 @@
   <true/>
 
   <key>KeepAlive</key>
-  <true/>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
 
   <key>StandardOutPath</key>
-  <string>/tmp/agent-dashboard.log</string>
+  <string>/Users/johnlin/.copilot/logs/agent-dashboard.log</string>
 
   <key>StandardErrorPath</key>
-  <string>/tmp/agent-dashboard.error.log</string>
+  <string>/Users/johnlin/.copilot/logs/agent-dashboard.log</string>
 
   <key>WorkingDirectory</key>
   <string>/Users/johnlin</string>
