@@ -145,7 +145,8 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 | Task | Use agent | Invoke when | Model |
 |---|---|---|---|
 | Exploring / understanding a codebase or repo | `discovery` | You need to map what exists before designing or changing anything | Haiku |
-| Implementing code (Java, Python, JS) in EROAD repos | `developer` | Architect has produced an ADR or design; implementation is defined | Codex |
+| Decomposing implementation into parallel units | `tech-lead` | Architect/design is done AND scope touches ≥4 files or ≥2 modules — ALWAYS run before spawning developers | Sonnet |
+| Implementing code (Java, Python, JS) in EROAD repos | `developer` | Tech-lead has produced units OR scope is small enough for a single developer (≤3 files, 1 module) | Codex |
 | Architecture design, ADRs, system design | `architect` | Task type is `architecture` or `full-transformation`; design is not yet settled | Opus |
 | Writing or running tests | `testing` or `qa-engineer` | Developer phase is complete; or test coverage needed before proceeding | Codex |
 | Security review (architecture or code level) | `security` | After architect output (arch pass) AND after developer output (code pass) — never skip either | Opus |
