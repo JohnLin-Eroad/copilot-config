@@ -315,6 +315,8 @@ def parse_stm_entries(content: str) -> list[dict]:
             "context_pct":    context_pct,
             "context_max":    context_max,
             "model":          model,
+            "parent":         parent,
+            "unit":           unit,
         })
 
     return entries
