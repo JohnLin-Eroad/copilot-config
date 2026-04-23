@@ -321,19 +321,65 @@ eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
 
 ### ✅ Always run the orchestrator pipeline
 
-Run the pipeline for **every task** that produces output or makes changes:
+Run the pipeline for **every task** beyond a trivial one-liner:
 - Any code, config, or script changes (any repo, any language)
 - Any architectural decision or design choice
 - Any multi-step task or anything spanning more than one file
 - Copilot system configuration (agents, skills, scripts, benchmarks)
 - Personal projects, learning, research with tangible outputs
+- **Any EROAD task — always** (research, investigation, code, architecture, documentation)
+- Research or investigation that spans multiple files, repos, or domains
+- Any task where the user says "look into", "investigate", "research", "explore"
 
 ### ❌ Only skip the pipeline for:
-- Pure lookup questions with zero file output ("what does X mean?", "show me how Y works")
-- Reading/showing a single file where no changes follow
-- A one-liner clarification where the answer fits in 2 sentences
+- A pure one-liner question that fits in 2 sentences ("what does X mean?")
+- Reading/showing a single file with no follow-up work
+- Trivial clarifications with zero analysis required
 
 **Default: run the pipeline.** When in doubt, route through it.
+
+### 🚧 Pipeline Restrictions (User-Specified Gates)
+
+The user can pass **restrictions** when requesting a task. These are constraints that override default pipeline autonomy. Parse them from the user's message and write them into the STM `Task Brief` section.
+
+**How restrictions work:**
+1. User includes a constraint in their task request (e.g., "pause before every commit", "let me review code first", "don't push to remote", "research only — no code changes")
+2. Orchestrator writes it into the STM as a `Restrictions:` block in the Task Brief
+3. All downstream agents read the restrictions and comply
+4. The orchestrator enforces gate points where the user specified pauses
+
+**Common restriction patterns:**
+
+| User says | Restriction | Gate behaviour |
+|---|---|---|
+| "pause before commit" / "let me review" | `GATE: pre-commit` | After code changes, show diff and **ask user** before committing |
+| "don't push" / "local only" | `GATE: no-push` | Commit locally but never push to remote |
+| "research only" / "just investigate" | `GATE: read-only` | No file writes. Output findings only |
+| "draft mode" / "don't send" | `GATE: draft-only` | Create drafts but don't send/publish |
+| "no new dependencies" | `CONSTRAINT: no-deps` | Don't add new packages or dependencies |
+| "stay in this repo" | `CONSTRAINT: repo-scoped` | Don't touch files outside the current repo |
+| "explain before acting" | `GATE: explain-first` | Explain every action BEFORE executing; wait for approval |
+
+**STM format for restrictions:**
+
+```
+Classification:
+  Domain:     eroad
+  Type:       code-change
+  Blast:      MEDIUM
+  Pipeline:   standard
+  BRAIN_TYPE: eroad
+
+Restrictions:
+  - GATE: pre-commit — pause and show diff before every commit; wait for user approval
+  - CONSTRAINT: no-deps — do not add new dependencies
+```
+
+**Enforcement rules:**
+- Gates (`GATE:`) require **stopping and asking the user** via `ask_user` before proceeding
+- Constraints (`CONSTRAINT:`) are hard rules agents must follow silently — no need to pause
+- If a restriction conflicts with the task (e.g., "research only" but user asks for code changes), clarify with the user
+- Restrictions are inherited by all sub-agents — include them in every agent prompt
 
 ### ⚡ Brain routing — EROAD vs personal
 
