@@ -1,44 +1,80 @@
 # Benchmarking System
 
-This directory tracks the quality and performance of the Copilot setup over time. Every Monday at 09:00 the **benchmark-runner** agent runs a fixed test suite and records scores.
+Tracks the quality and capability of the Copilot agent system over time. Every Monday at 09:00 the **benchmark-runner** agent selects prompts from a rotating pool, executes real agent tasks, has a **different model** grade the output, and records scores backed by mandatory trace files.
+
+## Core Principles
+
+1. **Real execution** — every score comes from actually running agents, not checking config files
+2. **No self-grading** — executor and grader are always different models (see `EXECUTOR-GRADER-SPLIT.md`)
+3. **Rotating prompts** — 4-5 prompts per category, SHA-256 rotated weekly (see `prompts/INDEX.md`)
+4. **Mandatory traces** — no trace file = score of 0 (see `traces/TRACE-FORMAT.md`)
+5. **Adversarial tests** — hallucination resistance and error recovery alongside happy-path tests
 
 ## Directory Structure
 
 ```
 benchmarks/
-├── README.md              ← This file
-├── baseline.json          ← Week 0 measurement (before weekly learnings)
-├── tasks/
-│   ├── code-generation.md      ← Benchmark task 1 definition
-│   ├── context-retrieval.md    ← Benchmark task 2 definition
-│   ├── security-review.md      ← Benchmark task 3 definition
-│   ├── planning.md             ← Benchmark task 4 definition
-│   └── learning-retention.md   ← Benchmark task 5 definition
+├── README.md                      ← This file
+├── EXECUTOR-GRADER-SPLIT.md       ← Execution flow documentation
+├── baseline.json                  ← Normalized to 0-100 scale
+├── prompts/                       ← Rotating prompt pools
+│   ├── INDEX.md                   ← Rotation formula + pool sizes
+│   ├── code-generation/           ← 4 prompts (P1–P4)
+│   ├── context-retrieval/         ← 4 prompts
+│   ├── security-review/           ← 4 prompts (each with 3 planted vulns)
+│   ├── planning/                  ← 4 prompts
+│   ├── hallucination-resistance/  ← 4 prompts (all trick questions)
+│   ├── error-recovery/            ← 3 prompts (abnormal conditions)
+│   └── pipeline-compliance/       ← 3 prompts
+├── tasks/                         ← Category definitions + rubrics
+│   ├── code-generation.md
+│   ├── context-retrieval.md
+│   ├── security-review.md
+│   ├── planning.md
+│   ├── hallucination-resistance.md  ← NEW adversarial
+│   ├── error-recovery.md            ← NEW adversarial
+│   ├── pipeline-compliance.md       ← Replaces workflow-adherence
+│   └── config-health.md             ← Pass/fail checklist (NOT weighted)
+├── traces/                        ← Mandatory execution traces
+│   ├── TRACE-FORMAT.md            ← Trace spec + validation rules
+│   └── YYYY-WXX/                  ← Per-week trace files
 ├── results/
-│   └── YYYY-WXX.json      ← Weekly results (auto-generated)
+│   └── YYYY-WXX.json             ← Weekly results (0-100 scale)
 └── reports/
-    └── YYYY-WXX.md        ← Human-readable weekly report (auto-generated)
+    └── YYYY-WXX.md               ← Human-readable weekly report
 ```
 
-## Scoring
+## Scoring (0-100 Scale)
 
-| Category | Method | Scale |
+| Category | Weight | What It Tests |
 |---|---|---|
-| Code Generation | Rubric: hexagonal compliance × correctness × Javadoc | 1–5 |
-| Context Retrieval | Was brain data used? Was it accurate? | Pass/Fail + 1–5 accuracy |
-| Security Review | Planted 3 OWASP vulns — recall + precision | % |
-| Planning Quality | Rubric: completeness × blast radius × edge cases | 1–5 |
-| Learning Retention | Re-run a previously-failing category after an experiment | Pass/Fail + delta |
+| Code Generation | 20% | Can the developer agent produce correct, hexagonal, tested code? |
+| Context Retrieval | 20% | Does brain-data-retrieval fetch the right files and use them? |
+| Security Review | 15% | Does the security agent find planted vulnerabilities? |
+| Planning Quality | 15% | Can the orchestrator produce complete, structured plans? |
+| Pipeline Compliance | 15% | Does the full pipeline execute correctly (STM → brain → specialist → close)? |
+| Hallucination Resistance | 10% | Does the agent refuse to fabricate answers about nonexistent things? |
+| Error Recovery | 5% | Does the agent handle broken input/state gracefully? |
 
-**Overall score** = weighted average (code gen 25%, context retrieval 25%, security 20%, planning 20%, learning 10%)
+**Overall score** = Σ(category_score × weight). These weights are **locked** — they do not change between weeks.
+
+**Config health** runs as a separate pass/fail checklist (see `tasks/config-health.md`) and is NOT included in the overall score.
+
+## Grading Model Matrix
+
+| Executor Model Family | Grader Model |
+|---|---|
+| Codex (gpt-5.x) | Claude Opus 4.6 |
+| Claude Sonnet/Opus | GPT-5.3-Codex |
+| Claude Haiku | Claude Opus 4.6 |
 
 ## Interpreting Results
 
-- **Score ≥ 4.0**: System performing well — continue current trajectory
-- **Score 3.0–3.9**: Acceptable — look for targeted improvements
-- **Score < 3.0**: Regression detected — investigate what changed (check the matching experiment branch)
-- **vs_previous > +0.3**: Meaningful improvement from weekly experiments
-- **vs_previous < -0.3**: Regression — check if an experiment branch made things worse
+- **Score ≥ 80**: System performing well
+- **Score 60–79**: Acceptable — look for targeted improvements
+- **Score < 60**: Regression or capability gap — investigate traces
+- **vs_previous > +5**: Meaningful improvement
+- **vs_previous < -5**: Regression — check traces and experiment branches
 
 ## Running Manually
 
@@ -48,7 +84,12 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 
 ## Score History
 
-| Week | Overall | Code | Context | Security | Planning | Retention | vs Prev |
-|---|---|---|---|---|---|---|---|
-| **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | 3.0 (N) | baseline |
-| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | 3.0 (N) | +0.265 |
+| Week | Overall | Code (20%) | Context (20%) | Security (15%) | Planning (15%) | Pipeline (15%) | Halluc. (10%) | Error (5%) | vs Prev |
+|---|---|---|---|---|---|---|---|---|---|
+| **2026-W16** 🏁 | **87.0** | 100 | 72 | 92 | 98 | — | — | — | baseline |
+| **2026-W17** | **90.9** | 100 | 90 | 94 | 100 | — | — | — | +3.9 |
+| **2026-W18** | *config-audit* | — | — | — | — | — | — | — | *invalid* |
+
+*W16/W17 scores back-converted from 1-5 scale (×20). W18 was config-audit only (not real execution) — excluded from trend analysis. W19+ will use the new system with all 7 categories, rotating prompts, separate grading, and mandatory traces. Expect scores to drop initially — this is correct behavior, not regression.*
+
+*Categories marked "—" did not exist in that week's benchmark definition.*
