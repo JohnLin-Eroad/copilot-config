@@ -1154,7 +1154,7 @@ function renderStmSections(data) {
 function renderStats(data) {
   const agents = data?.agents || [];
   const active  = agents.filter(a => a.status==="in_progress"||a.status==="starting").length;
-  const workers = agents.filter(a => /^developer-[a-f]$/.test(a.name.toLowerCase()) && (a.status==="in_progress"||a.status==="starting")).length;
+  const workers = agents.filter(a => /^developer-[a-f]$/.test((a.agent||"").toLowerCase()) && (a.status==="in_progress"||a.status==="starting")).length;
   const done    = agents.filter(a => a.status==="complete").length;
   const blocked = agents.filter(a => a.status==="blocked"||a.status==="failed").length;
   document.getElementById("stat-workers").textContent = workers > 0 ? `${workers}` : "0";
