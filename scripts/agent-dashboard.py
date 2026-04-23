@@ -679,6 +679,25 @@ class WorkflowPoller:
         agent_latest: dict[str, dict] = {}
         for e in wf.entries:
             agent_latest[e["agent"]] = e
+
+        # Infer implied completion (same logic as _build_payload_from_content)
+        if agent_latest:
+            pipeline_complete = any(
+                e["status"] == "complete" for e in agent_latest.values()
+            )
+            if pipeline_complete:
+                latest_complete_ts = max(
+                    (e["timestamp"] for e in agent_latest.values() if e["status"] == "complete"),
+                    default="",
+                )
+                for e in agent_latest.values():
+                    if (
+                        e["status"] == "in_progress"
+                        and e["timestamp"] < latest_complete_ts
+                    ):
+                        e["status"] = "complete"
+                        e["_implied_complete"] = True
+
         agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
         latest_ts = {a["agent"]: a["timestamp"] for a in agents_sorted}
         timeline_raw = list(reversed(wf.entries[-40:]))
