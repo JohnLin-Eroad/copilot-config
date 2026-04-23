@@ -75,55 +75,28 @@ The system learns from every interaction. Learning is **not optional** — it is
 
 ### At the START of every task
 
-1. Check `.github/learnings.md` in the current repo root — read it fully if it exists.
-2. Read `~/.copilot/learnings.md` — scan for relevant global patterns.
-3. If the task is complex or touches EROAD systems, check the eroad-brain vault for domain context.
+**Sub-agents:** consume ONLY the STM context injected into your prompt. Do NOT independently read brain vaults, learnings files, or fetch domain context. If you need information not in your prompt, signal `PIPELINE_SIGNAL: NEED_DATA` — the orchestrator will fetch it via `brain-data-retrieval` and pass it back.
+
+**Main CLI agent (orchestrator):** check `.github/learnings.md` in the current repo if it exists. Domain context is fetched via `brain-data-retrieval` into the STM — do not read brain vaults directly.
 
 ### At the END of every task
 
-After completing a task, **always** reflect and write learnings. Write aggressively — multiple learnings per session is the norm. Forgotten knowledge is expensive; `learnings.md` is cheap.
+After completing a task, **always** reflect and write learnings. Forgotten knowledge is expensive; `learnings.md` is cheap.
 
 **Write a learning for any of these:**
-- A non-obvious pattern discovered (architecture, API contract, data flow)
-- A gotcha, footgun, or trap that wasn't obvious upfront
-- A tool, command, or sequence that worked particularly well
-- A convention or standard unique to this repo or team
-- An architectural or design decision and its rationale
-- A John preference or workflow that was validated
-- Anything you'd wish you knew at the start of this task
+- A non-obvious pattern, gotcha, or footgun
+- A tool, command, or sequence that worked well
+- A convention or decision unique to this repo/team
+- A John preference or workflow
 
-**Learning categories** — prefix each learning with its type:
-- `[PATTERN]` — a recurring approach that works
-- `[GOTCHA]` — a non-obvious trap or footgun
-- `[DECISION]` — an architectural or design choice + rationale
-- `[WORKFLOW]` — a process or sequence that works well
-- `[PREFERENCE]` — John's explicit preferences or opinions
-- `[TOOL]` — a command, flag, or tool trick worth remembering
-
-### How to write a learning
+**Categories:** `[PATTERN]`, `[GOTCHA]`, `[DECISION]`, `[WORKFLOW]`, `[PREFERENCE]`, `[TOOL]`
 
 ```bash
-# Repo-specific learning (run inside the git repo)
-bash ~/.copilot/scripts/add-learning.sh --local "[GOTCHA] The auth service uses RS256 JWT — do not use HS256"
-
-# Cross-repo / global learning
-bash ~/.copilot/scripts/add-learning.sh --global "[PREFERENCE] John prefers explicit error messages over silent fallbacks"
+bash ~/.copilot/scripts/add-learning.sh --local "[GOTCHA] Auth service uses RS256 — not HS256"
+bash ~/.copilot/scripts/add-learning.sh --global "[PREFERENCE] John prefers explicit errors over silent fallbacks"
 ```
 
-**Rule:** `--local` if specific to this repo. `--global` if it applies broadly across sessions.
-
-### Auto-consolidation to the brain
-
-At the end of any task that produced:
-- New domain knowledge about EROAD services or architecture
-- New patterns identified in a codebase
-- Significant decisions with rationale
-
-→ invoke `brain-consolidation` to write the knowledge back to the eroad-brain vault. Don't wait to be asked.
-
-### Creating .github/learnings.md
-
-The `add-learning.sh --local` script creates it automatically. You do not need to create it manually.
+At the end of tasks producing domain knowledge, invoke `brain-consolidation` to write back to the brain vault.
 
 ---
 
