@@ -1872,13 +1872,27 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
     def _serve_health(self):
         with _snapshot_lock:
             snap = _current_snapshot
+
+        # Extended health with workflow stats
+        wf_count = 0
+        error_wf_count = 0
+        active_id = None
+        if _workflow_registry:
+            state = _workflow_registry.get_state_snapshot()
+            wf_count = len(state.workflows)
+            error_wf_count = sum(1 for wf in state.workflows.values() if not wf.parse_ok)
+            active_id = state.active_workflow_id
+
         payload = {
-            "status":           "ok",
-            "pid":              os.getpid(),
-            "ready":            snap is not None,
-            "active_stm_path":  str(snap.stm_path) if snap else None,
-            "last_parse_mtime": snap.mtime if snap else None,
-            "uptime_s":         round(time.monotonic() - _start_time, 1),
+            "status":              "ok",
+            "pid":                 os.getpid(),
+            "ready":               snap is not None,
+            "active_stm_path":     str(snap.stm_path) if snap else None,
+            "last_parse_mtime":    snap.mtime if snap else None,
+            "uptime_s":            round(time.monotonic() - _start_time, 1),
+            "workflow_count":      wf_count,
+            "active_workflow_id":  active_id,
+            "error_workflows":     error_wf_count,
         }
         body = json.dumps(payload).encode("utf-8")
         self.send_response(200)
