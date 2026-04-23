@@ -1780,8 +1780,6 @@ async function fetchStatus() {
       }
       document.getElementById("conn-dot").style.background = "#fbbf24";
       document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #fbbf24";
-      // Still render tabs even when no data
-      renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
       return;
     }
 
