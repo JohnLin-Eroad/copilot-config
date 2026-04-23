@@ -54,6 +54,14 @@ Findings: Decomposed into <N> parallel units. <summary>
 Decisions: <key scoping decisions>"
 ```
 
+## 🧠 STM-First Protocol
+
+**Your prompt will contain a `## 🧠 STM Context` section. Read it FIRST.**
+
+- Use Brain Data and Prior Agent Work (architect ADR, discovery dossier) to understand the codebase structure before reading files yourself
+- Don't re-discover module boundaries if discovery already mapped them
+- Only explore to fill gaps NOT covered by the STM
+
 ## Your Job
 
 Given an implementation scope (from the architect's ADR or work packages), you:
