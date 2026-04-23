@@ -1728,8 +1728,11 @@ function restoreScrollPositions(pos) {
 function renderTabBar(workflows, activeId, selectedId) {
   const bar = document.getElementById("tab-bar");
   if (!bar || !workflows) { if (bar) bar.innerHTML = ""; return; }
-  // Only show workflows that have entries (active work)
-  const visible = workflows.filter(w => w.entry_count > 0 || w.uuid === activeId || w.uuid === selectedId);
+  // Only show workflows modified in the last 6 hours, plus active/selected
+  const sixHoursAgo = Date.now() / 1000 - 6 * 3600;
+  const visible = workflows.filter(w =>
+    (w.entry_count > 0 && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
+  );
   if (visible.length <= 1) { bar.innerHTML = ""; return; }
   let html = "";
   for (const w of visible) {
