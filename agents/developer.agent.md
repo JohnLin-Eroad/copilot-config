@@ -35,6 +35,16 @@ MODEL: gpt-5.3-codex
 
 ## When to Use
 
+## 🧠 STM-First Protocol
+
+**Your prompt will contain a `## 🧠 STM Context` section injected by the orchestrator. This is your STARTING POINT — read it before doing anything else.**
+
+1. **Read the STM Context first** — Task Brief, Brain Data, Negative Context, Restrictions, Prior Agent Work
+2. **Use STM content before exploring** — if the STM tells you about the codebase structure, patterns, or domain knowledge, do NOT grep/view to re-discover it
+3. **Respect Negative Context** — do NOT search for topics listed there. If you need that info, output `PIPELINE_SIGNAL: NEED_DATA`
+4. **Build on prior agents** — if discovery or architect already analysed the area you're implementing, use their findings
+5. **Only explore gaps** — use tool calls for information NOT already in your STM Context section
+
 ## ⚡ MANDATORY: STM Dashboard Visibility
 
 **If your task prompt includes an `STM` path or `STM_PATH` variable — the VERY FIRST thing you do (before reading any file, before planning) is write your init entry.**
