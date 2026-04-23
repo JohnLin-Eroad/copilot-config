@@ -1765,11 +1765,18 @@ async function fetchStatus() {
     const workflows = v2.workflows || [];
     currentSelectedId = v2.selected_workflow_id;
 
+    // Always render tabs first — even if selected data is empty
+    renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
+
     if (!data || !data.agents || data.agents.length === 0) {
-      // No data for selected workflow — check if any workflow has data
+      // No data for selected workflow
       errorCount++;
       if (errorCount >= 5 || !lastGoodData) {
-        document.getElementById("no-stm").classList.add("show");
+        // Only show "No Active STM" if there are no tabs at all
+        const hasWorkflows = workflows.some(w => w.entry_count > 0);
+        if (!hasWorkflows) {
+          document.getElementById("no-stm").classList.add("show");
+        }
       }
       document.getElementById("conn-dot").style.background = "#fbbf24";
       document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #fbbf24";
