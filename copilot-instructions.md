@@ -169,53 +169,6 @@ Proceeding with: <what>
 
 ---
 
-## STM-First Protocol
-
-**The Short-Term Memory (STM) is the single source of truth for every in-flight task.** Every agent's first action is to consume the STM — not to explore, search, or fetch independently.
-
-### The rule
-
-> **Before using ANY tool (grep, view, bash, search), read the STM.**
-> If the answer is in the STM, use it. If the STM says a topic has no brain coverage (Negative Context), do NOT search for it — raise `PIPELINE_SIGNAL: NEED_DATA` instead.
-
-### Why this matters
-
-1. **Eliminates redundant work** — prior agents have already explored, fetched, and synthesised. Re-exploring wastes tool calls and context tokens.
-2. **Prevents hallucination** — the Negative Context section explicitly lists what is NOT known. Agents that skip this will fill gaps with fabrication.
-3. **Respects restrictions** — gates and constraints live in the STM Task Brief. An agent that doesn't read them first may violate user-specified restrictions.
-4. **Maintains pipeline coherence** — the STM is the shared memory. Agents that ignore it produce disconnected, contradictory outputs.
-
-### What agents find in the STM
-
-| Section | What it contains | How to use it |
-|---|---|---|
-| `Task Brief` | Classification, restrictions, scope | Your mandate — respect every restriction |
-| `Brain Data` | Pre-fetched domain knowledge | **USE THIS** instead of searching brain/code yourself |
-| `Negative Context` | Topics NOT in the brain | **DO NOT speculate** on these; raise NEED_DATA if critical |
-| `Agent Contributions` | Prior agent outputs | Build on their work — don't repeat it |
-| `Fetch Manifest` | Files already retrieved | Don't re-fetch these |
-
-### Agent behaviour priority order
-
-1. **Read STM** — consume Task Brief, Brain Data, Negative Context, prior contributions
-2. **Use STM content first** — if the STM has what you need, do NOT make tool calls to find it again
-3. **Explore only gaps** — make tool calls ONLY for information NOT already in the STM
-4. **Write back to STM** — so the next agent doesn't have to repeat your work
-
-### Enforcement for the orchestrator
-
-When spawning sub-agents, the orchestrator MUST inject key STM sections directly into the prompt (see orchestrator agent docs). This ensures agents have the context at zero tool-call cost and cannot skip reading it.
-
-### Anti-patterns (never do these)
-
-- ❌ Grepping the codebase for patterns that are already described in STM Brain Data
-- ❌ Searching the brain vault for files already listed in the Fetch Manifest
-- ❌ Speculating about a topic that is listed in Negative Context
-- ❌ Re-running a discovery that a prior agent already completed (check Agent Contributions)
-- ❌ Ignoring restrictions in the Task Brief
-
----
-
 ## Context Engineering
 
 Context engineering is the most important skill for working with LLMs effectively. **Output quality is determined primarily by what's in the context window, not by clever prompts.** Before blaming a model for bad output, check what it was given.
@@ -281,184 +234,36 @@ Use the cheapest model that can reliably do the job. Escalate to a more powerful
 
 ## Test-First as Autonomy Enabler
 
-**Test coverage is the multiplier for agent autonomy.** Without a test suite, agents must be reviewed on every change. With a good test suite, agents can self-verify and iterate.
-
-- When working in a repo with good test coverage: run tests after every change. The eval loop in the orchestrator handles this automatically.
-- When working in a repo with poor/no tests: flag this explicitly. State: "Agent autonomy is limited here until tests exist." Suggest adding coverage as a separate task.
-- Treat increasing test coverage as an investment in future autonomy, not just a quality measure.
+**Test coverage is the multiplier for agent autonomy.** Without a test suite, agents must be reviewed on every change. With a good test suite, agents can self-verify and iterate. When a repo has no tests, flag it explicitly.
 
 ---
 
-John is building **Sovereign** — a local replica of EROAD's AI-governed transformation platform. Always be aware of this project when it's relevant.
+### Sovereign Platform
 
-### Key locations
+John's local replica of EROAD's AI-governed transformation platform.
+
 - **Codebase**: `~/sovereign/` — Maven multi-module, Java 21, Spring Boot 3.4
-- **Frontend**: `~/sovereign/web/` — Next.js 15 on `:3000`
-- **API**: Spring Boot on `:8080`
-- **Agent YAMLs**: `~/sovereign/api/web/src/main/resources/agents/`
-- **Skills YAMLs**: `~/sovereign/api/web/src/main/resources/skills/`
-
-### Starting services
-```bash
-# Infrastructure (LocalStack SQS/S3 + PostgreSQL)
-cd ~/sovereign && docker compose up -d
-
-# API (Java 21 required)
-source ~/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.7-zulu
-cd ~/sovereign/api && mvn -pl web spring-boot:run > /tmp/sovereign-api.log 2>&1 &
-
-# Frontend
-cd ~/sovereign/web && npm run dev > /tmp/sovereign-web.log 2>&1 &
-```
-
-### Checking health
-```bash
-curl -s http://localhost:8080/health       # API
-curl -s http://localhost:8080/roles        # agent roles
-open http://localhost:3000                 # Web UI
-```
-
-### Architecture rule
-The project uses strict hexagonal architecture. **Domain must never import Infrastructure.**
-Module dependency order: `domain` ← `application` ← `infrastructure` ← `web`
-
-### Copilot Agents
-All agents live in `~/.copilot/agents/` (no prefix). Specialist agents include:
-`architect`, `developer`, `security`, `testing`, `devops`, `discovery`, `governance`,
-`orchestrator`, `code-reviewer`, `documentation`, `product-owner`, `scrum-master`,
-`compliance`, `integration`, `performance`, `data-migration`, `critical-thinker`,
-`product-manager`, `qa-engineer`, `senior-software-engineer`, `ai-master`,
-`brain-data-retrieval`, `brain-consolidation`, `brain-repo-sync`, `agent-factory`
-
-**ERD agents**: `erd-strategy`, `erd-product`, `erd-engineering`, `erd-customer`, `erd-finance`,
-`erd-hr`, `erd-operations`, `erd-data`, `erd-marketing`, `erd-executive`
+- **Frontend**: `~/sovereign/web/` — Next.js 15 on `:3000`, API on `:8080`
+- **Architecture**: Strict hexagonal. **Domain must never import Infrastructure.** Module order: `domain` ← `application` ← `infrastructure` ← `web`
 
 ---
 
-## Orchestrator Pipeline
+## Orchestrator Pipeline (Condensed)
 
-**The orchestrator is the universal entry point for ALL tasks** — not just EROAD work. Every non-trivial task flows through it.
+The main CLI agent IS the orchestrator. Every non-trivial task flows through the pipeline:
 
 ```
 brain-data-retrieval → [specialist agents] → brain-consolidation
 ```
 
-### 🚨 The main CLI agent (you) IS the orchestrator
+- **Create STM:** `eval "$(python3 ~/.copilot/scripts/stm-init.py '<task>')"` — sets `$STM_PATH`, opens dashboard
+- **Always start** with `brain-data-retrieval`, **always end** with `brain-consolidation`
+- **Route to specialists** — never use `general-purpose` as fallback; use `agent-factory` if no specialist fits
+- **Brain routing:** EROAD tasks → `~/eroad-brain`, personal → `~/john-brain`
 
-**Do NOT launch the orchestrator as a background agent.** You are the orchestrator. Run the pipeline directly:
+Key specialist routing: `discovery` (explore), `developer` (implement), `architect` (design), `security` (review), `testing`/`qa-engineer` (tests), `code-reviewer` (final review), `devops` (CI/CD), `documentation` (docs).
 
-1. **Create the STM** using `stm-init.py` — this opens the live dashboard automatically
-2. **Write to the STM at every step** using Python or bash — the dashboard updates in real time
-3. **Launch specialist agents as background tasks** — capture their output and write it back to the STM
-4. **Run brain-data-retrieval yourself** by reading brain files directly (faster than delegating)
-5. **Invoke brain-consolidation as a background agent** at the end, passing the STM path
-
-```bash
-# Step 1: Create STM + open dashboard
-eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
-# → sets $STM_PATH and $STM_DIR, opens browser dashboard
-
-# Step 2: Write classification to STM (use Python helper or direct edit)
-# Step 3: Do brain-data-retrieval yourself (read files, write results to STM)
-# Step 4: Launch specialists as background tasks, write their output to STM
-# Step 5: Launch brain-consolidation as background task with STM_PATH
-```
-
-**Why:** Background agents can't write to files on disk. Only the main CLI agent has direct file access, so only it can keep the STM (and dashboard) live and up to date.
-
-### ✅ Always run the orchestrator pipeline
-
-Run the pipeline for **every task** beyond a trivial one-liner:
-- Any code, config, or script changes (any repo, any language)
-- Any architectural decision or design choice
-- Any multi-step task or anything spanning more than one file
-- Copilot system configuration (agents, skills, scripts, benchmarks)
-- Personal projects, learning, research with tangible outputs
-- **Any EROAD task — always** (research, investigation, code, architecture, documentation)
-- Research or investigation that spans multiple files, repos, or domains
-- Any task where the user says "look into", "investigate", "research", "explore"
-
-### ❌ Only skip the pipeline for:
-- A pure one-liner question that fits in 2 sentences ("what does X mean?")
-- Reading/showing a single file with no follow-up work
-- Trivial clarifications with zero analysis required
-
-**Default: run the pipeline.** When in doubt, route through it.
-
-### 🚧 Pipeline Restrictions (User-Specified Gates)
-
-The user can pass **restrictions** when requesting a task. These are constraints that override default pipeline autonomy. Parse them from the user's message and write them into the STM `Task Brief` section.
-
-**How restrictions work:**
-1. User includes a constraint in their task request (e.g., "pause before every commit", "let me review code first", "don't push to remote", "research only — no code changes")
-2. Orchestrator writes it into the STM as a `Restrictions:` block in the Task Brief
-3. All downstream agents read the restrictions and comply
-4. The orchestrator enforces gate points where the user specified pauses
-
-**Common restriction patterns:**
-
-| User says | Restriction | Gate behaviour |
-|---|---|---|
-| "pause before commit" / "let me review" | `GATE: pre-commit` | After code changes, show diff and **ask user** before committing |
-| "don't push" / "local only" | `GATE: no-push` | Commit locally but never push to remote |
-| "research only" / "just investigate" | `GATE: read-only` | No file writes. Output findings only |
-| "draft mode" / "don't send" | `GATE: draft-only` | Create drafts but don't send/publish |
-| "no new dependencies" | `CONSTRAINT: no-deps` | Don't add new packages or dependencies |
-| "stay in this repo" | `CONSTRAINT: repo-scoped` | Don't touch files outside the current repo |
-| "explain before acting" | `GATE: explain-first` | Explain every action BEFORE executing; wait for approval |
-
-**STM format for restrictions:**
-
-```
-Classification:
-  Domain:     eroad
-  Type:       code-change
-  Blast:      MEDIUM
-  Pipeline:   standard
-  BRAIN_TYPE: eroad
-
-Restrictions:
-  - GATE: pre-commit — pause and show diff before every commit; wait for user approval
-  - CONSTRAINT: no-deps — do not add new dependencies
-```
-
-**Enforcement rules:**
-- Gates (`GATE:`) require **stopping and asking the user** via `ask_user` before proceeding
-- Constraints (`CONSTRAINT:`) are hard rules agents must follow silently — no need to pause
-- If a restriction conflicts with the task (e.g., "research only" but user asks for code changes), clarify with the user
-- Restrictions are inherited by all sub-agents — include them in every agent prompt
-
-### ⚡ Brain routing — EROAD vs personal
-
-The orchestrator selects the correct brain based on task domain:
-
-| Task domain | Brain used |
-|---|---|
-| EROAD services, Sovereign platform, EROAD repos, company work | `~/eroad-brain` |
-| Copilot system config, personal projects, general coding, AI learnings | `~/john-brain` |
-
-The orchestrator writes `BRAIN_TYPE: eroad` or `BRAIN_TYPE: personal` into the STM and passes it to `brain-data-retrieval` and `brain-consolidation`.
-
-### ⚡ No specialist? Auto-invoke agent-factory
-
-If the orchestrator determines no existing agent covers the task well enough:
-1. Invoke `agent-factory` with the capability gap description
-2. Wait for the new agent to be created
-3. Resume the pipeline using the new agent
-
-**NEVER use `general-purpose` as a fallback.** Route to the specific specialist or create one.
-
-| Task type | Use agent |
-|---|---|
-| Exploring / understanding a codebase | `discovery` |
-| Implementing code changes | `developer` |
-| Architecture / design decisions | `architect` |
-| Writing or updating tests | `testing` or `qa-engineer` |
-| Security review | `security` |
-| Final code review | `code-reviewer` |
-| CI/CD / infrastructure | `devops` |
-| Documentation | `documentation` |
-| No match found | → `agent-factory` |
+For full pipeline templates, STM protocol, checkpoint protocol, restrictions/gates, and specialist routing tables, see `~/.copilot/agents/orchestrator.agent.md`.
 
 ---
 
@@ -522,37 +327,6 @@ LLMs have a **jagged capability profile**: superhuman at some tasks, surprisingl
 
 ---
 
-## Context Window Budget Awareness
-
-The context window is finite, expensive real estate. Every low-value token displaces a high-value one.
-
-### STM size discipline
-- Target STM size: **under 50k tokens** (~200KB of text)
-- When STM approaches 50k tokens, trigger compression:
-  1. Summarise the `## [STM] Agent Contributions` section: "Compress these contributions into a 200-word summary preserving all decisions, file paths, and action items"
-  2. Replace verbose tool output with key findings only
-  3. Drop superseded drafts — keep only the latest version
-
-### What to include vs. exclude
-| Include | Exclude |
-|---|---|
-| Task brief and acceptance criteria | Verbose build logs (extract errors only) |
-| Relevant brain excerpts (compressed) | Full file contents if >150 lines |
-| Decisions and their rationale | Intermediate drafts once superseded |
-| Error messages and stack traces | Successful command output that adds no signal |
-| Current file paths and schemas | Repeated context already stated earlier |
-
-### Compression command
-```bash
-# Check current STM size
-wc -c "$STM_PATH" | awk '{print $1/1024 " KB"}'
-
-# If >200KB, compress Agent Contributions section
-grep -n "\[STM\] Agent Contributions" "$STM_PATH"
-```
-
----
-
 ## ACI — Tool Documentation Standard
 
 Every tool used in agent prompts must be documented with the **Agent-Computer Interface (ACI)** standard. Good tool docs are as important as the model itself.
@@ -582,126 +356,24 @@ Apply this standard when writing or updating agent tool documentation.
 
 ---
 
-## Skill Dispatch Rules
+## Skill Dispatch (Quick Reference)
 
-Skills are shared instruction sets loaded via the `skill` tool. Use this table as a **hard routing checklist** — not a suggestion list. Concrete conditions are listed so there's no ambiguity.
-
-| Trigger condition | Invoke skill | When exactly |
-|---|---|---|
-| Starting work in any EROAD/Sovereign/copilot repo | `brain-sync` | **First tool call of the session** — fetch before touching any files |
-| Evaluating a plan, architecture, or multi-file proposal | `critical-thinker` | After drafting the plan, **before presenting it to John** |
-| Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
-| Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
-| Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
-| Background agent: `elapsed > 15s` AND `0 changes made` | `unstick` | **Immediately** — agent is deadlocked; do the work directly instead |
-| Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
-| Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
-| Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |
-
-### Hard auto-invoke rules — fire WITHOUT being asked
-
-These are **not suggestions**. If the condition is met, invoke the skill immediately:
-
-**`brain-sync` — invoke at the START of the FIRST coding turn**
-- Condition: John's first message in the session asks you to do work in a repo (any code, config, or script change)
-- Action: invoke `brain-sync` skill before reading any files
-- Why: stale context produces worse outputs than a 10-second fetch delay
-- Skip only if: the task is a pure question with zero file changes
-
-**`critical-thinker` — invoke when you produce a plan or proposal**
-- Condition: you've written a plan touching >2 files OR spanning >1 module/service, OR you're recommending a new dependency, OR you're proposing a new pattern/architecture
-- Action: invoke `critical-thinker` on your own plan **before presenting it to John**
-- Why: self-critique surfaces blind spots before they become bugs
-- Skip only if: the change is a single-file, routine edit with no design decisions
-
-**`session-summary` — invoke at session end**
-- Condition: John says he's done, wrapping up, "good job", or the session reaches a natural stopping point
-- Action: invoke `session-summary` to write the session note
-- This is in addition to the post-session sync steps — run both
-
-**`advisor` — offer proactively for directional decisions**
-- Condition: the task is about deciding *what* to build or *which* approach to take (not *how* to implement a decided approach)
-- Action: say "This looks like a directional decision — want me to run the advisor panel before we commit?"
-- Skip if: John has already committed to a direction and is asking for implementation
-
-### When NOT to invoke skills
-- Routine single-file edits (bug fix, typo, formatting) → no skill needed
-- John has already framed the analysis and you're just executing → follow his framing
-- Speed is critical and blast radius is LOW (and no design decisions involved) → proceed directly
+| Condition | Skill |
+|---|---|
+| Start of coding task in a repo | `brain-sync` |
+| Plan touching >2 files or >1 module | `critical-thinker` |
+| HIGH/CRITICAL blast radius architecture | `dual-critique` |
+| Directional "should we X or Y?" decision | `advisor` |
+| Stuck — 3x same failure or 5+ calls no progress | `unstick` |
+| Agent-to-agent handoff in pipeline | `handoff-protocol` |
+| Jira/Confluence interaction | `jira-confluence-sync` |
+| Session end | `session-summary` |
 
 ---
 
-## Agent Spawning Policy
+## Agent Spawning & Tool Budgets
 
-Every time you spawn a sub-agent, apply these rules. **This is non-negotiable.**
-
-### Agent Type Routing
-
-| Goal | Use agent type | Tool limit |
-|---|---|---|
-| Discover facts, explore a codebase | `explore` | Unlimited (that's its job) |
-| Produce a plan/analysis from known context | `general-purpose` + `"do not use tools"` | 0 |
-| Execute code changes | `developer` / `task` | Budget below |
-| Background work where you'll wait for result | `general-purpose` background | Budget below |
-
-**Never mix exploration and planning in the same agent.** If you need to discover facts AND produce a plan, run an `explore` first, then pass its output to a constrained planning agent with no tool access.
-
-### Mandatory Tool Budget Header
-
-Include this block at the top of **every** non-`explore` agent prompt:
-
-```
-## Tool Use Policy
-- Exploration budget: MAX {N} tool calls before you MUST produce output
-- After {N/2} tool calls: you must have a working draft — do not make 3+ consecutive
-  tool calls without writing any output
-- If something is unknown after your budget: state the assumption and proceed — do not
-  explore to fill the gap
-- On EVERY write-stm.sh call, include: TOOL_CALLS: <used>/<max>, CONTEXT: ~<N>k tokens, MODEL: <model-id>
-```
-
-Default budgets by role:
-
-| Agent role | Max tool calls |
-|---|---|
-| `explore` / `discovery` | unlimited |
-| `developer` / `coding` | 15 |
-| `architect` / `design` | 12 |
-| `reviewer` / `security` | 10 |
-| `planner` / `analyst` / `reasoning` | 6 |
-| Any agent given full context in prompt | 0 |
-
-### Context Window Monitoring Protocol
-
-Agents MUST emit these structured markers in **every** STM write so the dashboard can display real-time resource usage:
-
-```
-TOOL_CALLS: <used>/<max>       # emit on EVERY write-stm.sh call
-CONTEXT: ~<N>k tokens          # emit on EVERY write-stm.sh call — estimate your current context usage
-MODEL: <model-id>              # emit on EVERY write-stm.sh call
-```
-
-**How to estimate context tokens:** Count approximate input tokens consumed so far — system prompt (~3k) + task prompt + all tool call inputs and outputs. Round to nearest 5k. If unsure, estimate conservatively high.
-
-Example STM entry body:
-```
-Status: in_progress
-Model: gpt-5.3-codex
-TOOL_CALLS: 7/15
-CONTEXT: ~45k tokens
-Findings: Implementing AuthController. 3 files created.
-Files: src/AuthController.java, src/JwtService.java
-Next: Write integration tests.
-```
-
-**Context pressure thresholds:**
-- **50%**: compress prior tool outputs in your context before continuing
-- **75%**: wrap up current section, produce output for what you have, flag remaining gaps
-- **90%**: STOP. Produce final output immediately with explicit "CONTEXT LIMIT REACHED" marker
-
-### Progressive Commitment Rule
-
-An agent must never make more than 3 consecutive tool calls without producing output. After every 3 tool calls, write a draft section or intermediate finding. This prevents silent infinite exploration loops.
+When spawning sub-agents, include a tool budget header. Default budgets: `explore`/`discovery` = unlimited, `developer` = 15, `architect` = 12, `reviewer`/`security` = 10, `planner`/`analyst` = 6. Never mix exploration and planning in the same agent. See `~/.copilot/agents/orchestrator.agent.md` for full spawning policy and context monitoring protocol.
 
 ---
 
@@ -717,36 +389,6 @@ An agent must never make more than 3 consecutive tool calls without producing ou
 
 ---
 
-## Session End — Automatic Post-Session Syncs
+## Session End
 
-At the end of **every session**, automatically run the post-session syncs **without waiting to be asked**. Trigger on any of these signals:
-- User says they are done, closing, leaving, finishing, or wrapping up
-- User says "save session", "end session", "I'm out", "good job", or similar
-- The conversation has reached a natural stopping point after completing work
-
-### What to run automatically:
-
-1. **Session summary** — generate a 2–5 sentence prose summary of what was accomplished and call:
-   ```bash
-   python3 ~/.copilot/scripts/summarize-session.py <session-id> \
-     --prose "Your summary here" \
-     --learnings "learning 1\nlearning 2\n..."
-   ```
-   Get the current session ID from:
-   ```bash
-   ls -t ~/.copilot/session-state/ | head -1
-   ```
-
-2. **Global learnings** — write any non-obvious patterns, gotchas, decisions, or preferences to:
-   ```bash
-   bash ~/.copilot/scripts/add-learning.sh --global "[TYPE] Learning text"
-   ```
-
-3. **Brain consolidation** — if the session involved EROAD code, architecture, or domain knowledge, launch the `brain-consolidation` agent in background to update the eroad-brain vault.
-
-4. **Brain push** — the `copilot()` zsh wrapper handles this automatically on exit. No action needed.
-
-### What counts as "session ending"
-The zsh wrapper handles mechanical steps after exit. Your job is the AI-generated content (prose + learnings + brain consolidation) that must happen **before** the session closes.
-
-If the session ends without syncing (e.g. terminal killed), the NEXT session should check for any un-synced sessions and run the syncs at the start.
+At session end (user wrapping up, "good job", etc.), run: `summarize-session.py`, `add-learning.sh --global`, and `brain-consolidation` (if EROAD work). See `~/.copilot/agents/orchestrator.agent.md` for full protocol.
