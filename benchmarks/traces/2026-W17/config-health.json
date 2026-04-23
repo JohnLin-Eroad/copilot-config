@@ -1,0 +1,28 @@
+{
+  "week": "2026-W17",
+  "timestamp": "2026-04-23T03:10:00Z",
+  "checks": [
+    {"id": "agent-files-exist", "category": "agent-config", "status": "PASS", "detail": "43 agent files found"},
+    {"id": "agent-structure", "category": "agent-config", "status": "PASS", "detail": "43/43 agents have required sections"},
+    {"id": "agent-donot", "category": "agent-config", "status": "PASS", "detail": "43/43 agents include DO NOT sections"},
+    {"id": "agent-dispatch", "category": "agent-config", "status": "PASS", "detail": "Dispatch table verified"},
+    {"id": "skill-files-exist", "category": "agent-config", "status": "PASS", "detail": "13 SKILL.md files found"},
+    {"id": "skill-dispatch", "category": "agent-config", "status": "PASS", "detail": "13 skill directories matched"},
+    {"id": "governance-parse", "category": "governance", "status": "PASS", "detail": "governance-rules.json valid JSON"},
+    {"id": "governance-count", "category": "governance", "status": "PASS", "detail": "16 rules found"},
+    {"id": "governance-security", "category": "governance", "status": "PASS", "detail": "All 4 security rules present (sec-001 through sec-004)"},
+    {"id": "dashboard-running", "category": "infrastructure", "status": "PASS", "detail": "STM dashboard responding on localhost:8765"},
+    {"id": "launchd-loaded", "category": "infrastructure", "status": "PASS", "detail": "Dashboard service registered with launchd"},
+    {"id": "no-zombies", "category": "infrastructure", "status": "PASS", "detail": "0 zombie stm-dashboard processes"},
+    {"id": "brain-health", "category": "infrastructure", "status": "PASS", "detail": "brain-health-audit.sh exists and executable"},
+    {"id": "eroad-brain-exists", "category": "brain-vault", "status": "PASS", "detail": "7 items in eroad-brain"},
+    {"id": "john-brain-exists", "category": "brain-vault", "status": "PASS", "detail": "5 items in john-brain"},
+    {"id": "learnings-exist", "category": "brain-vault", "status": "PASS", "detail": "learnings.md exists"}
+  ],
+  "summary": {
+    "total": 16,
+    "passed": 16,
+    "failed": 0,
+    "pass_rate": 100.0
+  }
+}
