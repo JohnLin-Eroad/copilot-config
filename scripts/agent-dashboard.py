@@ -227,6 +227,8 @@ def parse_stm_entries(content: str) -> list[dict]:
         files = ""
         decisions = ""
         next_step = ""
+        parent = ""
+        unit = ""
 
         for line in body.splitlines():
             low = line.strip().lower()
@@ -240,6 +242,10 @@ def parse_stm_entries(content: str) -> list[dict]:
                 decisions = line.split(":", 1)[1].strip()
             elif low.startswith("next:"):
                 next_step = line.split(":", 1)[1].strip()
+            elif low.startswith("parent:"):
+                parent = line.split(":", 1)[1].strip()
+            elif low.startswith("unit:"):
+                unit = line.split(":", 1)[1].strip()
             elif low.startswith("phase:"):
                 # PHASE: is written by developer agents — map to dashboard status
                 # Only use it if STATUS: wasn't explicitly set
