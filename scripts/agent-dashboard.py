@@ -1732,6 +1732,11 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
             self._serve_html()
         elif self.path == "/api/status":
             self._serve_status()
+        elif self.path == "/api/v2/status":
+            self._serve_v2_status()
+        elif self.path.startswith("/api/v2/select/"):
+            uuid_str = self.path[len("/api/v2/select/"):]
+            self._serve_v2_select(uuid_str)
         elif self.path == "/health":
             self._serve_health()
         else:
