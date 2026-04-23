@@ -18,7 +18,9 @@ Usage:
 """
 
 import argparse
+import dataclasses
 import fcntl
+import hashlib
 import http.server
 import json
 import os
@@ -28,6 +30,7 @@ import sys
 import threading
 import time
 import urllib.request
+import uuid as uuid_mod
 import webbrowser
 from datetime import datetime, timezone
 from pathlib import Path
