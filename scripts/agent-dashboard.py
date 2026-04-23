@@ -709,12 +709,19 @@ class WorkflowPoller:
 def parse_stm_entries(content: str) -> list[dict]:
     """Parse write-stm.sh entries: ### AGENT — TIMESTAMP\\nBody"""
     entries = []
+
+    # Restrict to Agent Contributions section only (defense in depth)
+    contrib_marker = "## [STM] Agent Contributions"
+    contrib_idx = content.find(contrib_marker)
+    search_text = content[contrib_idx:] if contrib_idx >= 0 else content
+
     # Match entries written by write-stm.sh
+    # [^\n]+? prevents agent name from crossing newlines (fixes Prior Sessions bleed)
     pattern = re.compile(
-        r"### (.+?) — (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\n(.*?)(?=\n### |\Z)",
+        r"### ([^\n]+?) — (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\n(.*?)(?=\n### |\Z)",
         re.DOTALL,
     )
-    for m in pattern.finditer(content):
+    for m in pattern.finditer(search_text):
         agent = m.group(1).strip()
         ts = m.group(2).strip()
         body = m.group(3).strip()
