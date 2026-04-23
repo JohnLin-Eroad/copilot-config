@@ -1,0 +1,204 @@
+{
+  "week": "2026-W17",
+  "date": "2026-04-28",
+  "system_version": "v1-legacy",
+  "self_graded": true,
+  "note": "Back-converted from 1-5 scale (\u00d720). Self-graded. No trace files exist.",
+  "prompt_rotation": {
+    "code_generation": "P1-vehicle-odometer",
+    "context_retrieval": "P1-architecture-overview",
+    "security_review": "P1-vehicle-controller",
+    "planning": "P1-driver-hours"
+  },
+  "scores": {
+    "code_generation": {
+      "score": 100.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "self-graded",
+      "notes": "Generated VehicleOdometer record (domain layer), OdometerRepository port (application/port/out), JUnit 5 test suite. Java record for immutable VO, Optional<VehicleOdometer> in port, no @Autowired. All 4 test cases: valid positive, zero, negative with message assertion, addition + immutability check. Full @param/@return/@throws Javadoc on all public methods. Zero cross-layer imports.",
+      "dimensions": {
+        "correctness": 5,
+        "hexagonal_compliance": 5,
+        "java21_idioms": 5,
+        "javadoc_completeness": 5,
+        "test_quality": 5
+      }
+    },
+    "context_retrieval": {
+      "score": 90.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "self-graded",
+      "notes": "Significant improvement from W16 (3.6\u21924.5): brain vault now has 02-Domain-Models/ with 7 entity files. Architecture and Sovereign role questions answered well from vault. Java 21/Spring Boot 3.4 correctly flagged as NOT in vault (lives in copilot-instructions.md/pom.xml). Domain entities now well covered: Driver, Vehicle-Machine (Machine), Fleet, Organisation, Trip, Event, Device all documented. Composite: (4/5\u00d70.5)+(1\u00d70.167\u00d73) = 0.901\u00d75 = 4.5.",
+      "brain_data_used": true,
+      "accuracy": 4,
+      "gaps_handled": true,
+      "no_hallucination": true,
+      "files_fetched": 6,
+      "files_fetched_list": [
+        "03 - Architecture/eroad-platform-architecture.md",
+        "03 - Architecture/sovereign-v2-spec.md",
+        "02 - Domain Models/README.md",
+        "02 - Domain Models/Driver.md",
+        "02 - Domain Models/Vehicle-Machine.md",
+        "02 - Domain Models/Fleet.md"
+      ]
+    },
+    "security_review": {
+      "score": 94.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "self-graded",
+      "notes": "All 3 planted vulns found at correct severity. Precision improved W16\u2192W17 (0.75\u21920.80): resource leak correctly classified as code-quality noise rather than security finding. 1 bonus real finding (missing auth, A01). Formula: ((1.0\u00d70.5)+(0.80\u00d70.3)+(1.0\u00d70.2))\u00d75 = 0.94\u00d75 = 4.7.",
+      "recall": 1.0,
+      "precision": 0.8,
+      "severity_accuracy": 1.0,
+      "true_positives": 3,
+      "false_positives": 0,
+      "total_flagged": 5,
+      "vulnerabilities_found": [
+        "SQL Injection (OWASP A03) \u2014 string concatenation in executeQuery \u2014 CRITICAL",
+        "Sensitive Data Exposure (OWASP A02) \u2014 owner_email in response body \u2014 HIGH",
+        "Information Exposure in Error Response (OWASP A09) \u2014 password reflected in 401 \u2014 HIGH"
+      ],
+      "vulnerabilities_missed": [],
+      "bonus_real_findings": [
+        "Broken Access Control (OWASP A01) \u2014 /search has no authentication \u2014 HIGH"
+      ],
+      "noise_findings": [
+        "Resource leak (Connection/Statement/ResultSet not closed) \u2014 downgraded to code-quality note, not OWASP Top 10"
+      ]
+    },
+    "planning": {
+      "score": 100.0,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "self-graded",
+      "notes": "Driver hours compliance feature plan. Named 4 domain types (DrivingSession aggregate, ComplianceThreshold policy VO, ComplianceStatus enum, ComplianceEvent entity). Perfect hexagonal placement. Blast radius improved over W16: DDL specified, SQS+DLQ, 3 named config keys, Terraform provisioning step, CW alarm on DLQ depth. 8 edge cases (midnight, timezone/jurisdiction, multi-fleet dedup, clock drift, rest breaks, retroactive entry, ELD overlap, jurisdiction rules). 10-step dependency order. 5 measurable Given/When/Then ACs including feature-flag and time-boundary scenarios.",
+      "dimensions": {
+        "domain_understanding": 5,
+        "hexagonal_architecture": 5,
+        "blast_radius": 5,
+        "edge_cases": 5,
+        "dependency_ordering": 5,
+        "acceptance_criteria": 5
+      },
+      "edge_case_count": 8
+    },
+    "learning_retention": {
+      "score": 60,
+      "prompt_id": "P1-legacy",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "self-graded",
+      "notes": "No experiments/2026-W17.md found. weekly-experimenter produced no experiment branch this week. Score = 3 (NEUTRAL) per rubric. Retention scoring becomes meaningful when weekly-experimenter begins producing experiment branches.",
+      "result": "NEUTRAL",
+      "experiment_branch": "",
+      "baseline_score": null,
+      "experiment_score": null,
+      "delta": null
+    }
+  },
+  "weights": {
+    "code_generation": 0.25,
+    "context_retrieval": 0.25,
+    "security_review": 0.2,
+    "planning": 0.2,
+    "learning_retention": 0.1
+  },
+  "_legacy_1to5": {
+    "code_generation": 5.0,
+    "context_retrieval": 4.5,
+    "security_review": 4.7,
+    "planning": 5.0,
+    "learning_retention": 3
+  },
+  "usage_summary": {
+    "note": "Token counts: sub-agent exact from subagent.completed events; main session heuristic via compaction events. Script: python3 ~/.copilot/scripts/usage-stats.py --week 2026-W17. W17 = sessions 2026-04-21 through 2026-04-27.",
+    "sessions_this_week": 8,
+    "total_tokens_estimated": 41200000,
+    "subagent_tokens_exact": 37800000,
+    "main_session_tokens_heuristic": 3400000,
+    "by_model": {
+      "claude-sonnet-4.5": {
+        "tokens": 35721000,
+        "calls": 31,
+        "token_pct": 94.5,
+        "avg_duration_ms": 847200
+      },
+      "claude-opus-4.5": {
+        "tokens": 1890000,
+        "calls": 2,
+        "token_pct": 5.0,
+        "avg_duration_ms": 312000
+      },
+      "gpt-5.3-codex": {
+        "tokens": 189000,
+        "calls": 1,
+        "token_pct": 0.5,
+        "avg_duration_ms": 28000
+      }
+    },
+    "top_agents": [
+      {
+        "name": "general-purpose",
+        "calls": 14,
+        "tokens": 22400000
+      },
+      {
+        "name": "sov-discovery",
+        "calls": 9,
+        "tokens": 11200000
+      },
+      {
+        "name": "orchestrator",
+        "calls": 4,
+        "tokens": 3150000
+      },
+      {
+        "name": "benchmark-runner",
+        "calls": 2,
+        "tokens": 840000
+      },
+      {
+        "name": "brain-consolidation",
+        "calls": 1,
+        "tokens": 210000
+      }
+    ],
+    "top_skills": [
+      {
+        "name": "session-summary",
+        "calls": 3
+      },
+      {
+        "name": "brain-sync",
+        "calls": 2
+      }
+    ],
+    "top_tools": [
+      {
+        "name": "bash",
+        "calls": 1842
+      },
+      {
+        "name": "view",
+        "calls": 1104
+      },
+      {
+        "name": "edit",
+        "calls": 198
+      },
+      {
+        "name": "report_intent",
+        "calls": 172
+      },
+      {
+        "name": "create",
+        "calls": 87
+      }
+    ]
+  },
+  "overall": 92.3,
+  "vs_previous": 5.3
+}

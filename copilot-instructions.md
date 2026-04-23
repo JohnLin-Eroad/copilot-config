@@ -169,6 +169,53 @@ Proceeding with: <what>
 
 ---
 
+## STM-First Protocol
+
+**The Short-Term Memory (STM) is the single source of truth for every in-flight task.** Every agent's first action is to consume the STM — not to explore, search, or fetch independently.
+
+### The rule
+
+> **Before using ANY tool (grep, view, bash, search), read the STM.**
+> If the answer is in the STM, use it. If the STM says a topic has no brain coverage (Negative Context), do NOT search for it — raise `PIPELINE_SIGNAL: NEED_DATA` instead.
+
+### Why this matters
+
+1. **Eliminates redundant work** — prior agents have already explored, fetched, and synthesised. Re-exploring wastes tool calls and context tokens.
+2. **Prevents hallucination** — the Negative Context section explicitly lists what is NOT known. Agents that skip this will fill gaps with fabrication.
+3. **Respects restrictions** — gates and constraints live in the STM Task Brief. An agent that doesn't read them first may violate user-specified restrictions.
+4. **Maintains pipeline coherence** — the STM is the shared memory. Agents that ignore it produce disconnected, contradictory outputs.
+
+### What agents find in the STM
+
+| Section | What it contains | How to use it |
+|---|---|---|
+| `Task Brief` | Classification, restrictions, scope | Your mandate — respect every restriction |
+| `Brain Data` | Pre-fetched domain knowledge | **USE THIS** instead of searching brain/code yourself |
+| `Negative Context` | Topics NOT in the brain | **DO NOT speculate** on these; raise NEED_DATA if critical |
+| `Agent Contributions` | Prior agent outputs | Build on their work — don't repeat it |
+| `Fetch Manifest` | Files already retrieved | Don't re-fetch these |
+
+### Agent behaviour priority order
+
+1. **Read STM** — consume Task Brief, Brain Data, Negative Context, prior contributions
+2. **Use STM content first** — if the STM has what you need, do NOT make tool calls to find it again
+3. **Explore only gaps** — make tool calls ONLY for information NOT already in the STM
+4. **Write back to STM** — so the next agent doesn't have to repeat your work
+
+### Enforcement for the orchestrator
+
+When spawning sub-agents, the orchestrator MUST inject key STM sections directly into the prompt (see orchestrator agent docs). This ensures agents have the context at zero tool-call cost and cannot skip reading it.
+
+### Anti-patterns (never do these)
+
+- ❌ Grepping the codebase for patterns that are already described in STM Brain Data
+- ❌ Searching the brain vault for files already listed in the Fetch Manifest
+- ❌ Speculating about a topic that is listed in Negative Context
+- ❌ Re-running a discovery that a prior agent already completed (check Agent Contributions)
+- ❌ Ignoring restrictions in the Task Brief
+
+---
+
 ## Context Engineering
 
 Context engineering is the most important skill for working with LLMs effectively. **Output quality is determined primarily by what's in the context window, not by clever prompts.** Before blaming a model for bad output, check what it was given.
@@ -321,19 +368,65 @@ eval "$(python3 ~/.copilot/scripts/stm-init.py '<task description>')"
 
 ### ✅ Always run the orchestrator pipeline
 
-Run the pipeline for **every task** that produces output or makes changes:
+Run the pipeline for **every task** beyond a trivial one-liner:
 - Any code, config, or script changes (any repo, any language)
 - Any architectural decision or design choice
 - Any multi-step task or anything spanning more than one file
 - Copilot system configuration (agents, skills, scripts, benchmarks)
 - Personal projects, learning, research with tangible outputs
+- **Any EROAD task — always** (research, investigation, code, architecture, documentation)
+- Research or investigation that spans multiple files, repos, or domains
+- Any task where the user says "look into", "investigate", "research", "explore"
 
 ### ❌ Only skip the pipeline for:
-- Pure lookup questions with zero file output ("what does X mean?", "show me how Y works")
-- Reading/showing a single file where no changes follow
-- A one-liner clarification where the answer fits in 2 sentences
+- A pure one-liner question that fits in 2 sentences ("what does X mean?")
+- Reading/showing a single file with no follow-up work
+- Trivial clarifications with zero analysis required
 
 **Default: run the pipeline.** When in doubt, route through it.
+
+### 🚧 Pipeline Restrictions (User-Specified Gates)
+
+The user can pass **restrictions** when requesting a task. These are constraints that override default pipeline autonomy. Parse them from the user's message and write them into the STM `Task Brief` section.
+
+**How restrictions work:**
+1. User includes a constraint in their task request (e.g., "pause before every commit", "let me review code first", "don't push to remote", "research only — no code changes")
+2. Orchestrator writes it into the STM as a `Restrictions:` block in the Task Brief
+3. All downstream agents read the restrictions and comply
+4. The orchestrator enforces gate points where the user specified pauses
+
+**Common restriction patterns:**
+
+| User says | Restriction | Gate behaviour |
+|---|---|---|
+| "pause before commit" / "let me review" | `GATE: pre-commit` | After code changes, show diff and **ask user** before committing |
+| "don't push" / "local only" | `GATE: no-push` | Commit locally but never push to remote |
+| "research only" / "just investigate" | `GATE: read-only` | No file writes. Output findings only |
+| "draft mode" / "don't send" | `GATE: draft-only` | Create drafts but don't send/publish |
+| "no new dependencies" | `CONSTRAINT: no-deps` | Don't add new packages or dependencies |
+| "stay in this repo" | `CONSTRAINT: repo-scoped` | Don't touch files outside the current repo |
+| "explain before acting" | `GATE: explain-first` | Explain every action BEFORE executing; wait for approval |
+
+**STM format for restrictions:**
+
+```
+Classification:
+  Domain:     eroad
+  Type:       code-change
+  Blast:      MEDIUM
+  Pipeline:   standard
+  BRAIN_TYPE: eroad
+
+Restrictions:
+  - GATE: pre-commit — pause and show diff before every commit; wait for user approval
+  - CONSTRAINT: no-deps — do not add new dependencies
+```
+
+**Enforcement rules:**
+- Gates (`GATE:`) require **stopping and asking the user** via `ask_user` before proceeding
+- Constraints (`CONSTRAINT:`) are hard rules agents must follow silently — no need to pause
+- If a restriction conflicts with the task (e.g., "research only" but user asks for code changes), clarify with the user
+- Restrictions are inherited by all sub-agents — include them in every agent prompt
 
 ### ⚡ Brain routing — EROAD vs personal
 
@@ -377,6 +470,10 @@ You are stuck if any of these are true:
 - Same tool call attempted 3+ times with same or worsening result
 - 5+ tool calls with no measurable forward progress (no files written, no state changed)
 - Hard constraint hit (tool unavailable, permission denied) after one retry
+<<<<<<< HEAD
+=======
+- **Background agent: `elapsed > 15s` AND `0 changes made`** — agent is deadlocked
+>>>>>>> weekly/2026-W17
 
 **When stuck:**
 
@@ -499,6 +596,10 @@ Skills are shared instruction sets loaded via the `skill` tool. Use this table a
 | Architecture decision with HIGH/CRITICAL blast radius | `dual-critique` | When proposing something hard to reverse (schema changes, API breaks, new services) |
 | Strategic/directional decision: what to build, which approach | `advisor` | When John asks "should we X or Y?" or "what's the best approach for Z?" |
 | Stuck — same action failing 3x or 5+ calls with no progress | `unstick` | **Immediately** — do not retry; escalates to opus for a concrete alternative |
+<<<<<<< HEAD
+=======
+| Background agent: `elapsed > 15s` AND `0 changes made` | `unstick` | **Immediately** — agent is deadlocked; do the work directly instead |
+>>>>>>> weekly/2026-W17
 | Handing off work between agents in a pipeline | `handoff-protocol` | Before calling the next agent in a multi-step pipeline |
 | Creating or updating a Jira ticket or Confluence page | `jira-confluence-sync` | Any time Jira/Confluence is involved |
 | Saving or reviewing a session log | `session-summary` | At session end, or when John asks to save/review the session |

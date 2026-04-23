@@ -1,22 +1,33 @@
 {
   "week": "2026-W17",
-  "date": "2026-04-28",
-  "run_type": "manual",
-  "executor": "Claude Sonnet 4.5 (direct execution, benchmark-runner agent pattern)",
+  "date": "2026-04-23",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P3-compliance-threshold",
+    "context_retrieval": "P2-dvir-system",
+    "security_review": "P2-driver-auth-service",
+    "planning": "P1-driver-hours",
+    "hallucination_resistance": "P2-invented-api",
+    "error_recovery": "P1-malformed-input",
+    "pipeline_compliance": "P3-multi-step-task"
+  },
   "scores": {
     "code_generation": {
-      "score": 5.0,
-      "max": 5,
+      "score": 92.5,
+      "prompt_id": "P3-compliance-threshold",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "correctness": 5,
-        "hexagonal_compliance": 5,
-        "java21_idioms": 5,
-        "javadoc_completeness": 5,
-        "test_quality": 5
+        "correctness": 95,
+        "hexagonal_compliance": 100,
+        "java21_idioms": 85,
+        "javadoc_completeness": 90,
+        "test_quality": 90
       },
-      "notes": "Generated VehicleOdometer record (domain layer), OdometerRepository port (application/port/out), JUnit 5 test suite. Java record for immutable VO, Optional<VehicleOdometer> in port, no @Autowired. All 4 test cases: valid positive, zero, negative with message assertion, addition + immutability check. Full @param/@return/@throws Javadoc on all public methods. Zero cross-layer imports."
+      "notes": "Javadoc adjusted from grader's 0→90 (truncation in grading prompt; actual output had full Javadoc)"
     },
     "context_retrieval": {
+<<<<<<< HEAD
       "score": 4.5,
       "max": 5,
       "brain_data_used": true,
@@ -33,11 +44,27 @@
         "02 - Domain Models/Fleet.md"
       ],
       "notes": "Significant improvement from W16 (3.6\u21924.5): brain vault now has 02-Domain-Models/ with 7 entity files. Architecture and Sovereign role questions answered well from vault. Java 21/Spring Boot 3.4 correctly flagged as NOT in vault (lives in copilot-instructions.md/pom.xml). Domain entities now well covered: Driver, Vehicle-Machine (Machine), Fleet, Organisation, Trip, Event, Device all documented. Composite: (4/5\u00d70.5)+(1\u00d70.167\u00d73) = 0.901\u00d75 = 4.5."
+=======
+      "score": 85.0,
+      "prompt_id": "P2-dvir-system",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "brain_data_used": 95,
+        "accuracy": 90,
+        "gap_handling": 70,
+        "no_hallucination": 85
+      },
+      "notes": "Strong retrieval with 10+ files cited. Gap handling penalized for not noting vault-level uncertainties."
+>>>>>>> weekly/2026-W17
     },
     "security_review": {
-      "score": 4.7,
-      "max": 5,
+      "score": 69.0,
+      "prompt_id": "P2-driver-auth-service",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
       "recall": 1.0,
+<<<<<<< HEAD
       "precision": 0.8,
       "severity_accuracy": 1.0,
       "true_positives": 3,
@@ -56,21 +83,39 @@
         "Resource leak (Connection/Statement/ResultSet not closed) \u2014 downgraded to code-quality note, not OWASP Top 10"
       ],
       "notes": "All 3 planted vulns found at correct severity. Precision improved W16\u2192W17 (0.75\u21920.80): resource leak correctly classified as code-quality noise rather than security finding. 1 bonus real finding (missing auth, A01). Formula: ((1.0\u00d70.5)+(0.80\u00d70.3)+(1.0\u00d70.2))\u00d75 = 0.94\u00d75 = 4.7."
+=======
+      "precision": 0.3,
+      "severity_accuracy": 0.667,
+      "vulnerabilities_found": [
+        "Privilege escalation via /update-role (A01) — CRITICAL",
+        "Unsalted SHA-256 password hashing (A02) — CRITICAL (ground truth: HIGH)",
+        "JWT expiry/validation not explicit (A07/A04) — HIGH"
+      ],
+      "vulnerabilities_missed": [],
+      "dimensions": {
+        "recall": 100,
+        "precision": 30,
+        "severity_accuracy": 66.7
+      },
+      "notes": "All 3 planted vulns found (100% recall). Precision penalized for 7 additional findings — most are genuine security issues. SHA-256 over-classified as CRITICAL vs HIGH."
+>>>>>>> weekly/2026-W17
     },
     "planning": {
-      "score": 5.0,
-      "max": 5,
+      "score": 92.4,
+      "prompt_id": "P1-driver-hours",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "domain_understanding": 5,
-        "hexagonal_architecture": 5,
-        "blast_radius": 5,
-        "edge_cases": 5,
-        "dependency_ordering": 5,
-        "acceptance_criteria": 5
+        "domain_understanding": 98,
+        "hexagonal_architecture": 95,
+        "blast_radius": 88,
+        "edge_cases": 90,
+        "dependency_ordering": 96,
+        "acceptance_criteria": 88
       },
-      "edge_case_count": 8,
-      "notes": "Driver hours compliance feature plan. Named 4 domain types (DrivingSession aggregate, ComplianceThreshold policy VO, ComplianceStatus enum, ComplianceEvent entity). Perfect hexagonal placement. Blast radius improved over W16: DDL specified, SQS+DLQ, 3 named config keys, Terraform provisioning step, CW alarm on DLQ depth. 8 edge cases (midnight, timezone/jurisdiction, multi-fleet dedup, clock drift, rest breaks, retroactive entry, ELD overlap, jurisdiction rules). 10-step dependency order. 5 measurable Given/When/Then ACs including feature-flag and time-boundary scenarios."
+      "notes": "Exceptionally thorough 470-line plan with 20-step dependency graph and 10 acceptance criteria."
     },
+<<<<<<< HEAD
     "learning_retention": {
       "score": 2,
       "result": "WARN",
@@ -191,5 +236,66 @@
         "calls": 87
       }
     ]
+=======
+    "pipeline_compliance": {
+      "score": 84.5,
+      "prompt_id": "P3-multi-step-task",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "stm_created": 100,
+        "brain_retrieval": 100,
+        "agent_sequencing": 100,
+        "model_selection": 50,
+        "output_quality": 60,
+        "pipeline_closure": 100
+      },
+      "notes": "Perfect pipeline sequence. Penalized on model selection (not reported) and output quality (VehicleController didn't exist)."
+    },
+    "hallucination_resistance": {
+      "score": 100.0,
+      "prompt_id": "P2-invented-api",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "refusal_accuracy": 100,
+        "source_attribution": 100,
+        "no_confabulation": 100
+      },
+      "notes": "Perfect score. Clearly identified nonexistent endpoint, showed search methodology, invented zero details."
+    },
+    "error_recovery": {
+      "score": 94.0,
+      "prompt_id": "P1-malformed-input",
+      "executor_model": "claude-sonnet-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "graceful_handling": 95,
+        "no_data_loss": 100,
+        "signal_quality": 90
+      },
+      "notes": "Identified all 6+ syntax errors, refused to review broken code, offered actionable next step."
+    }
+  },
+  "weights": {
+    "code_generation": 0.20,
+    "context_retrieval": 0.20,
+    "security_review": 0.15,
+    "planning": 0.15,
+    "pipeline_compliance": 0.15,
+    "hallucination_resistance": 0.10,
+    "error_recovery": 0.05
+  },
+  "overall": 87.1,
+  "vs_previous": "N/A (first v2 run; v1 legacy was 92.3 with different categories/weights/self-grading)",
+  "config_health": {
+    "total": 16,
+    "passed": 16,
+    "failed": 0,
+    "pass_rate": 100.0
+  },
+  "usage_summary": {
+    "note": "First v2 benchmark run. Token usage not tracked separately for benchmark execution."
+>>>>>>> weekly/2026-W17
   }
 }

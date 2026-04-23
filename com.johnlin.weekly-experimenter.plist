@@ -10,15 +10,16 @@
   <array>
     <string>/bin/bash</string>
     <string>/Users/johnlin/.copilot/scripts/weekly-branch.sh</string>
+    <string>--open</string>
   </array>
 
-  <!-- Every Sunday at 10:00 (1 hour after ai-learner) -->
+  <!-- Every Monday at 09:00 — open this week's branch -->
   <key>StartCalendarInterval</key>
   <dict>
     <key>Weekday</key>
-    <integer>0</integer>
+    <integer>1</integer>
     <key>Hour</key>
-    <integer>10</integer>
+    <integer>9</integer>
     <key>Minute</key>
     <integer>0</integer>
   </dict>

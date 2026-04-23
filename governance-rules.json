@@ -121,15 +121,24 @@
     },
     {
       "id": "sec-005",
+<<<<<<< HEAD
       "name": "Rate limiting awareness",
       "description": "Flag when agent makes >10 identical API/tool calls in a single pipeline \u2014 likely a loop or hallucination",
       "severity": "LOG",
       "blastRadius": "MEDIUM",
       "category": "security"
+=======
+      "name": "Rate limit external API calls",
+      "severity": "WARN",
+      "description": "Agent tool calls to external APIs must not exceed 10 requests per second per domain",
+      "pattern": null,
+      "action": "LOG"
+>>>>>>> weekly/2026-W17
     },
     {
       "id": "sec-006",
       "name": "Credential rotation reminder",
+<<<<<<< HEAD
       "description": "If a session reads .env, application.yml, or mcp-config.json containing credentials, log a reminder to rotate those credentials",
       "severity": "LOG",
       "blastRadius": "LOW",
@@ -142,6 +151,20 @@
       "severity": "LOG",
       "blastRadius": "LOW",
       "category": "governance"
+=======
+      "severity": "WARN",
+      "description": "If an agent reads a file containing API keys or tokens, log a reminder to check rotation policy",
+      "pattern": null,
+      "action": "LOG"
+    },
+    {
+      "id": "gov-006",
+      "name": "No general-purpose fallback routing",
+      "severity": "BLOCK",
+      "description": "The general-purpose agent must not be used as a routing fallback. Use a specialist agent or invoke agent-factory. Exception: unstick escalation with explicit model override.",
+      "pattern": "agent_type.*general-purpose",
+      "action": "BLOCK"
+>>>>>>> weekly/2026-W17
     }
   ]
 }

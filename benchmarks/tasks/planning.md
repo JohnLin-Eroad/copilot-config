@@ -180,9 +180,24 @@ Fleet managers should be able to see, on a live dashboard, which of their vehicl
 performing below the efficiency threshold. The data comes from trip events that are already being
 published to SQS. The dashboard should refresh every 30 seconds.
 
+<<<<<<< HEAD
 Requirements are intentionally vague — you decide what's needed. Produce a detailed implementation plan.
 ```
 </details>
+=======
+**Final score** = average of 6 dimensions (1–100)
+
+## What Good Looks Like (Score 5)
+
+A complete plan that:
+- Names domain entities explicitly: `DrivingSession`, `ComplianceThreshold`, `ComplianceEvent`
+- Puts business rule (13h limit) in the **domain layer** as a value or policy object
+- Identifies a `NotificationPort` in the application layer
+- Notes DB migration for `compliance_events` table
+- Lists edge cases including timezone, multi-fleet, clock sync
+- Has ordered todos with explicit dependencies
+- Has testable acceptance criteria per story
+>>>>>>> weekly/2026-W17
 
 ## Grader Notes for benchmark-runner
 
