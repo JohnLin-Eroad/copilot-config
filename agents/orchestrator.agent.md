@@ -342,7 +342,8 @@ Phase 0  → brain-data-retrieval
 Phase 1  → discovery              (domain dossier)
 Phase 2  → architect              (ADRs + work packages)
 Phase 3  → security               (arch review)
-Phase 4  → developer              (implement)           ↕ eval loop ↕
+Phase 3.5 → tech-lead            (decompose into parallel units)
+Phase 4  → developer-a, b, c...  (parallel implement)    ↕ eval loop ↕
 Phase 5  → testing                (validate — loops back to Phase 4 on failure, max 2x)
 Phase 6  → security               (code review)
 Phase 7  → code-reviewer          (final review)
