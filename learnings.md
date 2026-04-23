@@ -14,3 +14,386 @@ Cross-repo patterns, preferences, and lessons learned — applied to all session
 - **[2026-04-11]** Primary stack is Java/Spring Boot (backend) and React/TypeScript (frontend); EROAD is the organisation context
 - **[2026-04-13]** Preferred pipeline for Jira implementation tasks: 1) Use the developer agent — have it fetch the Jira ticket via MCP, analyse the codebase, and produce a plan for user review before touching any code. 2) Before starting any coding, verify the Jira ticket has story points and other required fields filled in — if missing, prompt the user to fill them in, then use Atlassian MCP to transition the ticket to "In Progress". 3) Once plan is approved, developer agent implements changes locally. 4) Pass to QA agent if needed — QA should interrogate both the developer agent and the user on implementation details before signing off. 5) Once developer + QA are happy, push to a branch named after the Jira ticket number and open a PR. 6) Ask the user who to include as reviewers, but also recommend contributors who have recently touched the relevant code. 7) After the PR is created, use Atlassian MCP to transition the Jira ticket to "Code Review".
 - **[2026-04-13]** Developer and QA agents should invoke the critical-thinker skill when making non-trivial decisions (type choices, schema design, API contracts, test coverage). Also: at the end of every session, scan the session learnings and update the critical-thinker SKILL.md if any generalizable critical-thinking patterns were discovered.
+- **[2026-04-14]** eroad-brain vault is located at ~/Library/Group Containers/UBF8T346G9.OneDriveStandaloneSuite/OneDrive - EROAD.noindex/OneDrive - EROAD/Documents/eroad-brain — use this path for all vault modifications
+- **[2026-04-14]** When transitioning a DRP Jira ticket to 'In Progress', the 'Customer Platform' field is required. Default to 'myeroad' but confirm with user first as it may vary per ticket.
+- **[2026-04-14]** eroad-brain Obsidian vault: Brain/ folder structure uses Department > Domain > Project hierarchy. 19 domains map to EROAD tribes/squads. Domains from Sustain tribe are split per squad. Learnings live in Brain/Learnings/Domain_<slug>/ with slug = name.replace(' ','_')
+- **[2026-04-14]** STM pattern: Orchestrator creates /tmp/sov-task-<slug>/short-term-memory.md at task start. brain-data-retrieval populates it from the vault (with dedup manifest). All agents read STM for context and append findings to [STM] Agent Contributions. brain-consolidation reads the full STM at end to write learnings back at repo/project/domain/global levels.
+- **[2026-04-14]** When annotating brain service files: read source controller files (ApiOperation notes, method names) to get accurate descriptions. OpenAPI specs are often only in API Gateway-level api.yml files (not the service's own swagger). Infer from path+method when no spec exists.
+- **[2026-04-14]** Brain integration table pattern for infra repos: use '| — | — | — | <type> repository — no runtime service integrations |' for pure tooling repos (scripts, docs, config); use directional OUT/IN rows for repos with real runtime targets (Terraform to AWS, Ansible to EC2, MCP server to Jira, etc.)
+- **[2026-04-14]** Telematics ingestion flow: Device (Gen1 UDP/Gen2 HTTP) → espserver-service (JMS eboxInboundQueue + Kinesis esp-event-adapter) → ebox-service (JMS centralEventReceiver) → central-event-persister (Kinesis central-event-persister-source → DynamoDB) → central-event-forwarder (fans out to named Kinesis streams like caraEventsFromCentralStream, vehicleUsageEventCacheStream, sensorRulesEngineTelematicEventsStream etc.)
+- **[2026-04-14]** asset-devices-device-telemetry uses Azure Event Hub (360-gs-router) not AWS Kinesis/SQS - it is a next-gen .NET C# service on the Coretex 360 platform with MongoDB for raw event storage
+- **[2026-04-14]** Connected Data brain files: 360-*/coretex-* services are mostly .NET/Azure. Libraries (360-ingestion-common, coretex-360-infrastructure-common, coretex-integrationplatform-common) have no runtime integrations. coretex-integrationplatform-services-processor consumes Azure Service Bus + MongoDB and POSTs to connector REST APIs. customer-event-forwarder is an AWS Lambda reading from EROAD Kinesis and forwarding to customer Kinesis. TMU communicator uses Ingeni TCP protocol on port 1497 and caches to Azure Redis.
+- **[2026-04-14]** When annotating eroad-brain integrations tables: gh api repos/eroad/<name>/git/trees/HEAD --recursive returns empty for most private repos (tree locked). Rely on README.md content, brain submodule notes, Related Services links, and domain knowledge (SOAP deps listed in README discovery section, DynamoDB profile names visible in docker run commands) to infer integrations.
+- **[2026-04-14]** eroad-brain service files: integrations table placeholder is '| — | — | — | No integrations detected automatically |' — replace with real rows using Python. For EJB monolith services (central-service, process-service, billing-service, notification-service), check <service>-default.properties for SOAP WSDL URLs and RabbitMQ exchanges. For Mule 4 apps check src/main/mule/*.xml and src/main/resources/*.yaml for Anypoint MQ queues and HTTP connectors. For Salesforce check force-app/main/default/namedCredentials, remoteSiteSettings, and connectedApps.
+- **[2026-04-14]** Brain service files integration format: placeholder is exactly '| — | — | — | No integrations detected automatically |' (uses em-dash Unicode). Python replace works well. Firmware repos get single em-dash row. Lambda services need cloudformation/template.yml checked for Cognito/Kinesis/SQS refs.
+- **[2026-04-14]** When running Python via python3 -c in bash, avoid backtick-quoted strings and shell-like patterns (like {var}) inside heredocs — the security filter flags them. Use python3 -c with single-quoted outer string and standard Python string concat instead.
+- **[2026-04-14]** DIME brain service files: ecpsync is a .NET service that bridges Azure (EventHub/IoTHub/CosmosDB) and AWS (MSK Kafka/KMS) — it consumes CoreHub telemetry from EventHub and publishes entity events to integration-platform ECP API. integration-platform is a Go service (not Java) acting as the core ECP/EMP event hub publishing to MSK Kafka topics. ecp-services is infra/tooling repo containing driver-event-adapter (Quarkus/Java) as a sub-module that bridges driver-login-service SNS events via SQS FIFO to the Drive v1 account.
+- **[2026-04-14]** brain-repo-sync agent runs nightly via launchd at ~/Library/LaunchAgents/com.eroad.brain-repo-sync.plist (02:00 NZST = 13:00 UTC). Logs to /tmp/brain-repo-sync.log. Manual trigger: launchctl start com.eroad.brain-repo-sync
+- **[2026-04-14]** brain-repo-sync for central-service: LocalStack SERVICES=kinesis,dynamodb,sqs in docker-compose.override.yml is test-only scaffolding — not a production integration signal. Always check if a docker-compose file is an .override.yml before adding integration rows.
+- **[2026-04-14]** sov-orchestrator is gone — all work (EROAD repos AND ~/sovereign/ Sovereign platform) routes through the single 'orchestrator' agent. No sov- prefix on any agents.
+- **[2026-04-14]** Sovereign catalog seeded: 8 tribes, 29 squads, 19 domains, 209 repos from eroad-brain. Seeder at ~/sovereign/scripts/seed-catalog.py. V2 Flyway migration creates eroad_tribes/squads/domains/repos tables. API at /catalog/tribes|squads|domains|repos.
+- **[2026-04-15]** Sovereign frontend page rewrites: edit tool always leaves old code below new closing brace — fix with: head -N file > /tmp/clean && cp /tmp/clean file (where N is the last line of new code)
+- **[2026-04-15]** Sovereign platform: all jsonb DB columns were converted to text (ALTER TABLE ... TYPE text USING ...::text) to fix Hibernate varchar cast errors. @JdbcTypeCode annotations must be removed from entities and columnDefinition updated to 'text' or schema validation fails on startup.
+- **[2026-04-15]** Sovereign API mvn build: must run 'mvn clean install -DskipTests' from ~/sovereign/api before restarting spring-boot:run — package only updates target/, not ~/.m2 cache used by spring-boot:run.
+- **[2026-04-15]** Obsidian vaults eroad-brain and copilot-sessions are at ~/Documents/{vault} (symlink → /Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/{vault}). Synced to private GitHub repos JohnLin-Eroad/eroad-brain and JohnLin-Eroad/copilot-sessions via fswatch launchd agent at ~/copilot-config/obsidian-sync.sh + ~/Library/LaunchAgents/com.johnlin.obsidian-sync.plist. fswatch must use the real (non-symlink) path to detect changes.
+- **[2026-04-15]** [GOVERNANCE] Copilot governance hook at ~/.copilot/hooks/security-check.sh logs every tool call to ~/.copilot/logs/audit.jsonl. Rules declared in ~/copilot-config/governance-rules.json. Use audit-view.sh to inspect the log.
+- **[2026-04-15]** [PATTERN] Autonomy framework: LOW blast radius = proceed silently, MEDIUM = proceed + note, HIGH = explain first, CRITICAL = stop and ask. Blast radius is self-assessed by agents before every destructive operation.
+- **[2026-04-16]** [PATTERN] Context engineering > prompt engineering: output quality is determined by what's in the context window. Before blaming the model, check what it was given. Most agent failures are context failures.
+- **[2026-04-16]** [PATTERN] Negative context beats silence: always tell agents what is NOT in the brain (STM Negative Context section). Agents hallucinate to fill gaps — explicit absence prevents this.
+- **[2026-04-16]** [PATTERN] Compress brain files before STM injection: files >150 lines should be compressed to headings + keyword-relevant lines only. Dense relevant context beats large unfocused context.
+- **[2026-04-16]** [PATTERN] Freshness scoring for brain retrieval: prefer recently modified vault files. Stale superseded decisions are worse than no context.
+- **[2026-04-16]** [PATTERN] Test suites are agent autonomy multipliers: agents self-verify against tests = autonomous iteration. No tests = human review required on every change. Invest in tests first.
+- **[2026-04-16]** [PATTERN] Eval loop in pipelines: after developer implements, run tests automatically. If tests fail, loop back to developer (max 2 retries) before escalating to user.
+- **[2026-04-16]** [PATTERN] Model selection: use Haiku for discovery/search/reads, Sonnet for implementation/review, Opus for complex architecture. Thinking time is a knob — don't use reasoning traces for simple factual tasks.
+- **[2026-04-16]** [PATTERN] Code is cheap, knowledge is expensive: invest in data schemas, interfaces, tests, domain understanding. Scripts and glue code can be regenerated — don't over-engineer them.
+- **[2026-04-16]** [PATTERN] Benchmark scores are suspect: always run your own evals on domain-specific tasks. RLVR contamination means leaderboard scores don't predict performance on unique codebases like EROAD's.
+- **[2026-04-16]** media-service local-dev setup requires stash@{0} (WIP on master: 65032533). Key changes: (1) local-dev/docker-compose.yml — comments out local postgres container, connects to remote RDS instead, fixes JAVA_OPTS debug address to *:8000. (2) local-dev/dynamicconfig.properties — points db.url to test RDS endpoint test-media-service-rds.c2d2vh5ts9te.ap-southeast-2.rds.amazonaws.com with real credentials. (3) local-dev/start.sh — comments out mvn clean install so it uses pre-built jar. (4) DynamicConfig.java — comments out non-test dynamicConfiguration() bean + adds spring.main.allow-bean-definition-overriding=true. Apply with: git stash apply stash@{0}. Do NOT commit these changes — restore with git checkout -- . after testing.
+- **[2026-04-16]** EROAD Java services local-dev setup pattern: Many Java repos (media-service, replay-service, central-service, asset-management-service, etc.) have a local-dev/ folder with docker-compose.yml, dynamicconfig.properties, and start.sh. To test locally, each repo has a stash (typically stash@{0}) that configures the service to connect to the remote test RDS instead of a local postgres container. The stash typically: (1) comments out the postgres container in docker-compose.yml and its depends_on/links, (2) updates dynamicconfig.properties with real test RDS endpoint + credentials, (3) comments out mvn clean install in start.sh to use a pre-built jar, (4) patches DynamicConfig.java and application.properties to avoid bean conflicts. Apply with: git stash apply stash@{0}. NEVER commit these changes — restore with: git checkout -- . after testing. Check stash list with: git stash list
+- **[2026-04-16]** Before opening or marking a PR ready, always rebase the branch on master: git stash (if needed), git fetch origin master, git rebase origin/master, git push --force-with-lease, git stash pop
+- **[2026-04-16]** During rebase, if there are merge conflicts, stop immediately and inform the user — do not attempt to resolve conflicts autonomously
+- **[2026-04-16]** [PATTERN] Constitutional prompting (self-critique loop) added to security and code-reviewer agents: after generating verdict, agents check criteria list before finalising — reduces both false positives and false negatives
+- **[2026-04-16]** [PATTERN] Jagged intelligence: arithmetic, counting, and exact string matching must be delegated to bash/code execution — never trusted to raw LLM reasoning; added to copilot-instructions.md as 'Know Your Limits' section
+- **[2026-04-16]** [PATTERN] Panel pattern for CRITICAL decisions: invoke security + compliance + governance independently, only surface findings agreed on by 2+ agents — eliminates false positives
+- **[2026-04-16]** [PATTERN] A3 freshness degradation: brain files >90 days old on dynamic topics (APIs, schemas, deployments) go to Negative Context, not STM Brain Data — stale dynamic context is worse than no context
+- **[2026-04-16]** [PATTERN] Weekly autonomous learning pipeline: 3 launchd agents (ai-learner Sun 09:00, weekly-experimenter Sun 10:00, benchmark-runner Mon 09:00) create a closed-loop — learn → experiment → measure. Uses same invocation pattern as brain-repo-sync: plist → bash script → copilot agent run.
+- **[2026-04-16]** [PATTERN] Benchmarking AI systems: 5 categories work well — code generation (rubric), context retrieval (pass/fail + accuracy), security review (recall + precision with planted vulns), planning quality (rubric), learning retention (delta pre/post experiment). Scores 1-5 via agent self-evaluation against fixed rubrics.
+- **[2026-04-16]** [WORKFLOW] Enriched replay-service vault node with 98 endpoints + 8 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-driver-service vault node with 46 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-machine-service vault node with 15 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-event-service vault node with 4 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-user-service vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched media-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-notification-service vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-geofence-service vault node with 15 endpoints + 4 tables
+- **[2026-04-16]** [WORKFLOW] Enriched fleet-decarbonisation-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-eld-service vault node with 16 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched driver vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched device-provisioning vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched inspection vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-devices-device-telemetry vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched billing-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched geographic-platform vault node with 0 endpoints + 1 tables
+- **[2026-04-16]** [WORKFLOW] Enriched organisation-settings-service vault node with 2 endpoints + 1 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-management-service vault node with 31 endpoints + 1 tables
+- **[2026-04-16]** [WORKFLOW] Enriched integration-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-portal vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched historical-event-api vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eld-integrations vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched drivernz-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched data-upload-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-boxoffice vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched maintenance vault node with 92 endpoints + 0 tables
+- **[2026-04-16]** john-brain vault at ~/Documents/john-brain — custom brain.py pipeline: ingest (extracts idea atoms per chunk via gpt-4o-mini) then compile (clusters with gpt-4o) → Obsidian notes. Run: python3 ~/copilot-config/brain/brain.py. GitHub: JohnLin-Eroad/john-brain
+- **[2026-04-16]** [GOTCHA] OneDrive sync corrupts Obsidian vault .md files with null bytes when scripts write to them rapidly in parallel. Moved all vaults to ~/eroad-brain, ~/AI-understandings, ~/copilot-sessions, ~/john-brain (off OneDrive). GitHub is the backup mechanism instead.
+- **[2026-04-16]** [WORKFLOW] Enriched common-resources vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched certificate-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched common-messages vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ansible-playbook vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched configuration-core vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched automation-firmware vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched chef vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched consolidation-extracts vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched data-connector-schema vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-event-persister vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-event-forwarder vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched data-hub-etl vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched analytics-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched calamp-gateway vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched api-framework vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched customer-api vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched data-retrieval-service vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched consolidation vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched espserver-client vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ecr-mirror vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched depot-configuration vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dynamic-dynamodb vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eroad_lbevent-cookbook vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eroad-messaging-support vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched fbt-front-end vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ebox-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eroad-data-extracts vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched driver-login-forwarder vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched esp-event-adapter vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched esp-websocket-adapter vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched event-manager vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched event-api vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched espserver-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ftc-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eld vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched driver-login-service vault node with 9 endpoints + 3 tables
+- **[2026-04-16]** [WORKFLOW] Enriched local-development vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched gen2-eld-protobuf-definitions vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched insights-api vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched gen3-installer vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched geofence vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched inspect-app vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched notification-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched gen2-ebox vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched integration-test vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched iot-job-manager vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched generic-event-adapter vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-custom-authorizer vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched geographic vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched hours-of-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched logbook vault node with 0 endpoints + 10 tables
+- **[2026-04-16]** [WORKFLOW] Enriched journey vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched gen3-configuration-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-dynamic-configuration-service vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched platform-scripts vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ruc-label-printing-app vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched timely-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched sensu-go-configuration vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched rabbit-amazon-forwarder vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched rundeck-jobs vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched support-scripts vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched trip-datalake vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched webhooks vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched user-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched vehicle-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched salesforce vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched vehicle-usage-sync-lambda vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched report-scheduling vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched process-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched portal vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched proof-of-service vault node with 0 endpoints + 2 tables
+- **[2026-04-16]** [WORKFLOW] Enriched password-reset-lambda vault node with 3 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched Mulesoft.p-faults vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-platform-devops vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched EAI_SNOWFLAKE_ADMIN vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-sqlmi vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-legacy vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-integration-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-devices-device-entities vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-ingestion-common vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched AEI_DBT_EDW vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-machines-machine-entities vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched analytics-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-phoenix vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched EAI_FDF_INGESTION vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched JiraMCP vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-database vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-ingestion-communicators vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched QA-CENTRAL vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-core vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched 360-backoffice vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched apac-tax vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehubtool vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched aws-sso-credentials-provider vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-machines-machine-telemetry vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretemp vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-trailers-trailer-entities vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-mcu-kernel-module vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched asset-trailers-trailer-telemetry vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched can-tools vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-scripts vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched clarity-edge-tools vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-install-app vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-support-panel vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched construction-tools vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-sensors vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehub-integration-test vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched corehubapp vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-outage vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-user-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched automation-support-all vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched central-access vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-integrationplatform-kube vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched devices-infra vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dataanalyticsplatform-datasharing-360regionalreplication vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-360-api-identitymanagement vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-integrationplatform-services-processor vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-integrationplatform-services-controller vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dataanalyticsplatform-datasharing-myeroadregionalreplication vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-360-infrastructure-common vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex360uitracking vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-integrationplatform-common vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-smarttemp vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched customer-event-forwarder vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-360-api-sharemanager vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex-360-api-tracking vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretextools vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched distance-api vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched coretex360 vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dashcam-video-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched device-viewer-service vault node with 12 endpoints + 1 tables
+- **[2026-04-16]** [WORKFLOW] Enriched device-integrations vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ecpsync vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched geospatial-assettracking-point-on-map vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eroad-hos-rulekit vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched geospatial-assettracking-vehicle-trace vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ecp-services vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched in-cab-automation vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched github-actions-cli vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched drive-forms vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ehub-crash-sensor vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ewd-app vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eroad-day vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched falcon-core vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dolphin-poc vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched dolphin-dashboard vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched engineering-docs vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched grafana-cloud-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched github-actions-pipelines vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched eruc vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched global-tax vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched generic-sensor-event-adapter vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched poc-ingestion-service vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched mobile-foundations vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched location-places-points-of-interest vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched location-places-addresses vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched location-regions-geofences vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched shared-terraform-modules vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched react-native-ui-components vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched tax-test-support vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched location-regions-admin-boundaries vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched ruc-charger-board vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched platform-resources-azure vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched logbook-app vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched test-automation vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched pipelines-example vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-nzta-cdi-ingester vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched platform-resources vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched snowflake-etl vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched partner-integrations-gateway vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched productdomain-platform vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched sc200-aosp vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched na-tax vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-impersonation-service vault node with 1 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-idp-service vault node with 9 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched in-cab-dashboard vault node with 0 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-metadata-service vault node with 19 endpoints + 0 tables
+- **[2026-04-16]** [WORKFLOW] Enriched integration-core-entities vault node with 0 endpoints + 1 tables
+- **[2026-04-16]** [WORKFLOW] Enriched myeroad-cara-service vault node with 2 endpoints + 0 tables
+- **[2026-04-17]** [WORKFLOW] GitHub org teams (gh api orgs/eroad/teams/{slug}/repos) are the authoritative source for repo→squad ownership — more reliable than Confluence squad pages (most are empty) or name-pattern heuristics
+- **[2026-04-17]** [PATTERN] EROAD GitHub team slugs map directly to PDE squads: geospatial-assettracking→SUSTAIN/Geo, asset-devices/machines/trailers→SUSTAIN/Asset Services, integration-platform→DIME/ECP, myeroad-eld→COMPLIANCE/ELD, tax→TAX, sensors/firmware/in-cab→DEVICES, etc.
+- **[2026-04-17]** EROAD project convention: always use concrete imports, never wildcard imports (e.g. nz.co.eroad.replay.model.* is not allowed — import each class explicitly)
+- **[2026-04-17]** EROAD Java repos may use different Java versions. Use sdkman to switch: 'source ~/.sdkman/bin/sdkman-init.sh && sdk use java <zulu-version>'. Always use Zulu builds. Check .sdkmanrc or pom.xml <java.version> to determine the required version per repo.
+- **[2026-04-17]** replay-service (EROAD) takes ~133s to start (JVM ~137s total). Don't give up waiting — it's normal.
+- **[2026-04-17]** For EROAD replay-service manual testing: always run a combined event+note verification query before and after each test so John can review state changes. Query: SELECT e.false_positive, e.false_positive_reason, e.event_request_status, n.content AS note, n.created_at FROM event e LEFT JOIN note n ON n.event_id = e.id WHERE e.id = '<eventId>' ORDER BY n.created_at DESC;
+- **[2026-04-17]** [WORKFLOW] EROAD Java repos each specify their own Java version — always run 'sdk use java <version>' (sdkman) to switch to the correct JDK before building or running any EROAD Java service. Check .sdkmanrc or pom.xml <java.version>.
+- **[2026-04-17]** [GOTCHA] Remote EROAD RDS databases (DEV, TEST, APACPP, etc.) are READ-ONLY for AI agents — never attempt INSERT/UPDATE/DELETE/ALTER/DROP. Only SELECT queries are safe. Write ops must go via the service API.
+- **[2026-04-17]** [WORKFLOW] Use 'docker kill $(docker ps -q)' to clear all running containers when ports conflict before retrying './local-dev/start.sh'.
+- **[2026-04-17]** [PATTERN] In EROAD repos, v2 HTTP client test files live under http-client/v2/internal/ — always mirror the existing folder hierarchy when creating new .http test files.
+- **[2026-04-17]** [PATTERN] EROAD Java projects enforce concrete (single-class) imports — wildcard imports (e.g. import java.util.*) are prohibited by Checkstyle. Always use fully-qualified single-class imports.
+- **[2026-04-17]** [WORKFLOW] Always rebase with origin/main (git fetch origin && git rebase origin/main) before raising a PR in any EROAD repo — required by CI and reviewers.
+- **[2026-04-17]** [PATTERN] Wrap all Audit.pushAuditLog calls in try/catch — audit failures must never abort the primary business operation. Log at WARN and continue.
+- **[2026-04-17]** [WORKFLOW] Brain vault full enrichment: 271 service nodes across 7 EROAD tribes enriched with Service Description, Tech Stack, Domain Entities, API Endpoints, Integration Graph. Agent outputs truncated at ~50KB — only last 2-3 nodes recoverable via regex. Pattern: extract tail nodes from agent, write bulk of nodes manually using domain knowledge. All work in main session, single git push at end via brain-git-push.sh.
+- **[2026-04-17]** [WORKFLOW] If a session ends without syncs, check ~/.copilot/session-state/ sorted by mtime for sessions with session.shutdown but no prose in the vault; run summarize-session.py for them at the start of the next session
+- **[2026-04-17]** [PATTERN] The copilot() zsh wrapper runs summarize-session.py + sync-config.py on exit; brain push was missing — now fixed with auto brain commit+push after every session
+- **[2026-04-17]** [GOTCHA] Post-session syncs (prose + brain consolidation) require active AI — they must run in-session before exit; the zsh wrapper only handles non-AI mechanical steps
+- **[2026-04-17]** [GOTCHA] Orchestrator sub-agents in background mode generate code but do NOT write files — they only have view/read tools. Must read their output and apply edits manually after the agent completes.
+- **[2026-04-17]** [WORKFLOW] Dual-critique adversarial loop (Opus planner + Codex critiquer) converges to hardened plans in ~3 rounds. Run via the critical-thinker skill or as a background orchestrator task. Produces higher quality plans than single-agent planning.
+- **[2026-04-17]** --help
+- **[2026-04-20]** [PATTERN] Advisor Panel Technique: skill at ~/.copilot/skills/advisor/ convenes 5 advisors (First Principles, Risk Scout, Pragmatist, Long-Game Strategist, Devil's Advocate) for multi-perspective analysis in a single pass. Sits between critical-thinker (1 voice) and dual-critique (adversarial loop). Use for strategic/design decisions.
+- **[2026-04-20]** [PATTERN] Skills are not auto-invoked by Copilot CLI — wire them via dispatch rules in copilot-instructions.md, agent .md files, and orchestrator routing table
+- **[2026-04-20]** [WORKFLOW] Three-layer skill dispatch: (1) global copilot-instructions.md trigger table, (2) per-agent .md obligation rules, (3) orchestrator classification→skill column
+- **[2026-04-20]** [TOOL] copilot-usage command: run 'copilot-usage' in terminal for token/model/agent/skill stats. Source: ~/.copilot/scripts/usage-stats.py parsing ~/.copilot/session-state/*/events.jsonl
+- **[2026-04-20]** [PATTERN] Session events.jsonl contains subagent.completed (exact tokens+model+duration), session.compaction_complete (preCompactionTokens for main session heuristic), tool.execution_start (all tool calls incl skill names in arguments). Rich analytics source.
+- **[2026-04-20]** [PREFERENCE] Main CLI agent IS the orchestrator — never launch orchestrator as a background task. Only the main CLI agent has disk write access for STM. Specialists run as background agents; their output is captured and written to STM by the main agent.
+- **[2026-04-20]** [GOTCHA] stm-dashboard.py dies between Copilot CLI turns unless started with subprocess.Popen start_new_session=True — fixed in stm-init.py
+- **[2026-04-20]** [PATTERN] Prompt caching (Anthropic cache_control ephemeral) gives ~90% token cost reduction on stable context prefixes — highest ROI optimisation for any Sovereign pipeline run
+- **[2026-04-20]** [GOTCHA] ai-learner and orchestrator pipeline find different items when researching — always merge both outputs; ai-learner found Google ADK, OpenAI Agents SDK, AutoGen v0.4, Prompt Caching, A2A that orchestrator missed
+- **[2026-04-21]** [GOTCHA] media-service uses Java 17.0.16-zulu (not Java 21). Always run 'sdk use java 17.0.16-zulu' before building or testing media-service.
+- **[2026-04-21]** [PREFERENCE] Never add Co-authored-by trailer to EROAD git commits.
+- **[2026-04-21]** [PREFERENCE] Always update the PR description after every commit that adds changes not already described. Do this as part of every push.
+- **[2026-04-21]** [WORKFLOW] After completing local testing in an EROAD repo, stash local dev changes before committing/pushing: 'git stash push <local-dev files> -m "<ticket>: local dev config"'. Local dev files typically include: local-dev/*, DynamicConfig.java, application.properties overrides.
+- **[2026-04-21]** [WORKFLOW] copilot-config weekly branch rotation: weekly/YYYY-WXX branch auto-created Monday 9am, merged to master Sunday 6pm via launchd + weekly-branch.sh. fswatch auto-pushes to current branch, so checkout = redirect. --check mode called at every copilot() session start to catch missed actions after shutdown.
+- **[2026-04-21]** [GOTCHA] fswatch/sync-config.py was hardcoded to git push (always pushed to master). Fixed by detecting current branch with git branch --show-current and using git push --set-upstream origin <branch>.
+- **[2026-04-21]** [PATTERN] For scheduled launchd jobs that need catch-up after shutdown: store last-run state in a JSON file, add a --check mode to the script, call it in background at session start via the copilot() zsh wrapper.
+- **[2026-04-21]** [WORKFLOW] HTML setup report (copilot-setup-report.html) can be generated on demand by scanning copilot-config/, .copilot/, brain vaults, and benchmark results — useful shareable artifact for onboarding or status sharing
+- **[2026-04-21]** [PATTERN] Meta-Harness loop: benchmark-runner saves traces → harness-snapshot.sh archives config+scores → weekly-experimenter reads full filesystem before AI learnings for diagnosis-driven experiments
+- **[2026-04-21]** [GOTCHA] copilot-config default branch is 'master' not 'main' — scripts must auto-detect with: git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'
+- **[2026-04-21]** [GOTCHA] benchmark-runner computes scores in-context but doesn't write files to disk — output must be extracted and written by the caller
+- **[2026-04-21]** [PATTERN] Unstick escalation: 3x same failure → PIPELINE_SIGNAL: STUCK → spawn general-purpose claude-opus-4.6 → ≤5 step alternative → graceful stop if still stuck
+- **[2026-04-21]** [GOTCHA] The Notion sync in summarize-session.py was never wired up — NOTION_TOKEN was a literal placeholder, silently failing every session. Removed entirely.
+- **[2026-04-21]** [PATTERN] fswatch can watch multiple independent git repos in one watcher; ~/copilot-sessions added alongside ~/.copilot so session pushes are fully automated.
+- **[2026-04-21]** [WORKFLOW] When removing dead integrations, check for transitive-only imports (ssl, urllib) that become unused and can be cleaned up at the same time.
+- **[2026-04-21]** [PREFERENCE] John wants STM writes to happen automatically without asking for confirmation — just do it
+- **[2026-04-21]** [PREFERENCE] Always display a summary of research/work output at the end of a task — show key findings and invite the user to explore specific areas
+- **[2026-04-21]** [PREFERENCE] Always run brain-consolidation in background mode (mode: background) — never block the user waiting for it to complete
+- **[2026-04-21]** [PREFERENCE] Always initialize an STM at the start of EVERY task, no exceptions — even for small tasks, planning, or single-turn answers. STM init is the first action before any other tool call. Use stm-init.py then write task brief, negative context, and plan to the STM before proceeding.
+- **[2026-04-21]** [PREFERENCE] STM must be initialised at the very start of EVERY task, before any other work begins. This is a confirmed hard preference.
+- **[2026-04-21]** [PATTERN] When a benchmark category hits 5.0/5.0 ceiling, add Tier 3 variants — never adjust rubric or weights; preserves historical comparability
+- **[2026-04-21]** [GOTCHA] Planning benchmark Variant E: correct answer is refusing to plan when requirements contradict — not planning through them. Must be explicit in rubric or grader will reward wrong behaviour
+- **[2026-04-21]** [WORKFLOW] Brain consolidation always runs in background mode — confirmed John preference. Never block on it
+- **[2026-04-21]** [GOTCHA] Usage stats showing 'sov-discovery' are from old invocations — all sov- prefixed agents have been renamed (prefix removed). discovery, not sov-discovery, is the current registered agent name. Don't flag sov-* in usage data as unregistered agents.
+
+- **[2026-04-21]** [GOTCHA] sov-discovery has 27 calls and 28.4M tokens in usage but no registered .agent.md file — it's being called ad-hoc. Any agent accumulating significant usage must be formalised as a .agent.md file in ~/.copilot/agents/
+- **[2026-04-21]** [PATTERN] general-purpose agent at 55%+ of sub-agent tokens (61M/109M) is a routing failure signal — every general-purpose call is a candidate for a specialist. Review usage stats weekly and route to the correct specialist.
+- **[2026-04-21]** [GOTCHA] Model routing rules in .agent.md files are NOT self-enforcing — Codex listed as preferred for code but gets 0.5% of calls. Orchestrator MUST explicitly set the model parameter on every agent invocation, not rely on agents self-selecting.
+- **[2026-04-21]** [PATTERN] A2A Protocol interoperability: adding `handoff_description` and `When to use:` fields to each .agent.md gives the orchestrator clear routing criteria, reducing fallback to general-purpose. This aligns with Google A2A spec's Agent Card pattern.
+- **[2026-04-21]** [GOTCHA] LaunchD plist jobs (weekly-experimenter, benchmark-runner, ai-learner) may silently fail with zero notification. Every plist job must pipe success/failure to a log file AND a monitoring check must verify the job ran within its expected window. weekly-experimenter missed W16 and W17 silently.
+- **[2026-04-21]** [PATTERN] Always pass STM_PATH to every sub-agent prompt. Use write-stm.sh for atomic appends. The script is non-fatal (exits 0 if STM missing) so it won't break agents. All 42 agent .md files now have a mandatory STM Write Protocol section.
+- **[2026-04-22]** [PATTERN] agent-dashboard.py on port 8765 provides live agent visibility. It auto-detects the latest STM, parses write-stm.sh entries (### AGENT — TIMESTAMP format), and serves /api/status JSON polled every 2s. LaunchD plist keeps it always-on.
+- **[2026-04-22]** [GOTCHA] LaunchD plists must specify full Python path — /usr/bin/python3 is 3.9 on macOS, which doesn't support 'X | None' type hints. Use /Library/Frameworks/Python.framework/Versions/3.12/bin/python3
+- **[2026-04-22]** [PATTERN] stm-init.py now opens agent-dashboard (port 8765) instead of per-task stm-dashboard. Dashboard is always-on via LaunchD, auto-detects latest STM — no per-task process needed.
+- **[2026-04-22]** [GOTCHA] Dashboard flickering to 'no active STM' was caused by: (1) find_active_stm() re-scanning filesystem every 2s, and (2) JS immediately blanking on any error. Fix: 10s STM path cache in Python + lastGoodData + errorCount>=5 threshold in JS.
+- **[2026-04-22]** [PATTERN] Agent dashboard anti-flicker pattern: cache last-known-good state in JS (lastGoodData), only show error state after N consecutive failures (errorCount>=5). Show yellow conn-dot as warning indicator for transient errors.
+- **[2026-04-22]** [DECISION] benchmark-runner.agent.md rescaled from 1-5 to 1-100 for finer scoring granularity; 4 new agents (dependency-tracker, retrospective, pr-analyst, migration-validator) added to copilot-instructions.md dispatch table — resolving W18 code_generation regression
+- **[2026-04-22]** [PATTERN] Handoff arrows in the pipeline SVG arc below the child row (CHILD_Y+R+arcDY control point) so they don't cross orchestrator-to-child bezier edges above
+- **[2026-04-22]** [PATTERN] Parse Next: field from STM timeline entries (not agent cards) to build directed sibling handoff edges; deduplicate by from→to key
+- **[2026-04-22]** [TOOL] Box Office squad Jira key is BOX — owns MyEROAD Back-Office: driver mgmt, reports, messaging, geofences, activity
+- **[2026-04-22]** [PREFERENCE] unstick skill trigger: background agent stall threshold changed from 100s/0 turns to 15s/0 changes — escalate much faster
+- **[2026-04-22]** [PATTERN] When generating HTML reports with dynamic content, use Python (not bash heredoc) to avoid security filter flags on backticks and shell-like patterns ({var}). Write the HTML as a Python string variable and persist with open(path, "w").write(html).
+- **[2026-04-22]** [PATTERN] copilot-config weekly branch rotation: ~/.copilot is live runtime, watch-config.sh syncs it to weekly/YYYY-WXX branch in copilot-config repo. Sunday close creates a GitHub PR instead of auto-merging, runs benchmark suite, posts score table as PR comment, sends macOS notifications.
+- **[2026-04-22]** [WORKFLOW] Weekly copilot config cycle: Mon 9am --open creates weekly branch → all week changes sync to it → Sun 6pm --close creates PR + benchmarks → review PR → manually merge what you want to master.
+- **[2026-04-22]** [TOOL] Use python3 (not bash heredoc) for all file writes in brain consolidation — bash heredoc with large content triggers shell expansion security filter blocks
+- **[2026-04-22]** [WORKFLOW] Always write agent progress to the STM using write-stm.sh so work is visible on the agent dashboard (port 8765). Dashboard parses entries in format: '### AGENT_NAME — TIMESTAMP\nStatus: active|done|blocked\nFindings: ...\nFiles: ...\nDecisions: ...'. Inline work (reading files yourself) must also be logged this way — use agent name 'orchestrator' for inline work. Without these entries the dashboard stays empty even if the STM has content.
+- **[2026-04-22]** [WORKFLOW] Always write agent progress to the STM via write-stm.sh so cards appear on the agent dashboard — use agent name 'orchestrator' for inline work done by the main CLI agent
+- **[2026-04-22]** [GOTCHA] Agent dashboard (port 8765) only renders entries in '### AGENT_NAME — TIMESTAMP' format — plain ## [STM] sections are invisible to the dashboard parser
+- **[2026-04-22]** [GOTCHA] brain-consolidation can appear stuck (0 turns for 300s+) but may still complete — check elapsed before invoking unstick; a slow agent is not the same as a deadlocked one
+- **[2026-04-22]** [WORKFLOW] The unstick skill should only trigger on genuine stuck conditions — do not invoke it on demand or fabricate a stuck scenario
+- **[2026-04-22]** [DECISION] Parallel decomposition v3: budget recalibrated to 120 global / 30 per low-complexity unit (was 50/8). Elastic +25% once per agent with progress proof. Circuit breaker recovery via Degraded Sequential Completion with +30 emergency tranche — prevents deadlock.
+- **[2026-04-22]** [PATTERN] Adversarial collaboration loop: 3 rounds (plan → critique → fix) converges well. Round 1 establishes structure, Round 2 finds operational gaps (budgets, timeouts, bottlenecks), Round 3 calibrates from realistic usage. Key lesson: grep-based validation of DI wiring is fundamentally unreliable — always use executable context load tests.
+- **[2026-04-22]** [GOTCHA] Sub-agents spawned via task tool must NOT have 'task' in their tools list — hits depth limit and the agent gives up entirely. Use bash/view/edit/create/glob/grep only.
+- **[2026-04-22]** [PATTERN] Always pre-register spawned agents in STM immediately before spawning — write IN_PROGRESS so dashboard shows them. Agents overwrite with real data when they start.
+- **[2026-04-22]** [PATTERN] Mandatory STM init write must be STEP 0 in every agent prompt — before reading, before planning. Without it the dashboard is blind until halfway through.
+- **[2026-04-23]** [GOTCHA] media-service VideoMapper.toDownloadableFileName() had a hardcoded '1080p' placeholder with comment 'Resolution values are not yet stored' — never removed. Always check for such placeholder comments when investigating stale/wrong data bugs.
+- **[2026-04-23]** [GOTCHA] media-service RequestVideoEventProcessor used a feature flag to pick MAIN_STREAM vs SUB_STREAM for the device request, but always passed MAIN_STREAM to createIfNotExists() — the DB write was disconnected from the device request. Two code paths that look related can be independently broken.
+- **[2026-04-23]** [PATTERN] Local media-service connects to remote test RDS — DB writes are immediately visible in test env. But mapper/response changes only take effect when calling the local API directly, not via the deployed test FE.
+- **[2026-04-23]** [GOTCHA] Sub-agents spawned via task tool must NOT have 'task' in their tools list — hits Maximum sub-agent depth and agent gives up entirely. Use bash/view/edit/create/glob/grep only.
+- **[2026-04-23]** [PATTERN] Orchestrator must pre-register all spawned agents in STM before spawning — without this dashboard is blind until agent makes its first write.
+- **[2026-04-23]** [PATTERN] Mandatory STM init write must be STEP 0 in every agent prompt — before reading files, before planning. Absolute first action.
+- **[2026-04-23]** [TOOL] write-stm.sh --state flag injects STATUS: into STM entry — always pass --state so dashboard can parse colour-coded status.
+- **[2026-04-23]** [TOOL] Agent dashboard /api/status (not /api/agents) auto-detects latest STM and polls every 2s — no manual refresh needed.
+- **[2026-04-23]** [WORKFLOW] Before running any EROAD service locally, always run two scripts first: (1) awsauthdev — gets the daily AWS auth token, (2) ecr — logs into ECR for Docker image access. These are global zsh scripts defined in ~/.zshrc. Without these, local-dev start.sh will fail to pull Docker images or connect to AWS resources.
+- **[2026-04-23]** [WORKFLOW] EROAD media-service manual testing flow: (1) awsauthdev, (2) ecr, (3) git stash apply stash@{0} selectively for local-dev files only (avoid http-client conflicts), (4) sdk use java 17.0.16-zulu, (5) mvn clean install -DskipTests (start.sh has this commented out), (6) ./local-dev/start.sh, (7) run tests, (8) git checkout -- <local-dev files> && git reset HEAD -- <local-dev files> to restore before committing.
+- **[2026-04-23]** [GOTCHA] git checkout stash@{0} -- <file> stages AND modifies the working tree. Running git checkout -- <file> afterwards only restores working tree to index (still stash version). Must run git reset HEAD -- <file> first to unstage back to HEAD, then git checkout -- <file> to restore working tree.
+- **[2026-04-23]** [GOTCHA] launchd KeepAlive:true causes infinite crash loops if the process can't bind port — must use KeepAlive:{SuccessfulExit:false} + ThrottleInterval:5
+- **[2026-04-23]** [PATTERN] Use fcntl.flock(fd, LOCK_EX|LOCK_NB) for Python daemon singletons — OS releases on process death, no TOCTOU/PID-reuse risk unlike PID files
+- **[2026-04-23]** [PATTERN] Agent dashboard robustness stack: fcntl singleton + STMSnapshot NamedTuple + background refresh thread + /health endpoint + .active symlink for instant task switching
+- **[2026-04-23]** [PATTERN] SIGTERM->exit(1) is correct for always-on launchd daemons (launchd restarts). Add SIGUSR1->exit(0) as operator escape hatch for graceful stop without restart
+- **[2026-04-23]** [GOTCHA] TCP connect in stm-init.py only proves port is open, not that the server is serving. Use HTTP /health endpoint for true readiness check
+- **[2026-04-23]** [GOTCHA] Deleting a Flyway migration file after it's been applied causes startup failure — Flyway detects missing file via schema_history. Manual rollback: (1) run inverse SQL, (2) DELETE FROM flyway_schema_history WHERE version='N', (3) delete the file.
+- **[2026-04-23]** [PATTERN] Resilience4j circuit breaker waitDurationInOpenState defaults to 60s. Calling during OPEN state does NOT reset the timer — it auto-recovers after the window regardless.
+- **[2026-04-23]** [GOTCHA] Never run Flyway migrations locally when the app is pointing at a remote test DB — migrations are irreversible without manual SQL + flyway_schema_history cleanup, and will break any other services sharing that DB.
+- **[2026-04-23]** [GOTCHA] agent-dashboard.py JS uses field 'agent' (from Python parser) not 'name' — a.name.toLowerCase() silently crashes the entire render loop because TypeError is caught by the outer try/catch and swallowed
+- **[2026-04-23]** [GOTCHA] write-stm.sh uses UTC timestamps (date -u '+%Y-%m-%dT%H:%M:%SZ') and bare 'Status:' lines — the dashboard parser regex requires this exact format. Markdown bold (**Status**:) or timezone offsets (+12:00) will silently fail to parse
+- **[2026-04-23]** [PATTERN] macOS symlink atomic replace: use 'ln -sfn TARGET LINK' (works atomically). os.symlink+os.replace and mv-based approaches have edge cases on macOS
+- **[2026-04-23]** [PATTERN] Dashboard context gauges require agents to emit 'CONTEXT: ~Nk tokens' in every write-stm.sh entry. The JS ctxLimit() function auto-resolves model max context (200k Claude, 128k GPT) when CONTEXT: N/M format isn't used
+- **[2026-04-23]** [GOTCHA] DRP project uses customfield_10282 for Acceptance Criteria and customfield_10359 for Test Plan — different field IDs from other projects
+- **[2026-04-23]** [GOTCHA] DRP AC field (customfield_10282) requires Atlassian Document Format (ADF) — plain text and markdown are rejected
+- **[2026-04-23]** [PREFERENCE] John prefers tight concise ACs (4-5 bullets max) — keep detailed test scenarios in the Test Plan field, not ACs
+- **[2026-04-23]** [WORKFLOW] Full orchestrator pipeline verified healthy 2026-04-23: STM init → classification → brain-retrieval → discovery agent → consolidation. All 6 infrastructure checks passed (scripts, agents, brains, sessions, STM, learnings).
+- **[2026-04-23]** [PATTERN] Benchmark self-grading bias: if the same model executes AND scores, scores inflate ~15-20%. Always use a different model for grading. Cross-vendor (Codex↔Claude) is best for eliminating shared biases.
+- **[2026-04-23]** [PATTERN] Config-audit benchmarks (checking file existence) masquerade as capability tests but test nothing. A 100/100 score on 'security' that means 'governance-rules.json has 16 rules' is meaningless. Always verify benchmarks test actual agent execution.
+- **[2026-04-23]** [GOTCHA] agent-dashboard.py parse_stm_entries regex used (.+?) with re.DOTALL which crossed newlines — Prior Sessions entries (### slug without timestamp) caused the lazy match to extend across hundreds of lines until hitting the first timestamped entry. Fix: use ([^\n]+?) and restrict to Agent Contributions section only.
+- **[2026-04-23]** [GOTCHA] agent-dashboard.py renderStmSections() was dead code — wrote to stm-sections div that didn't exist in HTML. The sidebar only had res-summary and res-agents. Fixed by adding the stm-sections div and wiring the function into fetchStatus().
+- **[2026-04-23]** [PATTERN] agent-dashboard.py is managed by launchd (com.johnlin.agent-dashboard.plist) with KeepAlive on failed exit. Kill and wait ~3s for automatic restart with updated code. No manual restart needed.
+- **[2026-04-23]** [DECISION] Pipeline restrictions system: Users can pass GATE (requires pause + ask_user) or CONSTRAINT (silent enforcement) restrictions when requesting tasks. Parsed from natural language, written to STM Task Brief. All sub-agents must inherit and respect them.
+- **[2026-04-23]** [DECISION] STM-First Protocol: All agents must read the STM before making any tool calls. The orchestrator injects key STM sections (Task Brief, Brain Data, Negative Context, Restrictions, Prior Agent Work) directly into sub-agent prompts so context is available at zero tool-call cost. Agents explore only for gaps NOT covered by the STM.
+- **[2026-04-23]** [PATTERN] STM injection > STM path passing. Giving agents the STM path and expecting them to read it wastes a tool call and agents often skip it. Injecting the actual STM content into the prompt guarantees they see it and saves tool budget.
+- **[2026-04-23]** [PATTERN] STM directories auto-prune after 7 days. No manual cleanup needed. Keeps STM manageable while preserving recent context.
+- **[2026-04-23]** [PATTERN] The full orchestration pipeline (STM init → classification → brain retrieval → specialist → STM writes → consolidation) works end-to-end in ~3 min. Baseline 2026-04-23: 43 agents, 13 skills, 37 scripts.
+- **[2026-04-23]** [PATTERN] write-stm.sh supports unit state machines (CLAIMED → IN_PROGRESS → COMPILE_CHECKED → DONE) for granular agent progress tracking on the dashboard.
+- **[2026-04-23]** [PATTERN] First v2 benchmark run scored 87.1 vs v1's 92.3 — a 5.2pt drop is expected and correct when moving from config-audit to real execution + cross-model grading. Score drops on system upgrades are signal, not regression.
+- **[2026-04-23]** [GOTCHA] Security review precision rubric penalizes finding MORE real vulnerabilities than the planted ground truth. Finding 3/3 planted + 7 genuine extras = 30% precision = low score. Rubric should count genuine findings as true positives, not false positives.
+- **[2026-04-23]** [PATTERN] Hallucination resistance is the easiest category to score 100 on — agent just needs to search, find nothing, and say so with evidence. This validates the system design: honest agents that admit ignorance score perfectly.
+- **[2026-04-23]** [GOTCHA] Dashboard agent cards show stale in_progress status when an agent writes STATUS: in_progress but never writes a completion entry. Fixed in agent-dashboard.py with implied-complete inference: if a later agent has reached 'complete', any earlier agent stuck at 'in_progress' is inferred as complete.
+- **[2026-04-24]** [WORKFLOW] When writing STM entries for intermediate pipeline steps, always write a STATUS: complete follow-up entry — otherwise the dashboard shows the agent stuck at in_progress until the implied-complete inference kicks in
+- **[2026-04-24]** [GOTCHA] STM section injection via Python string replace fails when --- separators are adjacent to HTML comments — use regex substitution targeting the section header line instead
+- **[2026-04-24]** [PATTERN] STM-First injection: orchestrator extracts sections from STM and pastes content directly into sub-agent prompts — agents get context at zero tool-call cost
+- **[2026-04-24]** [DECISION] Pipeline restrictions: GATE (requires stopping + ask_user) vs CONSTRAINT (silent compliance, no user interaction)
+- **[2026-04-24]** [PATTERN] STM section extraction regex: r'## \[STM\] {header}\n(.*?)(?=\n## \[STM\]|\n---\n## |\Z)' with re.DOTALL works reliably
+- **[2026-04-24]** [GOTCHA] stm-init.py _build_daily_digest() is verbose — Prior Sessions can hit 2000+ chars, diluting agent context
