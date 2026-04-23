@@ -1765,6 +1765,110 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _serve_v2_status(self):
+        """Multi-workflow API: all workflows summary + selected workflow full data."""
+        t0 = time.monotonic()
+        if _workflow_registry is None:
+            self._json_response({"error": "registry not initialized"}, 503)
+            return
+
+        state = _workflow_registry.get_state_snapshot()
+        sel_id = state.selected_workflow_id or state.active_workflow_id
+
+        # Build workflow summaries (shallow copy under lock already done)
+        workflow_list = []
+        for uid in state.tab_order:
+            wf = state.workflows.get(uid)
+            if not wf:
+                continue
+            workflow_list.append({
+                "uuid":               uid,
+                "slug":               wf.identity.slug,
+                "created_at":         wf.identity.created_at,
+                "is_active":          uid == state.active_workflow_id,
+                "is_healthy":         wf.parse_ok,
+                "consecutive_errors": wf.consecutive_errors,
+                "last_error":         wf.last_error,
+                "entry_count":        len(wf.entries),
+                "agent_count":        len({e["agent"] for e in wf.entries}),
+            })
+
+        # Build selected workflow full data
+        selected_data = None
+        if sel_id and sel_id in state.workflows:
+            wf = state.workflows[sel_id]
+            # Bump LRU on serve
+            _workflow_registry.bump_accessed(sel_id)
+
+            # Build v1-shaped data for the selected workflow
+            agent_latest = {}
+            for e in wf.entries:
+                agent_latest[e["agent"]] = e
+            agents_sorted = sorted(agent_latest.values(), key=lambda a: a["timestamp"], reverse=True)
+            latest_ts = {a["agent"]: a["timestamp"] for a in agents_sorted}
+            timeline = list(reversed(wf.entries[-40:]))
+            for e in timeline:
+                e["is_latest"] = (e["timestamp"] == latest_ts.get(e["agent"]))
+
+            stm_path = wf.identity.directory / STM_FILENAME
+            selected_data = {
+                "stm_path":    str(stm_path),
+                "stm_name":    re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "",
+                                      stm_path.parent.name.replace("-", " ")).title(),
+                "meta":        wf.meta,
+                "agents":      agents_sorted,
+                "timeline":    timeline,
+                "entry_count": len(wf.entries),
+                "updated_at":  datetime.now(timezone.utc).isoformat(),
+            }
+
+        payload = {
+            "active_workflow_id":   state.active_workflow_id,
+            "selected_workflow_id": sel_id,
+            "workflows":            workflow_list,
+            "selected":             selected_data,
+            "poll_interval_ms":     2000,
+            "server_uptime_s":      round(time.monotonic() - _start_time, 1),
+        }
+
+        elapsed_ms = round((time.monotonic() - t0) * 1000)
+        body = json.dumps(payload, default=str).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Poll-Duration-Ms", str(elapsed_ms))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _serve_v2_select(self, uuid_str: str):
+        """Set selected workflow tab. Returns 404 if UUID not found."""
+        if _workflow_registry is None:
+            self._json_response({"error": "registry not initialized"}, 503)
+            return
+
+        # Validate UUID format
+        if not UUID_RE.match(uuid_str):
+            self._json_response({"error": "invalid UUID format"}, 400)
+            return
+
+        ok = _workflow_registry.select_workflow(uuid_str)
+        if not ok:
+            self._json_response({"error": "workflow not found", "uuid": uuid_str}, 404)
+            return
+
+        self._json_response({"ok": True, "selected": uuid_str})
+
+    def _json_response(self, payload: dict, status: int = 200):
+        """Helper: send a JSON response."""
+        body = json.dumps(payload, default=str).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
     def _serve_health(self):
         with _snapshot_lock:
             snap = _current_snapshot
