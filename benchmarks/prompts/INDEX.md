@@ -6,14 +6,22 @@
 import hashlib
 
 def select_prompt(week: str, category: str, pool_size: int) -> int:
-    """Select a prompt index for this week + category combination.
+    """Select a prompt index using cycle-based rotation with per-category offset.
     
+    Guarantees: no prompt reused within pool_size weeks.
     Deterministic: same week + category always returns same index.
-    Well-distributed: SHA-256 ensures even spread across pool.
-    No reuse within 4 weeks for pool_size >= 4.
+    Category offset ensures different categories don't all use the same prompt.
+    
+    Algorithm: 
+    1. Extract week number from ISO week string (e.g. "2026-W18" → 18)
+    2. Compute a per-category offset from SHA-256 hash
+    3. (week_number + offset) % pool_size = prompt index
     """
-    h = hashlib.sha256(f"{week}:{category}".encode()).hexdigest()
-    return int(h[:8], 16) % pool_size
+    # Extract week number
+    week_num = int(week.split('-W')[1])
+    # Per-category offset so categories don't all pick the same prompt
+    offset = int(hashlib.sha256(category.encode()).hexdigest()[:8], 16)
+    return (week_num + offset) % pool_size
 ```
 
 ## Pool Sizes
