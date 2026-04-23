@@ -79,28 +79,134 @@ STATUS_META = {
 DEFAULT_STATUS = {"color": "#94a3b8", "icon": "○", "label": "Idle"}
 
 
-_stm_cache: dict = {"path": None, "expires": 0.0}
+# ── Snapshot type ─────────────────────────────────────────────────────────
 
-def find_active_stm() -> Path | None:
-    """Find the most recently modified STM file. Caches result for 10s to prevent flicker."""
-    import time
-    now = time.monotonic()
-    if now < _stm_cache["expires"] and _stm_cache["path"] is not None:
-        p = _stm_cache["path"]
-        if p.exists():
-            return p
+class STMSnapshot(NamedTuple):
+    stm_path: Path
+    content: str
+    mtime: float
+    data: dict
+    refreshed_at: float
+
+
+_snapshot_lock = threading.Lock()
+_current_snapshot: Optional[STMSnapshot] = None
+_shutdown_event = threading.Event()
+_start_time = time.monotonic()
+_exit_code = 1       # SIGTERM → exit(1) → launchd restarts
+_pinned_stm_path: Optional[Path] = None
+_lock_fd = None      # held open for process lifetime; OS releases on death
+
+
+# ── Singleton (fcntl exclusive lock) ─────────────────────────────────────
+
+def _acquire_singleton() -> bool:
+    global _lock_fd
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = open(LOCK_FILE, 'w')
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fd.write(str(os.getpid()))
+        fd.flush()
+        _lock_fd = fd
+        return True
+    except OSError:
+        try:
+            fd.close()
+        except Exception:
+            pass
+        return False
+
+
+def _release_singleton():
+    global _lock_fd
+    if _lock_fd:
+        try:
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+            _lock_fd.close()
+        except Exception:
+            pass
+        _lock_fd = None
+        LOCK_FILE.unlink(missing_ok=True)
+
+
+# ── STM discovery ─────────────────────────────────────────────────────────
+
+def _resolve_active_stm() -> Optional[Path]:
+    """Active STM: pinned path → .active symlink → newest-mtime fallback."""
+    if _pinned_stm_path is not None and _pinned_stm_path.exists():
+        return _pinned_stm_path
+    if ACTIVE_LINK.is_symlink():
+        try:
+            target_dir = ACTIVE_LINK.resolve()
+            if target_dir.is_dir():
+                candidate = target_dir / STM_FILENAME
+                if candidate.exists():
+                    return candidate
+        except Exception:
+            pass
+        try:
+            ACTIVE_LINK.unlink()
+        except Exception:
+            pass
     if not STM_DIR.exists():
         return None
     candidates = sorted(
-        [p for p in STM_DIR.rglob("short-term-memory.md") if p.exists()],
+        [p for p in STM_DIR.rglob(STM_FILENAME) if p.exists()],
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
-    result = candidates[0] if candidates else None
-    if result is not None:
-        _stm_cache["path"] = result
-        _stm_cache["expires"] = now + 2.0  # re-evaluate every 2s for fast task switching
-    return result
+    return candidates[0] if candidates else None
+
+
+# ── Atomic STM read ───────────────────────────────────────────────────────
+
+def _atomic_read_stm(path: Path, retries: int = 3) -> tuple:
+    """Read with stable-mtime guarantee. Returns (content, mtime) or (None, 0.0)."""
+    for _ in range(retries):
+        try:
+            mtime_before = path.stat().st_mtime
+            content = path.read_text(encoding="utf-8", errors="replace")
+            mtime_after = path.stat().st_mtime
+            if mtime_before == mtime_after:
+                return content, mtime_before
+        except Exception:
+            return None, 0.0
+        time.sleep(0.05)
+    return None, 0.0
+
+
+# ── Background snapshot refresh ───────────────────────────────────────────
+
+def _do_refresh():
+    global _current_snapshot
+    stm_path = _resolve_active_stm()
+    if stm_path is None:
+        return
+    content, mtime = _atomic_read_stm(stm_path)
+    if content is None:
+        return
+    with _snapshot_lock:
+        if _current_snapshot is not None and _current_snapshot.mtime == mtime:
+            return
+    data = _build_dashboard_data(stm_path, content)
+    with _snapshot_lock:
+        if _current_snapshot is None or mtime >= _current_snapshot.mtime:
+            _current_snapshot = STMSnapshot(
+                stm_path=stm_path,
+                content=content,
+                mtime=mtime,
+                data=data,
+                refreshed_at=time.monotonic(),
+            )
+
+
+def _refresh_loop():
+    while not _shutdown_event.wait(2.0):
+        try:
+            _do_refresh()
+        except Exception:
+            pass
 
 
 def parse_stm_entries(content: str) -> list[dict]:
