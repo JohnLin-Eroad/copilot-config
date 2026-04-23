@@ -258,6 +258,13 @@ class WorkflowRegistry:
                     continue
                 seen_uuids.add(uid)
                 if uid not in self._workflows:
+                    # Get initial file mtime for auto-select fallback
+                    stm_file = d / STM_FILENAME
+                    try:
+                        init_mtime = stm_file.stat().st_mtime
+                        init_size = stm_file.stat().st_size
+                    except OSError:
+                        init_mtime, init_size = 0.0, 0
                     self._workflows[uid] = WorkflowState(
                         identity=WorkflowIdentity(
                             uuid=uid,
@@ -268,8 +275,8 @@ class WorkflowRegistry:
                         entries=[],
                         meta={},
                         content_hash="",
-                        file_mtime=0.0,
-                        file_size=0,
+                        file_mtime=init_mtime,
+                        file_size=init_size,
                         last_refreshed_at=0.0,
                         last_accessed_at=time.monotonic(),
                         consecutive_errors=0,
