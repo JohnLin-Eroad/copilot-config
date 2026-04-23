@@ -389,8 +389,8 @@ _start_time = time.monotonic()
 _exit_code = 1       # SIGTERM → exit(1) → launchd restarts
 _pinned_stm_path: Optional[Path] = None
 _lock_fd = None      # held open for process lifetime; OS releases on death
-_workflow_registry: Optional[WorkflowRegistry] = None
-_workflow_poller: Optional[WorkflowPoller] = None
+_workflow_registry = None   # type: Optional[WorkflowRegistry]  (set in main)
+_workflow_poller = None     # type: Optional[WorkflowPoller]    (set in main)
 
 
 # ── Singleton (fcntl exclusive lock) ─────────────────────────────────────
