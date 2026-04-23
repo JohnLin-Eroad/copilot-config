@@ -1986,6 +1986,22 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
             agent_latest: dict[str, str] = {}
             for e in wf.entries:
                 agent_latest[e["agent"]] = e.get("status", "")
+            # Infer implied completion for has_running check
+            if agent_latest:
+                _pipeline_done = any(s == "complete" for s in agent_latest.values())
+                if _pipeline_done:
+                    _latest_done_ts = max(
+                        (e["timestamp"] for e in wf.entries if e.get("status") == "complete"),
+                        default="",
+                    )
+                    for e in wf.entries:
+                        ag = e["agent"]
+                        if (
+                            agent_latest.get(ag) == "in_progress"
+                            and e["timestamp"] < _latest_done_ts
+                            and e.get("status") == "in_progress"
+                        ):
+                            agent_latest[ag] = "complete"
             has_running = any(s in ("in_progress", "starting", "blocked")
                              for s in agent_latest.values())
             workflow_list.append({
