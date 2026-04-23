@@ -1747,9 +1747,11 @@ function renderTabBar(workflows, activeId, selectedId) {
       (w.entry_count > 0 && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
     );
   } else {
-    // Only show workflows with running agents, plus active/selected
+    // Show workflows with running agents OR modified in last 5 minutes, plus active/selected
+    const fiveMinAgo = Date.now() / 1000 - 5 * 60;
     visible = workflows.filter(w =>
-      (w.has_running_agents && w.last_modified > sixHoursAgo) || w.uuid === activeId || w.uuid === selectedId
+      ((w.has_running_agents || w.last_modified > fiveMinAgo) && w.entry_count > 0 && w.last_modified > sixHoursAgo)
+      || w.uuid === activeId || w.uuid === selectedId
     );
   }
   // Count how many are hidden for the toggle label
