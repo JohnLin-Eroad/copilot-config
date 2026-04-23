@@ -1841,7 +1841,16 @@ def main():
     except Exception:
         pass
 
-    # ── Background refresh thread ─────────────────────────────────────────────
+    # ── WorkflowRegistry + WorkflowPoller (multi-workflow support) ─────────
+    _workflow_registry = WorkflowRegistry(STM_DIR)
+    try:
+        _workflow_registry.discover()  # eager first discovery
+    except Exception:
+        pass
+    _workflow_poller = WorkflowPoller(_workflow_registry, _shutdown_event)
+    _workflow_poller.start()
+
+    # ── Legacy background refresh thread (v1 compat fallback) ─────────────
     refresh_thread = threading.Thread(target=_refresh_loop, daemon=True, name="stm-refresh")
     refresh_thread.start()
 
