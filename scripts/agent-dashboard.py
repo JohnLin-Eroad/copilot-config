@@ -290,9 +290,21 @@ class WorkflowRegistry:
                     active_uuid = None
             self._active_uuid = active_uuid
 
-            # If selected no longer exists, reset to active
+            # If selected no longer exists, reset to active or most recent with entries
             if self._selected_uuid and self._selected_uuid not in self._workflows:
                 self._selected_uuid = self._active_uuid
+
+            # Auto-select: if nothing selected, pick active or most-recent workflow with entries
+            if not self._selected_uuid:
+                if self._active_uuid:
+                    self._selected_uuid = self._active_uuid
+                else:
+                    # Find most recently modified workflow that has entries
+                    best_uid, best_mtime = None, 0.0
+                    for uid, wf in self._workflows.items():
+                        if wf.file_mtime > best_mtime:
+                            best_uid, best_mtime = uid, wf.file_mtime
+                    self._selected_uuid = best_uid
 
             # Deterministic tab order: by created_at, ties broken by UUID
             self._tab_order = sorted(
