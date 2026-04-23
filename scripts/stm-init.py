@@ -56,6 +56,20 @@ def main():
 
     stm_dir = STM_ROOT / f"{date_str}-{slug}"
     stm_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write .dashboard-id sidecar — stable UUID4 identity for agent-dashboard
+    # Uses O_CREAT|O_EXCL for atomic create (no race with concurrent sessions)
+    dashboard_id_path = stm_dir / ".dashboard-id"
+    if not dashboard_id_path.exists():
+        try:
+            fd = os.open(str(dashboard_id_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+            try:
+                os.write(fd, str(uuid.uuid4()).encode("utf-8"))
+            finally:
+                os.close(fd)
+        except FileExistsError:
+            pass  # another process beat us — fine, they wrote theirs
+
     stm_path = stm_dir / "short-term-memory.md"
 
     # Write template
