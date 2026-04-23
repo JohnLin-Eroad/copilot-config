@@ -1888,6 +1888,12 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
             wf = state.workflows.get(uid)
             if not wf:
                 continue
+            # Check if workflow has any non-complete agents
+            agent_latest: dict[str, str] = {}
+            for e in wf.entries:
+                agent_latest[e["agent"]] = e.get("status", "")
+            has_running = any(s in ("in_progress", "starting", "blocked")
+                             for s in agent_latest.values())
             workflow_list.append({
                 "uuid":               uid,
                 "slug":               wf.identity.slug,
@@ -1897,8 +1903,9 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "consecutive_errors": wf.consecutive_errors,
                 "last_error":         wf.last_error,
                 "entry_count":        len(wf.entries),
-                "agent_count":        len({e["agent"] for e in wf.entries}),
+                "agent_count":        len(set(agent_latest.keys())),
                 "last_modified":      wf.file_mtime,
+                "has_running_agents": has_running,
             })
 
         # Build selected workflow full data
