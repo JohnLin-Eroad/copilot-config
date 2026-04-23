@@ -122,6 +122,12 @@ def main():
     date_str = datetime.now().strftime("%Y-%m-%d")
     created_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    # Housekeeping: prune old STM directories (>7 days)
+    try:
+        _prune_old_stm_dirs()
+    except Exception:
+        pass  # non-fatal
+
     stm_dir = STM_ROOT / f"{date_str}-{slug}"
     stm_dir.mkdir(parents=True, exist_ok=True)
 
