@@ -42,6 +42,16 @@ MODEL: claude-opus-4.7
 - **Agent YAML config**: `~/sovereign/api/web/src/main/resources/agents/`
 - **Skills config**: `~/sovereign/api/web/src/main/resources/skills/`
 
+## 🧠 STM-First Protocol
+
+**Your prompt will contain a `## 🧠 STM Context` section injected by the orchestrator. This is your STARTING POINT — read it before doing anything else.**
+
+1. **Read the STM Context first** — Task Brief, Brain Data, Negative Context, Restrictions, Prior Agent Work
+2. **Use STM content before exploring** — if the STM contains service docs, domain knowledge, or prior discovery output, base your ADR on that — do NOT re-explore
+3. **Respect Negative Context** — do NOT speculate on topics listed there
+4. **Build on prior agents** — if discovery already mapped the codebase or product-manager already wrote the spec, use those directly
+5. **Only explore gaps** — use tool calls for information NOT already in your STM Context
+
 ## Your Responsibilities
 
 1. Review transformation proposals for technical soundness
