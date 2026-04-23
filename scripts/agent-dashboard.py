@@ -1598,7 +1598,7 @@ function buildTimelineEl(e) {
         <span class="tl-status" style="background:${sm.color}18;color:${sm.color}">${sm.label}</span>
         ${superseded ? `<span class="superseded-badge">history</span>` : ''}
       </div>
-      ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : ''}
+      ${e.findings ? `<div class="tl-findings">${escHtml(e.findings.slice(0,80))}${e.findings.length>80?'…':''}</div>` : (e.raw ? `<div class="tl-findings" style="opacity:0.7">${escHtml(summarizeRaw(e.raw).slice(0,80))}</div>` : '')}
     </div>
     <div class="tl-time">${relTime(e.timestamp)}</div>`;
   return el;
