@@ -1660,29 +1660,43 @@ function renderTimeline(timeline) {
 // ── STM Sections (left sidebar) ───────────────────────────────────────────────
 function renderStmSections(data) {
   const el = document.getElementById("stm-sections");
+  if (!el) return;
   const sections = data?.meta?.sections || {};
   const task = data?.meta?.task || data?.stm_name || "Unknown task";
+  const brain = data?.meta?.brain;
 
-  let html = `<div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:12px;
-    padding:8px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
+  let html = `<div style="font-size:0.82rem;font-weight:600;color:var(--text);margin-bottom:6px;
+    padding:8px 10px;background:var(--bg-card);border-radius:8px;border:1px solid var(--border)">
     📋 ${escHtml(task.slice(0,60))}</div>`;
 
-  if (data?.stm_path) {
-    html += `<div style="font-size:0.68rem;color:var(--text3);font-family:var(--mono);
-      margin-bottom:12px;word-break:break-all;line-height:1.4">${escHtml(data.stm_path)}</div>`;
+  if (brain) {
+    html += `<div style="font-size:0.63rem;color:var(--text3);margin-bottom:10px;padding:0 2px">
+      🧠 ${escHtml(brain)}</div>`;
   }
 
+  // Show compact section pills — skip empty sections and noise
+  const skipSections = new Set(["Task Brief"]);
   for (const [name, body] of Object.entries(sections)) {
-    if (!body) continue;
-    const preview = body.slice(0, 400);
-    html += `<div class="stm-section">
-      <div class="stm-section-title">📄 ${escHtml(name)}</div>
-      <div class="stm-content">${escHtml(preview)}${body.length>400?'\n…':''}</div>
-    </div>`;
-  }
+    if (skipSections.has(name)) continue;
+    // Strip HTML comments from body
+    const clean = (body || "").replace(/<!--[\s\S]*?-->/g, "").trim();
+    if (!clean) continue;
 
-  if (!Object.keys(sections).length) {
-    html += `<div style="color:var(--text3);font-size:0.8rem">No STM sections yet</div>`;
+    // For Prior Sessions, just show a count
+    if (name === "Prior Sessions Today") {
+      const sessionCount = (clean.match(/^### /gm) || []).length;
+      html += `<div style="font-size:0.7rem;color:var(--text3);padding:4px 8px;margin-bottom:4px;
+        background:rgba(148,163,184,.08);border-radius:6px;border:1px solid var(--border)">
+        📚 ${sessionCount} prior session${sessionCount !== 1 ? 's' : ''} today</div>`;
+      continue;
+    }
+
+    // Other sections: one-line preview
+    const oneLine = clean.replace(/\n/g, " ").slice(0, 100);
+    html += `<div style="font-size:0.7rem;color:var(--text3);padding:4px 8px;margin-bottom:4px;
+      background:rgba(148,163,184,.08);border-radius:6px;border:1px solid var(--border);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(clean.slice(0,300))}">
+      📄 <strong style="color:var(--text2)">${escHtml(name)}</strong> — ${escHtml(oneLine)}${clean.length>100?'…':''}</div>`;
   }
 
   el.innerHTML = html;
