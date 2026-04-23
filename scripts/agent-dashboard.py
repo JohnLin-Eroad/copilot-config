@@ -897,12 +897,27 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
 
 /* ── Layout ── */
-#app{display:grid;grid-template-rows:56px 1fr;grid-template-columns:280px 1fr 320px;height:100vh}
+#app{display:grid;grid-template-rows:56px auto 1fr;grid-template-columns:280px 1fr 320px;height:100vh}
 #topbar{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 24px;
   background:var(--bg-card);border-bottom:1px solid var(--border);z-index:10}
-#sidebar{grid-row:2;overflow-y:auto;border-right:1px solid var(--border);padding:16px}
-#main{grid-row:2;overflow-y:auto;padding:20px 24px}
-#rightpanel{grid-row:2;overflow-y:auto;border-left:1px solid var(--border);padding:16px}
+#tab-bar{grid-column:1/-1;display:flex;align-items:center;gap:2px;padding:0 16px;
+  background:var(--bg);border-bottom:1px solid var(--border);overflow-x:auto;
+  min-height:36px;flex-shrink:0;scrollbar-width:thin}
+#tab-bar::-webkit-scrollbar{height:4px}
+#tab-bar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.tab{display:flex;align-items:center;gap:6px;padding:4px 12px;font-size:0.72rem;
+  color:var(--text2);cursor:pointer;border-radius:6px 6px 0 0;white-space:nowrap;
+  border:1px solid transparent;border-bottom:none;transition:all 0.15s;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.tab:hover{background:var(--bg-card);color:var(--text)}
+.tab.active{background:var(--bg-card);color:var(--text);border-color:var(--border);font-weight:600}
+.tab .tab-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tab .tab-dot.green{background:#34d399}
+.tab .tab-dot.gray{background:#64748b}
+.tab .tab-badge{font-size:0.65rem;opacity:0.7}
+.tab .tab-entries{font-size:0.6rem;color:var(--text2);opacity:0.6}
+#sidebar{grid-row:3;overflow-y:auto;border-right:1px solid var(--border);padding:16px}
+#main{grid-row:3;overflow-y:auto;padding:20px 24px}
+#rightpanel{grid-row:3;overflow-y:auto;border-left:1px solid var(--border);padding:16px}
 
 /* ── Topbar ── */
 .topbar-title{font-size:1rem;font-weight:700;color:var(--text);flex:1}
