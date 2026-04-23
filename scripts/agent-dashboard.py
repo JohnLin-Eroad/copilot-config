@@ -934,6 +934,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .tab .tab-dot.gray{background:#64748b}
 .tab .tab-badge{font-size:0.65rem;opacity:0.7}
 .tab .tab-entries{font-size:0.6rem;color:var(--text2);opacity:0.6}
+.tab-toggle{display:flex;align-items:center;gap:4px;padding:4px 10px;font-size:0.65rem;
+  color:var(--text2);cursor:pointer;border-radius:4px;white-space:nowrap;margin-left:auto;
+  border:1px solid var(--border);transition:all 0.15s;flex-shrink:0;user-select:none}
+.tab-toggle:hover{background:var(--bg-card);color:var(--text)}
+.tab-toggle.on{color:var(--accent);border-color:var(--accent)}
 #sidebar{grid-row:3;overflow-y:auto;border-right:1px solid var(--border);padding:16px}
 #main{grid-row:3;overflow-y:auto;padding:20px 24px}
 #rightpanel{grid-row:3;overflow-y:auto;border-left:1px solid var(--border);padding:16px}
