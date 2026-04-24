@@ -1,136 +1,106 @@
 # Handoff Protocol — Full Reference (Tier 3)
 
-Checkpoint file format, orchestrator presentation, user commands, and amendments log.
+Orchestrator-specific: how to construct targeted handoffs, checkpoint protocol, and user commands.
+
+---
+
+## Constructing a Targeted Handoff
+
+The orchestrator builds a handoff for each agent transition. **Include only what the receiving agent needs.**
+
+### Handoff Template
+
+```markdown
+# Handoff → {Agent Name}
+
+## Task Brief
+<Original user request — always include this>
+
+## Your Job
+<Specific instructions for this agent — what to produce, constraints, scope>
+
+## Context from Prior Agents
+<Only the outputs relevant to this agent's work. Summarise, don't dump.>
+
+## STM Path
+<Path to the STM file if the agent needs to look up more context>
+
+## Constraints
+- <Any decisions already made that this agent must respect>
+- <Negative constraints: what NOT to do>
+```
+
+### What to Include Per Agent Role
+
+| Agent | Include in handoff | Exclude |
+|-------|-------------------|---------|
+| **Product Manager** | User request, domain context from brain | Everything else |
+| **Architect** | Task brief, product spec | PM's reasoning process |
+| **Developer** | Task brief, architecture decisions, file paths | PM spec, security review details |
+| **Security** | Architecture/code to review, threat context | PM spec, unrelated decisions |
+| **QA Engineer** | Acceptance criteria, implementation summary, file paths | Architecture rationale, security details |
+| **Code Reviewer** | Diff/file paths, architecture decisions | Full PM spec, QA results |
+| **DevOps** | Deployment-relevant changes, infra decisions | Business logic, PM spec |
+
+**Rule of thumb:** If removing a section from the handoff wouldn't change the agent's output, don't include it.
 
 ---
 
 ## Checkpoint Protocol
 
-After **every agent completes**, the Orchestrator must:
-1. Write a checkpoint file
-2. Present a summary to the user
-3. **Wait for explicit user approval** before invoking the next agent
+After **key agents complete** (not necessarily every agent), the orchestrator:
+1. Writes agent output to STM
+2. Presents a brief summary to the user
+3. **Waits for user approval** before proceeding
 
-### Checkpoint File
+### Checkpoint Summary Format
 
-**Location:** `./checkpoints/CHECKPOINT-vN-<agent-name>.md`
+```
+✅ {Agent Name} complete.
 
-**Filename examples:**
-- `checkpoints/CHECKPOINT-v1-product-manager.md`
-- `checkpoints/CHECKPOINT-v2-architect.md`
-- `checkpoints/CHECKPOINT-v3-security-arch.md`
+Summary: {2-3 sentences}
+Key outputs: {bullet list}
+Issues: {any flags, or "None"}
 
-**Format:**
+Next up: {Next Agent} — {what it will do}
 
-```markdown
-# ✅ Checkpoint v{N} — {Agent Name} Complete
-**Date:** YYYY-MM-DD HH:MM
-**Pipeline:** {Task slug}
-
----
-
-## 📊 Pipeline Progress
-
-| # | Agent | Status |
-|---|---|---|
-| 1 | Product Manager | ✅ Done |
-| 2 | Architect | ✅ Done |
-| 3 | Security (arch pass) | ⏳ Just completed |
-| 4 | Developer | ⬜ Up next |
-| 5 | Security (code pass) | ⬜ Pending |
-| 6 | QA Engineer | ⬜ Pending |
-| 7 | DevOps | ⬜ Pending |
-| 8 | Code Reviewer | ⬜ Pending |
-
----
-
-## 🔍 What {Agent Name} Did
-
-### Summary
-{2-3 sentences}
-
-### Key Outputs
-- {output 1}
-- {output 2}
-
-### Decisions Made
-- {any significant choices made and why}
-
-### Issues / Flags
-{List any ⚠️ warnings or open questions. "None." if clean.}
-
-### Brain Notes Written
-- {vault path} — {what it contains}
-
----
-
-## 🔮 What's Next — {Next Agent Name}
-
-**{Next Agent}** will:
-- {what it will do, based on what's been produced so far}
-
-**Inputs it will use:**
-- {key artefacts from prior agents it will rely on}
-
----
-
-## 🔁 Pushbacks This Round
-{List any pushback/resolution cycles that happened during this agent's work. "None." if clean.}
-
----
-
-## 💬 Your Options
-
-Reply with one of the following:
-
-| Command | What happens |
-|---|---|
-| `continue` | Proceed to {Next Agent} |
-| `change: <instruction>` | Modify something before proceeding |
-| `redo: <agent>` | Re-run a specific agent |
-| `skip: <agent>` | Skip the next agent |
-| `stop` | Halt the pipeline — save all progress |
-| `status` | Show the full TASK_CONTEXT.md so far |
-
----
-*Checkpoint file saved to: `./checkpoints/CHECKPOINT-v{N}-{agent-name}.md`*
+Reply `continue`, `change: <instruction>`, `redo: <agent>`, `skip: <agent>`, or `stop`.
 ```
 
----
+### User Commands at Checkpoint
 
-## How the Orchestrator Presents the Checkpoint
-
-After writing the checkpoint file, output the full checkpoint content directly in the conversation so the user can read it without opening a file, then ask:
-
-> **Pipeline paused. What would you like to do?**
-> Reply `continue` to proceed to [Next Agent], or see the command table above.
-
-The Orchestrator does **not** invoke the next agent until the user explicitly responds.
-
----
-
-## Handling User Commands at a Checkpoint
-
-| User says | Orchestrator action |
+| Command | Action |
 |---|---|
-| `continue` | Invoke next agent as planned |
-| `change: <instruction>` | Amend the relevant section of TASK_CONTEXT.md, log in `## User Amendments`, then continue from the appropriate agent (re-run current if change affects its output) |
-| `redo: <agent>` | Re-invoke that agent from scratch, replacing its TASK_CONTEXT.md section. Generate a new checkpoint after. |
-| `skip: <agent>` | Mark as `⏭️ Skipped (user)` in progress table, proceed to next |
-| `stop` | Write current state to `$BRAIN/06 - AI Agent Outputs/` as partial session log, inform user pipeline is saved |
-| `status` | Print the full TASK_CONTEXT.md to the conversation |
+| `continue` | Proceed to next agent |
+| `change: <instruction>` | Amend context, re-run affected agent if needed |
+| `redo: <agent>` | Re-invoke agent from scratch |
+| `skip: <agent>` | Skip next agent, proceed to the one after |
+| `stop` | Halt pipeline, save progress to STM |
+| `status` | Show current pipeline state and STM summary |
 
 ---
 
-## User Amendments Log
+## Mid-Pipeline Data Requests
 
-When a user makes a `change:` instruction, append to TASK_CONTEXT.md:
+When an agent signals `PIPELINE_SIGNAL: NEED_DATA`:
 
-```markdown
-## User Amendments
+1. Read the agent's TOPIC and REASON
+2. Invoke `brain-data-retrieval` with the specific topic
+3. Inject the retrieved data into the agent's context
+4. Resume the agent from where it stopped
 
-### Amendment {N} — After {Agent Name} — YYYY-MM-DD
-**User instruction:** {verbatim}
-**Applied to:** {which section / agent was affected}
-**Action taken:** {what was changed and where}
-```
+**Do not re-run the agent from scratch** — append the new data and let it continue.
+
+---
+
+## Pushback Routing
+
+When an agent signals `PIPELINE_SIGNAL: PUSHBACK`:
+
+1. Read the pushback details (TARGET, SEVERITY, ISSUE)
+2. Construct a handoff to the target agent containing:
+   - The original handoff they received
+   - The pushback details
+   - Instruction to revise their output
+3. Re-invoke the target agent
+4. When resolved (`PIPELINE_SIGNAL: RESOLVED`), resume from the agent that raised the pushback
