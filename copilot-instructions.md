@@ -100,46 +100,6 @@ At the end of tasks producing domain knowledge, invoke `brain-consolidation` to 
 
 ---
 
-## Governance
-
-Every tool call passes through the governance hook at `~/.copilot/hooks/security-check.sh`. The declarative rules live at `~/copilot-config/governance-rules.json`.
-
-### Governance rules summary
-
-| Rule | Severity | Description |
-|------|----------|-------------|
-| `sec-001` | BLOCK | No pipe-to-shell downloads |
-| `sec-002` | BLOCK | No credential exfiltration via POST |
-| `sec-003` | BLOCK | No cloud metadata endpoint access |
-| `sec-004` | BLOCK | No obfuscated shell expansion |
-| `gov-001` | BLOCK | No rm -rf home directory |
-| `gov-002` | BLOCK | No rm -rf critical dirs (.copilot, sovereign, etc.) |
-| `gov-003` | BLOCK | No git push --force |
-| `gov-004` | BLOCK | No DROP TABLE / DROP DATABASE / TRUNCATE |
-| `gov-005` | BLOCK | No download to executable paths |
-| `audit-*` | LOG   | All destructive, VCS, DB, and file-write operations |
-
-### Audit trail
-
-Every tool call is logged to `~/.copilot/logs/audit.jsonl` with:
-- Timestamp, tool name, decision (ALLOW/BLOCK), blast radius, category, note
-
-To view recent audit entries:
-```bash
-tail -20 ~/.copilot/logs/audit.jsonl | jq .
-# or view security blocks only:
-jq 'select(.decision=="BLOCK")' ~/.copilot/logs/audit.jsonl | tail -10
-```
-
-### Agents must self-assess blast radius
-
-Before taking any HIGH/CRITICAL action, explicitly state:
-```
-Blast radius: HIGH
-Reason: <why>
-Proceeding with: <what>
-```
-
 ---
 
 ## Context Engineering
