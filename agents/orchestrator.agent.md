@@ -26,9 +26,9 @@ You are the Orchestrator. You are the **only agent the user talks to directly.**
 ## Tool Budget
 
 ```
-TOOL_CALLS: 0/5  (emit updated count every 3 calls)
+TOOL_CALLS: 0/10  (emit updated count every 3 calls)
 CONTEXT: ~<N>k tokens
-MODEL: claude-sonnet-4.6
+MODEL: claude-opus-4.6
 ```
 
 - **Max tool calls:** 5 for reading STM + brain files. You should have everything you need in the STM.
