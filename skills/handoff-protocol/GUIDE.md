@@ -1,110 +1,104 @@
 # Handoff Protocol — Guide (Tier 2)
 
-How to read/write TASK_CONTEXT.md sections and handle pushbacks between agents.
+How to read your handoff, write your output, handle pushbacks, and request more data.
 
 ---
 
-## Reading the Document
+## Reading Your Handoff
 
-Before starting your work, read ALL prior sections of TASK_CONTEXT.md:
+The orchestrator passes you a **targeted handoff** — not the full pipeline history. It contains only what you need:
 
-```bash
-cat TASK_CONTEXT.md
-```
+- **Task brief** — what the user asked for
+- **Relevant prior output** — only from agents whose work affects yours
+- **Your specific instructions** — what the orchestrator expects you to produce
+- **STM path** — where to find the session's short-term memory if you need more
 
-Pay attention to:
-- The original **Task Brief** — this is the ground truth
-- Any **Feedback Log** entries addressed to you — resolve them before proceeding
-- Prior agents' outputs — your work must be consistent with them unless you are pushing back
+**Start by reading your handoff completely.** If it's sufficient, proceed. If not, escalate (see below).
 
 ---
 
-## Writing Your Section
+## Writing Your Output
 
-After completing your work, append your section to TASK_CONTEXT.md:
+When you complete your work, structure your output so the orchestrator can extract what the **next** agent needs (not everything you did):
 
 ```markdown
-## [vN] <Your Agent Name> — <Section Title>
-**Status:** ✅ Complete | ⚠️ Complete with issues | ❌ Blocked
-**Date:** YYYY-MM-DD
+## Summary
+<2-3 sentences: what you did and the key outcome>
 
-### Summary
-<2-3 sentences summarising what you did>
+## Key Outputs
+- <concrete output 1 — file path, decision, finding>
+- <concrete output 2>
 
-### Key Outputs
-- <output 1>
-- <output 2>
+## For Next Agent
+<What the next agent specifically needs to know from your work.
+Only include what's relevant to them — not your full reasoning.>
 
-### Assumptions Made
-- <any assumptions, especially where Brain or spec was silent>
+## Assumptions Made
+- <any assumptions, especially where context was silent>
 
-### Open Issues
-- <anything unresolved that the next agent should know about>
-
-### Brain Notes Written
-- [[path/to/note]] — <what it contains>
+## Open Issues
+- <anything unresolved that could affect downstream agents>
 ```
+
+The orchestrator reads this and constructs the next agent's handoff from it.
+
+---
+
+## Requesting More Context
+
+If your handoff doesn't contain enough information:
+
+### Step 1 — Check STM
+
+```bash
+cat <STM_PATH>   # path provided in your handoff
+```
+
+Look for relevant prior agent contributions, brain data, or task context.
+
+### Step 2 — Signal NEED_DATA
+
+If STM doesn't have what you need either, signal the orchestrator:
+
+```
+PIPELINE_SIGNAL: NEED_DATA
+TOPIC: <what you need — be specific>
+REASON: <why you can't proceed without it>
+```
+
+The orchestrator will invoke `brain-data-retrieval`, inject the result into your context, and resume.
 
 ---
 
 ## Pushback Protocol
 
-If you discover an issue with a **prior agent's output** that must be resolved before you can continue:
+If you find an issue with a **prior agent's output** that blocks your work:
 
-### Step 1 — Append to the Feedback Log
-
-```markdown
-## Feedback Log
-
-### [PUSHBACK] <Your Agent> → <Target Agent> — YYYY-MM-DD
-**Severity:** 🔴 Blocker | 🟡 Should Fix | 🟢 Suggestion
-**Issue:** <clear description of the problem>
-**Specific reference:** <quote the exact part of the prior section that is wrong>
-**Requested action:** <what you need the target agent to do>
-**Status:** OPEN
-```
-
-### Step 2 — Set Your Section Status to Blocked
-
-```markdown
-## [vN] <Your Agent> — <Section Title>
-**Status:** ❌ Blocked — see Feedback Log entry from <Your Agent> → <Target Agent>
-```
-
-### Step 3 — Signal the Orchestrator
+### Raise the Pushback
 
 ```
 PIPELINE_SIGNAL: PUSHBACK
 TARGET: <agent-name>
-REASON: <one line summary>
+SEVERITY: BLOCKER | SHOULD_FIX | SUGGESTION
+ISSUE: <clear description of the problem>
+REFERENCE: <quote the specific part that is wrong>
+REQUESTED_ACTION: <what you need them to fix>
 ```
 
-The Orchestrator will re-invoke the target agent with the Feedback Log entry, then resume the pipeline from your position once resolved.
+Set your output status to `❌ Blocked` and stop. The orchestrator will re-invoke the target agent with your pushback, then resume from you.
 
----
+### Resolving a Pushback (if you're the target)
 
-## Resolving a Pushback
-
-If the Orchestrator re-invokes you with a Feedback Log entry targeting you:
-
-1. Read the pushback carefully
+1. Read the pushback in your handoff
 2. Make the necessary changes
-3. Update the Feedback Log entry status from `OPEN` to `RESOLVED`:
-   ```markdown
-   **Status:** RESOLVED — <brief description of what changed>
-   ```
-4. Update your section (append a `### Revision` subsection — do not overwrite)
-5. Signal the Orchestrator:
-   ```
-   PIPELINE_SIGNAL: RESOLVED
-   RESUME_FROM: <agent-that-pushed-back>
-   ```
+3. Output your revised work with a `## Revision` section explaining what changed
+4. Signal: `PIPELINE_SIGNAL: RESOLVED`
 
 ---
 
-## Next: Checkpoint & User Command Reference
+## Next: Orchestrator Reference
 
-For the **checkpoint file format**, **orchestrator presentation protocol**, and **user command handling**:
+For **how the orchestrator constructs handoffs** per agent role, **checkpoint protocol**, and **user commands**:
 
 ```bash
 cat ~/.copilot/skills/handoff-protocol/DETAIL.md
