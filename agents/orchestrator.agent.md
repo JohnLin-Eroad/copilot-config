@@ -470,7 +470,7 @@ After **every phase**, write a checkpoint and present it to the user:
 | `skip: <agent>` | Skip an agent |
 | `more-data: <topic>` | Fetch more brain data mid-pipeline |
 | `stop` | Halt and save progress |
-| `status` | Show full TASK_CONTEXT.md |
+| `status` | Show current pipeline state from STM |
 ```
 
 **Do NOT invoke the next agent until the user explicitly says `continue` (or equivalent).**
@@ -486,8 +486,8 @@ If the user types `more-data: <topic>` at any checkpoint, invoke `brain-data-ret
 ## Pushback Handling
 
 If any agent emits `PIPELINE_SIGNAL: PUSHBACK`:
-1. Read the Feedback Log in TASK_CONTEXT.md
-2. Re-invoke the target agent with the pushback details
+1. Read the pushback details from the agent's structured output
+2. Re-invoke the target agent with a targeted handoff containing the pushback context
 3. After resolution, resume from the agent that pushed back
 4. Log the pushback/resolution cycle in the checkpoint
 
@@ -497,15 +497,15 @@ If `PIPELINE_SIGNAL: AGENT_MISSING`:
 
 ---
 
-## TASK_CONTEXT.md
+## Agent Handoffs
 
-Maintain a `TASK_CONTEXT.md` alongside the STM for agent handoffs (see `handoff-protocol` skill). The STM path should be in the Task Brief section of TASK_CONTEXT.md so all agents can find it:
+Use **targeted handoffs** — each agent receives only the context it needs, not the full pipeline history (see `handoff-protocol` skill). The STM is the shared persistent record; handoffs are constructed per-agent from STM content.
 
-```markdown
-## [v0] Task Brief — Orchestrator
-...
-**STM Path:** /tmp/task-<slug>/short-term-memory.md
-```
+When invoking a specialist agent, construct its prompt with:
+1. **Task scope** — what this agent must do (extracted from the task brief)
+2. **Relevant prior output** — only the sections from earlier agents that this agent needs
+3. **STM path** — so the agent can check STM for additional context if needed
+4. **Constraints** — blast radius, deadlines, negative constraints
 
 ---
 
