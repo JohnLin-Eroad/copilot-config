@@ -1,40 +1,29 @@
 ---
 name: handoff-protocol
 description: >
-  Defines the structure of TASK_CONTEXT.md — the shared context document that agents
-  pass between each other during a pipeline run. Use this skill to understand how to
-  read context from prior agents and how to append your own output. Also defines the
-  pushback/feedback protocol for flagging issues back upstream.
+  Defines how agents hand off context to each other during a pipeline run. Each handoff
+  is targeted — only what the next agent needs. If more context is required, the agent
+  checks STM first, then raises NEED_DATA for brain retrieval.
 ---
 
-# Handoff Protocol — Task Context Document
+# Handoff Protocol — Targeted Context Passing
 
-## What is TASK_CONTEXT.md?
+## Core Principle
 
-`TASK_CONTEXT.md` is a structured markdown document created by the Orchestrator at the start of every task. Each agent in the pipeline reads all prior sections, then appends its own. This is the in-session context carrier.
-
----
-
-## Document Structure
-
-```markdown
-# Task Context Document
-<!-- Created by Orchestrator. Do not delete sections — only append. -->
-
-## [v0] Task Brief — Orchestrator
-## [v1] Product Manager — Spec
-## [v2] Architect — Design
-## [v3] Security — Architecture Review
-## [v4] Developer — Implementation Notes
-## [v5] Security — Code Review
-## [v6] QA Engineer — Test Report
-## [v7] DevOps — CI/CD Notes
-## [v8] Code Reviewer — Final Review
-## [v9] Orchestrator — Closing Summary
+**Agents receive only what they need.** The orchestrator constructs a targeted handoff for each agent transition — not a monolithic shared document. This keeps agent context lean and focused.
 
 ---
-## Feedback Log
-<!-- Agents append pushbacks here. Orchestrator monitors and routes. -->
+
+## Context Escalation Chain
+
+When an agent needs information to do its work:
+
+1. **Handoff payload** — what the orchestrator passed you (always check this first)
+2. **STM** — the session's short-term memory file (read if handoff is insufficient)
+3. **NEED_DATA signal** — raise this if STM doesn't have what you need → orchestrator invokes brain-data-retrieval
+
+```
+Handoff payload → STM → PIPELINE_SIGNAL: NEED_DATA → brain-data-retrieval
 ```
 
 ---
@@ -44,11 +33,12 @@ description: >
 | Signal | Meaning |
 |---|---|
 | `PIPELINE_SIGNAL: CONTINUE` | Work complete, pass to next agent |
-| `PIPELINE_SIGNAL: PUSHBACK` | Issue found, needs upstream fix |
+| `PIPELINE_SIGNAL: PUSHBACK` | Issue with prior agent's output, needs fix |
+| `PIPELINE_SIGNAL: NEED_DATA` | Insufficient context — request brain retrieval |
 | `PIPELINE_SIGNAL: RESOLVED` | Pushback resolved, resume pipeline |
 | `PIPELINE_SIGNAL: DONE` | Pipeline complete |
 | `PIPELINE_SIGNAL: AGENT_MISSING` | No suitable agent — trigger Agent Factory |
-| `PIPELINE_SIGNAL: CHECKPOINT` | Checkpoint written, awaiting user decision |
+| `PIPELINE_SIGNAL: STUCK` | Agent is stuck — trigger unstick escalation |
 
 ---
 
@@ -56,15 +46,15 @@ description: >
 
 This skill has **3 tiers**. You are reading **Tier 1** (brief).
 
-📘 **GUIDE.md** — Read when you need to read/write sections or handle pushbacks.
-Contains: how to read the document, section write template, pushback protocol, resolving pushbacks.
+📘 **GUIDE.md** — Read when you need to write a handoff, handle a pushback, or signal for more data.
+Contains: handoff payload format, how to write your output, pushback protocol, NEED_DATA protocol.
 
 ```bash
 cat ~/.copilot/skills/handoff-protocol/GUIDE.md
 ```
 
-📖 **DETAIL.md** — Read when the Orchestrator needs checkpoint file format or user command handling.
-Contains: checkpoint file template, orchestrator presentation protocol, user command table, amendments log format.
+📖 **DETAIL.md** — Read when you are the orchestrator constructing handoffs for agents.
+Contains: orchestrator handoff construction rules, what to include per agent role, checkpoint protocol.
 
 ```bash
 cat ~/.copilot/skills/handoff-protocol/DETAIL.md
