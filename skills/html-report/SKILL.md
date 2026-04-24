@@ -1,26 +1,26 @@
 ---
 name: html-report
 description: >
-  Teaches agents how to generate beautiful, dark-themed HTML reports from research
-  output, work summaries, or any structured findings — and automatically open them
-  in the browser. Use after completing research, analysis, benchmarks, or any task
-  where a polished visual summary is more useful than raw markdown.
+  Generates a beautiful, self-contained HTML page to present task results to the
+  user. Invoke at the end of any task to visually summarise what was accomplished —
+  and automatically open it in the browser.
 ---
 
 # Skill: HTML Report
 
-Generate a self-contained, dark-themed HTML report — saved to the session files folder and opened in the browser automatically.
+On task completion, generate a self-contained HTML page that shows the user what you did — then save it and open it in the browser.
 
 ---
 
-## When to Trigger
+## When to Use
 
-- Completed research/analysis with **3+ structured sections**
-- User asks for an HTML report, visual summary, or "make it pretty"
-- Structured data (comparisons, benchmarks, scores, rankings) that benefits from visual presentation
-- Weekly reports, audit summaries, or multi-dimensional analysis
+Generate an HTML page when a task produces output worth presenting visually:
+- Code changes, refactors, or migrations — summarise what changed and where
+- Research or analysis — present findings, comparisons, recommendations
+- Benchmarks, audits, reviews — show scores, status, trends
+- Any multi-step task — give the user a clear picture of what was accomplished
 
-**Do NOT use when:** single paragraph output, user asked for markdown, or output goes to Jira/Confluence/Notion.
+**Skip when:** output is a single sentence, user asked for markdown/plain text, or output goes to Jira/Confluence/Notion.
 
 ---
 
@@ -34,22 +34,15 @@ Generate a self-contained, dark-themed HTML report — saved to the session file
 
 ---
 
-## Colour Semantics
+## Content & Layout
 
-| Colour | CSS Variable | Use for |
-|---|---|---|
-| Green `#34d399` | `--accent-green` | Positive, passing, good, success |
-| Yellow `#fbbf24` | `--accent-yellow` | Warning, moderate, needs attention |
-| Red `#f87171` | `--accent-red` | Critical, failing, danger, blocking |
-| Blue `#6c8ef7` | `--accent-blue` | Informational, neutral highlight, primary accent |
-| Purple `#a78bfa` | `--accent-purple` | New, experimental, premium |
-| Cyan `#22d3ee` | `--accent-cyan` | Secondary info, alternative highlight |
+**Let the task output drive the structure.** There is no fixed layout — choose what fits:
+- A simple summary page for a small task
+- A dashboard with stats and cards for a multi-file change
+- A comparison table for benchmarks or before/after analysis
+- A narrative with callouts for research findings
 
----
-
-## Available Components
-
-`card`, `card-grid`, `table`, `badge` (green/yellow/red/blue/purple), `callout` (info/warn/danger/success), `score-bar`, `stat-row`, `trend-item`, `code-block`, `tag-list`
+Use the dark theme design system and component library for a consistent, polished look — but pick only the components that serve your content.
 
 ---
 
@@ -57,15 +50,15 @@ Generate a self-contained, dark-themed HTML report — saved to the session file
 
 This skill has **3 tiers**. You are reading **Tier 1** (brief).
 
-📘 **GUIDE.md** — Read when you are ready to start building the report.
-Contains: the 5-step process, filename conventions, HTML skeleton, and quality tips.
+📘 **GUIDE.md** — Read when you are ready to build the page.
+Contains: the build process, filename conventions, HTML skeleton, layout guidance, and quality tips.
 
 ```bash
 cat ~/.copilot/skills/html-report/GUIDE.md
 ```
 
 📖 **DETAIL.md** — Read when you need the exact CSS or component HTML snippets.
-Contains: full design system CSS, sidebar JS, and copy-paste component library.
+Contains: full design system CSS, optional sidebar JS, and copy-paste component library.
 **Do NOT generate CSS from memory** — always read DETAIL.md for the canonical styles.
 
 ```bash
