@@ -32,7 +32,7 @@ Do **not** trigger if:
 ## How to Use
 
 ### Step 1 — Read the Acceptance Criteria
-Read the product spec, TASK_CONTEXT.md, or user brief. Extract every acceptance criterion as a numbered list. If none exist, **stop and request them** before proceeding.
+Read the product spec, handoff payload, or user brief. Extract every acceptance criterion as a numbered list. If none exist, **stop and request them** before proceeding.
 
 ```
 Example:

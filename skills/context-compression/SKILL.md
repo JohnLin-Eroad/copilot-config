@@ -191,4 +191,4 @@ Recommendation: {split STM / archive early agents / proceed with current size}
 | `context-compression` | STM > 200KB or context degrading — compress to essential signal |
 | `brain-sync` | Writing permanent knowledge to the Obsidian vault |
 | `session-summary` | Producing a human-readable summary of what the pipeline achieved |
-| `handoff-protocol` | Structuring agent-to-agent handoffs via TASK_CONTEXT.md |
+| `handoff-protocol` | Structuring targeted agent-to-agent handoffs |
