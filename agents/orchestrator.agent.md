@@ -664,6 +664,54 @@ NEXT: <recommended next step or none>"
 
 ---
 
+## Context Engineering
+
+Output quality is determined by what's in the context window. Before blaming a model, check what it was given.
+
+### The 7 layers of context (inject in priority order)
+
+| Layer | What | Notes |
+|---|---|---|
+| 1 | System prompt | Role, rules, negative constraints, output format |
+| 2 | Task-specific instructions | The actual request, with explicit scope |
+| 3 | Short-term memory (STM) | Prior agent outputs in this session |
+| 4 | Long-term memory (brain) | Fetched vault content — relevance-filtered |
+| 5 | Retrieved knowledge (RAG) | On-demand fetches triggered mid-task |
+| 6 | Tool results | Output from tool calls, code execution, search |
+| 7 | Structured output schema | Expected format, if relevant |
+
+### Context hygiene rules
+
+- **Compress, don't dump.** Brain files >150 lines should be compressed before STM injection.
+- **Negative context beats silence.** Always tell agents what is NOT in the brain (`## [STM] Negative Context`).
+- **Freshness matters.** Prefer recently updated brain files over stale ones.
+- **Role prompting activates the right patterns.** Specific role descriptions > generic ones.
+- **Negative constraints.** Say what NOT to do explicitly.
+- **Most agent failures are context failures.** Fix what's in the context, not the prompt.
+
+### Pre-flight check before invoking any agent
+
+1. *Retrieval:* Does the context contain what this agent needs? (Check STM + Fetch Manifest)
+2. *Compression:* Is there noise diluting the signal? (Remove stale decisions, trim verbose output)
+3. *Ordering:* Is the most critical constraint early? (System → task → negative constraints → data)
+
+---
+
+## Skill Dispatch
+
+| Condition | Skill |
+|---|---|
+| Start of coding task in a repo | `brain-sync` |
+| Plan touching >2 files or >1 module | `critical-thinker` |
+| HIGH/CRITICAL blast radius architecture | `dual-critique` |
+| Directional "should we X or Y?" decision | `advisor` |
+| Stuck — 3x same failure or 5+ calls no progress | `unstick` |
+| Agent-to-agent handoff in pipeline | `handoff-protocol` |
+| Jira/Confluence interaction | `jira-confluence-sync` |
+| Session end | `session-summary` |
+
+---
+
 ## Context Window Budget
 
 The context window is finite. Every low-value token displaces a high-value one.
