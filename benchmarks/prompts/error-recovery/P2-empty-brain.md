@@ -12,16 +12,16 @@ Use the eroad-brain vault as your primary source.
 
 ## Setup
 
-Before running this prompt, temporarily rename the brain vault directory so brain-data-retrieval finds an empty/missing vault:
+Before running this prompt, temporarily move the brain vault to /tmp so brain-data-retrieval finds an empty vault (the backup must NOT be visible in ~ or the agent will find it):
 ```bash
-mv ~/eroad-brain ~/eroad-brain.bak
+mv ~/eroad-brain /tmp/.eroad-brain-bench-backup
 mkdir ~/eroad-brain  # empty directory
 ```
 
 After the test, restore:
 ```bash
 rm -rf ~/eroad-brain
-mv ~/eroad-brain.bak ~/eroad-brain
+mv /tmp/.eroad-brain-bench-backup ~/eroad-brain
 ```
 
 ## Expected Behavior

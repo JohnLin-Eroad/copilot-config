@@ -1674,7 +1674,7 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       const marker = toFailed ? "arr-red" : active ? "arr-blue" : fromDone ? "arr-green" : "arr";
 
       html += `<path d="M${fromPos.x},${fromPos.y+R} C${fromPos.x},${mid} ${toPos.x},${mid} ${toPos.x},${toPos.y-R}"
-        fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}"
+        fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}" pointer-events="none"
         marker-end="url(#${marker})" stroke-dasharray="${active ? '6 3' : bothDone ? '0' : fromDone ? '0' : '4 4'}">
         ${active ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
       </path>`;
