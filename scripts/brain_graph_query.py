@@ -191,20 +191,17 @@ def dual_search(
     like_search_terms = list(rewritten["like_terms"])
     # For multi-word queries, also search individual words — but only specific ones
     STOP_WORDS = {
-        "service", "services", "the", "and", "for", "from", "with", "that",
+        "the", "and", "for", "from", "with", "that",
         "this", "are", "was", "were", "been", "being", "have", "has", "had",
         "does", "did", "will", "would", "could", "should", "may", "might",
-        "shall", "can", "need", "must", "data", "type", "name", "file",
-        "code", "test", "tests", "testing", "used", "using", "uses",
+        "shall", "can", "need", "must", "file",
+        "used", "using", "uses",
         "into", "over", "under", "between", "through", "about", "each",
         "which", "their", "there", "when", "where", "what", "some", "more",
         "other", "also", "than", "then", "them", "these", "those", "only",
         "very", "just", "like", "make", "made", "many", "much", "most",
         "such", "well", "back", "even", "still", "after", "before",
-        "mobile", "framework", "distributed", "mesh", "end", "based",
-        "management", "platform", "system", "process", "event", "events",
-        "pattern", "patterns", "application", "config", "configuration",
-        "deploy", "deployment", "build", "version", "update", "create",
+        "based",
     }
     query_words = rewritten["original"].split()
     if len(query_words) >= 2:
@@ -239,6 +236,43 @@ def dual_search(
                     "graph_bonus": 0.0, "combined_score": base_score,
                     "source": "like",
                 })
+
+    # ----- Pass 2b: Multi-word intersection boost -----
+    # For multi-word queries, files containing ALL significant words score much higher
+    significant_words = [w for w in query_words if len(w) >= 3 and w.lower() not in STOP_WORDS]
+    if len(significant_words) >= 2:
+        # Build SQL to find files containing ALL significant words
+        conditions = " AND ".join(
+            [f"(content LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%')" for _ in significant_words]
+        )
+        params = []
+        for w in significant_words:
+            params.extend([w, w])
+        sql = f"""
+            SELECT id, rel_path, title, basename, domain, subdomain
+            FROM nodes WHERE vault = ? AND tombstone = 0 AND {conditions}
+            LIMIT ?
+        """
+        intersection_rows = conn.execute(sql, (vault, *params, max_results * 3)).fetchall()
+        
+        for r in intersection_rows:
+            if r[0] not in seen_ids:
+                seen_ids.add(r[0])
+                hits.append({
+                    "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
+                    "domain": r[4], "subdomain": r[5],
+                    "bm25_score": 8.0,
+                    "graph_bonus": 0.0, "combined_score": 8.0,
+                    "source": "like_intersection",
+                })
+            else:
+                # Boost existing hits that match ALL words
+                for h in hits:
+                    if h["id"] == r[0] and h["combined_score"] < 8.0:
+                        h["bm25_score"] = 8.0
+                        h["combined_score"] = 8.0
+                        h["source"] = h["source"] + "+intersection"
+                        break
 
     # ----- Pass 3: Path prefix search -----
     if rewritten["path_prefix"]:
@@ -362,6 +396,38 @@ def dual_search(
                     h["bm25_score"] = tf_boost
                     h["combined_score"] = tf_boost
                     h["source"] = h["source"] + "+boost"
+
+    # ----- Negative-query guard -----
+    # For multi-word queries: if the most distinctive term doesn't exist in the vault,
+    # the results are noise from common terms. Suppress them.
+    query_terms = [w for w in rewritten["original"].split() if len(w) >= 4]
+    if len(query_terms) >= 2:
+        # Find the rarest term (lowest count in vault)
+        term_counts = []
+        for w in query_terms:
+            cnt = conn.execute(
+                "SELECT COUNT(*) FROM nodes WHERE vault = ? AND tombstone = 0 AND content LIKE ?",
+                (vault, f"%{w}%")
+            ).fetchone()[0]
+            term_counts.append((w, cnt))
+        
+        # Sort by count (rarest first)
+        term_counts.sort(key=lambda x: x[1])
+        rarest_word, rarest_count = term_counts[0]
+        
+        if rarest_count == 0:
+            # Most distinctive term is absent — suppress all low-scoring hits
+            hits = [h for h in hits if h["combined_score"] >= 10.0]
+        elif rarest_count <= 3 and len(hits) > rarest_count * 3:
+            # Very rare term but exists — keep only hits containing the rare term
+            rare_ids = set(
+                r[0] for r in conn.execute(
+                    "SELECT id FROM nodes WHERE vault = ? AND tombstone = 0 AND content LIKE ?",
+                    (vault, f"%{rarest_word}%")
+                ).fetchall()
+            )
+            # Keep hits that contain the rare term OR have high scores
+            hits = [h for h in hits if h["id"] in rare_ids or h["combined_score"] >= 10.0]
 
     return hits
 
