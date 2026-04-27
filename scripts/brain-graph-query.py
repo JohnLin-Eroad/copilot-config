@@ -504,8 +504,21 @@ def tier1_query(
     """Full pipeline: dual-search + graph rerank + 1-hop expand + gap analysis."""
     rewritten = rewrite_query(raw_query)
 
+    # Adaptive max: for broad queries, return more results
+    # Count FTS hits to gauge query breadth
+    fts_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes_fts WHERE nodes_fts MATCH ?",
+        (rewritten["fts_query"],)
+    ).fetchone()[0] if rewritten["fts_query"] else 0
+    
+    effective_max = max_results
+    if fts_count > 60:
+        effective_max = min(max_results + 20, 50)  # Up to 50 for broad queries
+    elif fts_count > 30:
+        effective_max = min(max_results + 10, 40)  # Up to 40 for medium queries
+
     # Dual search
-    hits = dual_search(conn, vault, rewritten, max_results)
+    hits = dual_search(conn, vault, rewritten, effective_max)
 
     # Graph rerank
     G = load_graph(conn)
