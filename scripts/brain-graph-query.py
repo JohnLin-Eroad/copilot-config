@@ -201,10 +201,18 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": 15.0,  # high score for path prefix matches
+                    "bm25_score": 15.0,
                     "graph_bonus": 0.0, "combined_score": 15.0,
                     "source": "path_prefix",
                 })
+            else:
+                # Boost existing hits that are under the path prefix
+                for h in hits:
+                    if h["id"] == r[0] and h["combined_score"] < 15.0:
+                        h["bm25_score"] = 15.0
+                        h["combined_score"] = 15.0
+                        h["source"] = "path_prefix"
+                        break
 
     # Basename exact match boost — push direct name matches to top
     for term in rewritten.get("basename_terms", []):
