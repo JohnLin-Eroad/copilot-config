@@ -347,24 +347,10 @@ def run_benchmark(vault_path=None, compact=False, max_results=25):
 
 
 if __name__ == "__main__":
-    vault = VAULT_PATH
-    compact = False
-    max_results = 25
-    for arg in sys.argv[1:]:
-        if arg == "--compact":
-            compact = True
-        elif arg.startswith("--max-results="):
-            max_results = int(arg.split("=")[1])
-        elif arg.startswith("--vault-path"):
-            pass
-        elif not arg.startswith("-"):
-            vault = Path(arg)
-    if "--vault-path" in sys.argv:
-        idx = sys.argv.index("--vault-path")
-        if idx + 1 < len(sys.argv):
-            vault = Path(sys.argv[idx + 1])
-    if "--max-results" in sys.argv:
-        idx = sys.argv.index("--max-results")
-        if idx + 1 < len(sys.argv):
-            max_results = int(sys.argv[idx + 1])
-    run_benchmark(vault, compact, max_results)
+    import argparse as _ap
+    p = _ap.ArgumentParser()
+    p.add_argument("--vault-path", type=Path, default=VAULT_PATH)
+    p.add_argument("--compact", action="store_true")
+    p.add_argument("--max-results", type=int, default=25)
+    a = p.parse_args()
+    run_benchmark(a.vault_path, a.compact, a.max_results)
