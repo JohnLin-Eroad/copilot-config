@@ -37,7 +37,7 @@ COPILOT = "/opt/homebrew/bin/copilot"
 # timeout = max seconds for execution (default 600, override per category)
 CATEGORIES = {
     "code-generation":          {"pool_size": 4, "weight": 0.20, "executor_agent": "developer",            "cwd": SOVEREIGN},
-    "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
+    "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN, "executor_model": "claude-sonnet-4.6"},
     "security-review":          {"pool_size": 4, "weight": 0.15, "executor_agent": "security",              "cwd": SOVEREIGN},
     "planning":                 {"pool_size": 4, "weight": 0.15, "executor_agent": "architect",             "cwd": SOVEREIGN},
     "hallucination-resistance": {"pool_size": 4, "weight": 0.10, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
