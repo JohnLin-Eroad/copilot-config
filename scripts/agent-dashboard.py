@@ -1621,7 +1621,10 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     const isPending = !isActive && !isDone && !isFailed && !isSkipped;
     const opacity = isSkipped ? "0.35" : isPending ? "0.45" : "1";
 
-    let g = `<g class="dag-node" data-node-id="${node.id}" opacity="${opacity}" style="cursor:pointer">`;
+    let g = `<g class="dag-node" data-node-id="${node.id}" opacity="${opacity}" style="cursor:pointer"
+      onmouseover="window.__dagShowTooltip(event, '${node.id}')"
+      onmouseout="window.__dagHideTooltip()"
+      onclick="window.__dagShowModal('${node.id}')">`;
     if (isActive) {
       g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3">
         <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
