@@ -1099,6 +1099,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .superseded-badge{font-size:0.62rem;padding:1px 5px;border-radius:3px;
   background:rgba(100,116,139,0.15);color:var(--text3);margin-left:6px;vertical-align:middle}
 @keyframes slide-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
 .tl-content{flex:1;min-width:0}
 .tl-agent{font-size:0.78rem;font-weight:600;color:var(--text)}
