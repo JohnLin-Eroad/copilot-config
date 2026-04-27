@@ -7,7 +7,10 @@ I need a comprehensive overview of EROAD's telematics data pipeline.
 Fetch all relevant context from the brain vault and provide a detailed explanation
 of how data flows from vehicle devices to the central platform.
 
-Use the eroad-brain vault as your primary source.
+Use the eroad-brain vault as your primary source. If the vault is empty or missing
+the information you need, report that honestly — do NOT clone repositories, search
+GitHub, use training data, or attempt workarounds. The goal is to demonstrate
+graceful handling of missing data, not creative recovery.
 ```
 
 ## Setup
