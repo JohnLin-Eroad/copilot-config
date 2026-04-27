@@ -1351,6 +1351,60 @@ const STAGE_LABELS = {
   3: "INTEGRATE",   4: "RECONCILE", 5: "CONSOLIDATE"
 };
 
+// ── Pipeline summary banner ──
+function updatePipelineSummary(dag) {
+  const el = document.getElementById('pipeline-summary');
+  if (!el || !dag || !dag.nodes || dag.nodes.length === 0) {
+    if (el) el.classList.remove('visible');
+    return;
+  }
+  const nodes = dag.nodes;
+  const total = nodes.length;
+  const done = nodes.filter(n => n.status === 'done').length;
+  const running = nodes.filter(n => n.status === 'running').length;
+  const failed = nodes.filter(n => n.status === 'failed').length;
+  const skipped = nodes.filter(n => n.status === 'skipped').length;
+  const pending = nodes.filter(n => n.status === 'pending').length;
+
+  const allDone = done + skipped === total;
+  const hasFailed = failed > 0;
+  const pipelineStatus = hasFailed ? 'failed' : allDone ? 'done' : 'running';
+  const pct = Math.round((done + skipped) / total * 100);
+
+  // Compute total pipeline duration
+  const starts = nodes.filter(n => n.started_at).map(n => new Date(n.started_at).getTime());
+  const ends = nodes.filter(n => n.completed_at).map(n => new Date(n.completed_at).getTime());
+  const pipelineStart = starts.length > 0 ? Math.min(...starts) : null;
+  const pipelineEnd = allDone && ends.length > 0 ? Math.max(...ends) : null;
+  const elapsed = pipelineStart ? Math.round(((pipelineEnd || Date.now()) - pipelineStart) / 1000) : 0;
+  const durStr = elapsed >= 60 ? `${Math.floor(elapsed/60)}m ${elapsed%60}s` : `${elapsed}s`;
+
+  const statusEmoji = hasFailed ? '❌' : allDone ? '✅' : '⏳';
+  const statusLabel = hasFailed ? 'Failed' : allDone ? 'Complete' : 'Running';
+  const statusColor = hasFailed ? '#f87171' : allDone ? '#34d399' : '#6c8ef7';
+
+  el.className = 'visible ' + pipelineStatus;
+  el.innerHTML = `
+    <div class="ps-header">
+      <span class="ps-title">${statusEmoji} Pipeline ${statusLabel}</span>
+      <span class="ps-badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44">${pct}% complete</span>
+    </div>
+    <div class="ps-stats">
+      <span class="ps-stat"><b>${total}</b> agents</span>
+      <span class="ps-stat"><b style="color:#34d399">${done}</b> done</span>
+      ${running > 0 ? `<span class="ps-stat"><b style="color:#6c8ef7">${running}</b> running</span>` : ''}
+      ${pending > 0 ? `<span class="ps-stat"><b style="color:#475569">${pending}</b> pending</span>` : ''}
+      ${failed > 0 ? `<span class="ps-stat"><b style="color:#f87171">${failed}</b> failed</span>` : ''}
+      ${skipped > 0 ? `<span class="ps-stat"><b style="color:#64748b">${skipped}</b> skipped</span>` : ''}
+      <span class="ps-stat">⏱ <b>${durStr}</b></span>
+      ${allDone ? `<span class="ps-stat">🏁 finished</span>` : ''}
+    </div>
+    ${!allDone && total > 0 ? `<div style="background:#1e2d45;height:4px;border-radius:2px;margin-top:10px;overflow:hidden">
+      <div style="background:${statusColor};height:100%;width:${pct}%;border-radius:2px;transition:width 0.5s"></div>
+    </div>` : ''}
+  `;
+}
+
 function drawPipeline(agents, timeline) {
   const svg = document.getElementById("pipeline-svg");
   const dagData = window.__latestData?.dag;
