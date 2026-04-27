@@ -367,8 +367,43 @@ def tier1_query(
     expand_budget = max(max_results - len(hits), 5)
     expanded = expand_neighbors(hits, G, hub_threshold, expand_budget, conn, vault)
 
-    # Merge
+    # Merge and apply domain diversity
     all_results = hits + expanded
+
+    # Domain diversity: ensure results cover different domains (architecture, learning, etc.)
+    # This prevents BM25 from returning only service docs when architecture/decision docs also match
+    domain_counts = defaultdict(int)
+    for r in all_results[:max_results]:
+        domain_counts[r.get("domain", "unclassified")] += 1
+
+    # Find domains in ALL results (not just top-N) that are missing from top-N
+    all_domains = set()
+    domain_best = {}  # best scoring hit per domain not in top-N
+    for i, r in enumerate(all_results):
+        d = r.get("domain", "unclassified")
+        all_domains.add(d)
+        if d not in domain_counts and i >= max_results:
+            if d not in domain_best:
+                domain_best[d] = r
+
+    # Inject missing-domain representatives into results (replace lowest-scoring same-domain dups)
+    if domain_best:
+        # Sort current top-N by score ascending to find replacement candidates
+        top = all_results[:max_results]
+        overflow_domains = {d: c for d, c in domain_counts.items() if c > 2}
+        for missing_domain, rep in domain_best.items():
+            # Find lowest-scoring item from an over-represented domain
+            candidates = [(i, r) for i, r in enumerate(top)
+                         if r.get("domain") in overflow_domains]
+            if candidates:
+                candidates.sort(key=lambda x: x[1]["combined_score"])
+                idx = candidates[0][0]
+                replaced_domain = top[idx].get("domain")
+                top[idx] = rep
+                overflow_domains[replaced_domain] = overflow_domains.get(replaced_domain, 1) - 1
+                if overflow_domains.get(replaced_domain, 0) <= 2:
+                    del overflow_domains[replaced_domain]
+        all_results = top + all_results[max_results:]
 
     # Deduplicate against manifest
     if manifest:
