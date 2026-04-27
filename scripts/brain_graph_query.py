@@ -984,35 +984,76 @@ def fetch_content(result_ids: list[str], db_path: Path = DEFAULT_DB) -> dict[str
 
 def main():
     parser = argparse.ArgumentParser(description="Brain graph query engine")
-    parser.add_argument("--vault", required=True)
-    parser.add_argument("--query", required=True)
+    sub = parser.add_subparsers(dest="command", help="Command to run")
+    
+    # Search command (default)
+    search_p = sub.add_parser("search", help="Search by query")
+    search_p.add_argument("--vault", required=True)
+    search_p.add_argument("--query", required=True)
+    search_p.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
+    search_p.add_argument("--mode", choices=["full", "fts-only", "grep"], default="full")
+    search_p.add_argument("--db-path", type=Path, default=DEFAULT_DB)
+    search_p.add_argument("--manifest", help="Comma-separated node IDs already fetched")
+    search_p.add_argument("--fetch-content", action="store_true")
+    search_p.add_argument("--compact", action="store_true")
+    
+    # Traverse command
+    trav_p = sub.add_parser("traverse", help="BFS traversal from a starting node")
+    trav_p.add_argument("--vault", default="eroad")
+    trav_p.add_argument("--start", required=True, help="Starting node rel_path or partial name")
+    trav_p.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
+    trav_p.add_argument("--max-depth", type=int, default=1)
+    trav_p.add_argument("--domain", help="Filter results to this domain")
+    trav_p.add_argument("--exclude", help="Comma-separated node IDs to exclude")
+    trav_p.add_argument("--db-path", type=Path, default=DEFAULT_DB)
+    trav_p.add_argument("--fetch-content", action="store_true")
+    trav_p.add_argument("--compact", action="store_true")
+    
+    # Legacy: if no subcommand, treat as search
+    parser.add_argument("--vault", required=False)
+    parser.add_argument("--query", required=False)
     parser.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
     parser.add_argument("--mode", choices=["full", "fts-only", "grep"], default="full")
     parser.add_argument("--db-path", type=Path, default=DEFAULT_DB)
     parser.add_argument("--manifest", help="Comma-separated node IDs already fetched")
     parser.add_argument("--fetch-content", action="store_true")
     parser.add_argument("--compact", action="store_true")
+    
     args = parser.parse_args()
-
-    manifest = set(args.manifest.split(",")) if args.manifest else None
-
-    t0 = time.monotonic()
-    result = query(
-        vault=args.vault,
-        raw_query=args.query,
-        max_results=args.max_results,
-        manifest=manifest,
-        mode=args.mode,
-        db_path=args.db_path,
-    )
-    elapsed = time.monotonic() - t0
-    result["elapsed_ms"] = round(elapsed * 1000, 1)
-
-    if args.fetch_content and result["results"]:
-        content_map = fetch_content([r["id"] for r in result["results"]], args.db_path)
-        for r in result["results"]:
-            r["content"] = content_map.get(r["id"], "")
-
+    
+    if args.command == "traverse":
+        exclude = set(args.exclude.split(",")) if args.exclude else None
+        t0 = time.monotonic()
+        result = traverse(
+            start_node=args.start, vault=args.vault,
+            max_depth=args.max_depth, max_results=args.max_results,
+            filter_domain=args.domain, exclude_visited=exclude,
+            db_path=args.db_path,
+        )
+        result["elapsed_ms"] = round((time.monotonic() - t0) * 1000, 1)
+        if args.fetch_content and result["results"]:
+            content_map = fetch_content([r["id"] for r in result["results"]], args.db_path)
+            for r in result["results"]:
+                r["content"] = content_map.get(r["id"], "")
+    else:
+        # Search mode (default or explicit)
+        vault = args.vault
+        raw_query = args.query
+        if not vault or not raw_query:
+            parser.print_help()
+            sys.exit(1)
+        manifest = set(args.manifest.split(",")) if args.manifest else None
+        t0 = time.monotonic()
+        result = query(
+            vault=vault, raw_query=raw_query, max_results=args.max_results,
+            manifest=manifest, mode=args.mode, db_path=args.db_path,
+        )
+        result["elapsed_ms"] = round((time.monotonic() - t0) * 1000, 1)
+        if args.fetch_content and result["results"]:
+            content_map = fetch_content([r["id"] for r in result["results"]], args.db_path)
+            for r in result["results"]:
+                r["content"] = content_map.get(r["id"], "")
+    
     indent = None if args.compact else 2
     print(json.dumps(result, indent=indent))
 
