@@ -11,24 +11,24 @@
     "error_recovery": "P2-empty-brain",
     "pipeline_compliance": "P1-simple-code-task"
   },
-  "overall": 50.1,
-  "vs_previous": -37.0,
+  "overall": 52.8,
+  "vs_previous": -34.3,
   "categories_scored": 7,
   "categories_total": 7,
   "scores": {
     "code_generation": {
-      "score": 59.0,
+      "score": 72.2,
       "prompt_id": "P4-trip-summary",
       "executor_model": "gpt-5.3-codex",
       "grader_model": "claude-opus-4.6",
       "dimensions": {
-        "Correctness": 62,
-        "Hexagonal compliance": 88,
-        "Java 21 idioms": 45,
-        "Javadoc completeness": 15,
-        "Test quality": 68
+        "Correctness": 75,
+        "Hexagonal compliance": 95,
+        "Java 21 idioms": 65,
+        "Javadoc completeness": 25,
+        "Test quality": 85
       },
-      "notes": "The agent found and verified pre-existing code rather than generating it, providing only structural claims and test pass counts without showing any actual implementation. While the architecture appears correct and tests pass, this is fundamentally a code-generation task where the deliverable (visible, verifiable code) was never produced in the output."
+      "notes": "The agent found pre-existing correct implementation rather than writing new code. Architecture placement is excellent and tests pass comprehensively, but actual code content is never shown in output, making it impossible to verify Java idiom quality, Javadoc presence, or exact computation correctness beyond test assertions. The agent effectively validated existing work rather than generating new code as requested."
     },
     "context_retrieval": {
       "score": 61.0,
