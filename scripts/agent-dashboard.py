@@ -1495,6 +1495,15 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#34d399"/></marker>
     <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6c8ef7"/></marker>
     <marker id="arr-red"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f87171"/></marker>
+  </defs>`;
+
+  // Layer separator lines with labels
+  layerKeys.forEach(layer => {
+    const nodesInLayer = layers[layer];
+    const rowY = pos[nodesInLayer[0].id].y;
+    const label = nodesInLayer.length === 1 ? nodesInLayer[0].label.toUpperCase() : `LAYER ${layer}`;
+    html += `<line x1="0" y1="${rowY}" x2="${W}" y2="${rowY}" stroke="#1e2d45" stroke-width="1" opacity="0.35" stroke-dasharray="3 4"/>`;
+    html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1">${label}</text>`;
   });
 
   // Edges based on ACTUAL dependencies
