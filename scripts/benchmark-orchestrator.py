@@ -714,7 +714,7 @@ def main():
     total_elapsed = time.time() - total_start
 
     # Phase 4: Write results and report
-    results = write_results(week, scores, prompt_rotation)
+    results = write_results(week, scores, prompt_rotation, cats_to_run)
     write_report(week, results)
 
     # Phase 5: Git commit
