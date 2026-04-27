@@ -253,6 +253,53 @@ bash ~/.copilot/scripts/brain-manifest.sh init "$MANIFEST_PATH"
 
 The manifest tracks fetched files, search queries, and absent topics across all brain-data-retrieval invocations in this pipeline. Pass `MANIFEST_PATH` to every brain-data-retrieval call.
 
+### Creating the Pipeline DAG
+
+After classifying the task, create the pipeline DAG based on the pipeline type:
+
+```bash
+DAG_PATH="${STM_DIR}/pipeline-dag.json"
+
+# Choose template based on classification
+# minimal:            brain-retrieval → specialist → consolidation
+# standard:           brain-retrieval → architect → [security, tech-lead] → [devs] → testing → review → consolidation
+# full-transformation: all phases including product-mgr, devops, docs
+
+bash ~/.copilot/scripts/pipeline-dag.sh template "$DAG_PATH" standard   # or minimal, full-transformation
+```
+
+You can also build a custom DAG node-by-node:
+```bash
+bash ~/.copilot/scripts/pipeline-dag.sh init "$DAG_PATH"
+bash ~/.copilot/scripts/pipeline-dag.sh add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch"
+bash ~/.copilot/scripts/pipeline-dag.sh add-node "$DAG_PATH" my-agent some-agent --label "My Step" --deps "brain-retrieval"
+bash ~/.copilot/scripts/pipeline-dag.sh add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "my-agent"
+```
+
+**Scheduling with the DAG — use instead of hardcoded phase ordering:**
+```bash
+# Check which nodes are ready to run (all deps met)
+READY=$(bash ~/.copilot/scripts/pipeline-dag.sh ready "$DAG_PATH")
+
+# Before launching an agent:
+bash ~/.copilot/scripts/pipeline-dag.sh start "$DAG_PATH" <node-id>
+
+# After agent completes:
+bash ~/.copilot/scripts/pipeline-dag.sh complete "$DAG_PATH" <node-id>
+# → automatically shows which nodes are now ready
+
+# Skip a node (deps met but not needed for this task):
+bash ~/.copilot/scripts/pipeline-dag.sh skip "$DAG_PATH" <node-id>
+
+# If agent fails:
+bash ~/.copilot/scripts/pipeline-dag.sh fail "$DAG_PATH" <node-id> "reason"
+
+# View current state:
+bash ~/.copilot/scripts/pipeline-dag.sh status "$DAG_PATH"
+```
+
+The DAG is displayed in the dashboard pipeline diagram. When a DAG file exists, the dashboard renders actual dependencies instead of hardcoded stages.
+
 After creating the STM, update the Classification block immediately:
 
 ```
