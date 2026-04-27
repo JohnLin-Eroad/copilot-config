@@ -1785,11 +1785,35 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
         body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
           <span class="detail-value findings">${a.findings}</span></div>`;
       } else if (n.status === 'pending') {
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
+        const desc = n.description || '';
+        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Status</span>
           <span class="detail-value findings" style="color:#334155">⏳ Waiting for dependencies to complete…</span></div>`;
+        if (desc) {
+          body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Task Brief</span>
+            <span class="detail-value findings" style="color:#64748b">${desc}</span></div>`;
+        }
       } else if (n.status === 'running') {
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
-          <span class="detail-value findings" style="color:#6c8ef7">🔄 Agent is currently working…</span></div>`;
+        const desc = n.description || '';
+        const elapsed = n.started_at ? Math.round((Date.now() - new Date(n.started_at).getTime()) / 1000) : 0;
+        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Live Status</span>
+          <span class="detail-value findings" style="color:#6c8ef7">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+              <span style="display:inline-block;width:8px;height:8px;background:#6c8ef7;border-radius:50%;animation:pulse 1.2s infinite"></span>
+              Agent is working… ${elapsed > 0 ? `(${elapsed}s elapsed)` : ''}
+            </div>
+            ${desc ? `<div style="color:#94a3b8;margin-top:4px;padding-top:8px;border-top:1px solid #1e2d45"><strong style="color:#64748b;font-size:0.7rem;text-transform:uppercase">Task Brief:</strong><br/>${desc}</div>` : ''}
+          </span></div>`;
+      } else if (n.status === 'done' && !a) {
+        // Completed but no STM entry (e.g., orchestrator node)
+        const desc = n.description || 'Completed successfully';
+        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Output</span>
+          <span class="detail-value findings" style="color:#34d399">✅ ${desc}</span></div>`;
+      }
+
+      // Decisions
+      if (a && a.decisions) {
+        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Decisions</span>
+          <span class="detail-value findings" style="border-color:#fbbf2433">${a.decisions}</span></div>`;
       }
 
       // Files
@@ -1797,6 +1821,12 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
         const fileItems = a.files.map(f => `<li>📄 ${f}</li>`).join('');
         body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Files</span>
           <ul class="files-list">${fileItems}</ul></div>`;
+      }
+
+      // Next step
+      if (a && a.next) {
+        body += `<div class="detail-row"><span class="detail-label">Next</span>
+          <span class="detail-value" style="color:#fbbf24">${a.next}</span></div>`;
       }
 
       // Failed reason
