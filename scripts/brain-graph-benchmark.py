@@ -251,15 +251,16 @@ def run_benchmark(vault_path=None, compact=False, max_results=25):
     ac5_pass = avg_graph_recall >= 0.85
     print(f"  AC-5 Overall retrieval (recall≥0.85): {'✅ PASS' if ac5_pass else '❌ FAIL'} ({avg_graph_recall:.3f})")
 
-    # AC-6: Sync correctness (already validated, re-check node count)
+    # AC-6: Sync correctness (check real nodes match vault files; _unresolved placeholders are expected extra)
     import sqlite3
     conn = sqlite3.connect(str(DB_PATH))
     node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+    real_node_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE rel_path NOT LIKE '_unresolved/%'").fetchone()[0]
     edge_count = conn.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
     conn.close()
     vault_count = sum(1 for _ in vault.rglob("*.md") if not str(_).startswith(str(vault / ".obsidian")))
-    ac6_pass = node_count == vault_count
-    print(f"  AC-6 Sync correctness: {'✅ PASS' if ac6_pass else '❌ FAIL'} (DB={node_count}, vault={vault_count})")
+    ac6_pass = real_node_count == vault_count
+    print(f"  AC-6 Sync correctness: {'✅ PASS' if ac6_pass else '❌ FAIL'} (DB_real={real_node_count}, vault={vault_count}, unresolved={node_count - real_node_count})")
 
     # AC-7: Orphan reachability (FTS finds orphans)
     orphan_query = """
