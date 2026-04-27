@@ -1223,8 +1223,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <!-- Pipeline SVG diagram -->
     <div class="section-label" style="margin-bottom:12px">Pipeline Flow</div>
     <div id="pipeline-summary"></div>
-    <div id="pipeline-wrap">
+    <div id="pipeline-wrap" style="position:relative">
       <svg id="pipeline-svg" width="100%" height="240"></svg>
+      <div id="pipeline-click-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5"></div>
     </div>
     <!-- DAG hover tooltip -->
     <div id="dag-tooltip"></div>
