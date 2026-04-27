@@ -316,6 +316,10 @@ STM_PATH: {STM_PATH}
 ### Prior Agent Work (build on this — do NOT repeat their analysis)
 {paste summary of prior Agent Contributions, or "No prior contributions."}
 
+### Expected Output
+{describe what "done" looks like — format, files, artifacts, criteria}
+Example: "A Java class implementing RepoSyncPort with unit tests. Files: RepoSyncAdapter.java, RepoSyncAdapterTest.java. Must compile with `mvn -pl infrastructure compile`."
+
 ---
 
 ## STM-First Rule
