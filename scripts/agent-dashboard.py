@@ -1960,7 +1960,8 @@ window.__dagShowModal = function(nodeId) {
 
   // Files
   if (a && a.files && a.files.length > 0) {
-    const fileItems = a.files.map(f => `<li>📄 ${f}</li>`).join('');
+    const fileList = Array.isArray(a.files) ? a.files : a.files.split(/,\s*/);
+    const fileItems = fileList.map(f => `<li>📄 ${f.trim()}</li>`).join('');
     body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Files</span>
       <ul class="files-list">${fileItems}</ul></div>`;
   }
