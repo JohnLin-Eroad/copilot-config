@@ -1700,18 +1700,18 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     const isPending = !isActive && !isDone && !isFailed && !isSkipped;
     const opacity = isSkipped ? "0.35" : isPending ? "0.45" : "1";
 
-    let g = `<g class="dag-node" data-node-id="${node.id}" opacity="${opacity}" style="cursor:pointer"
+    let g = `<g class="dag-node" data-node-id="${node.id}" opacity="${opacity}" style="cursor:pointer" pointer-events="all"
       onmouseover="window.__dagShowTooltip(event, '${node.id}')"
       onmouseout="window.__dagHideTooltip()"
       onclick="window.__dagShowModal('${node.id}')">`;
     if (isActive) {
-      g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3">
+      g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3" pointer-events="none">
         <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
         <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
       </circle>`;
     }
-    // Invisible larger hit target for easier hover/click
-    g += `<circle cx="${x}" cy="${y}" r="${R+8}" fill="none" pointer-events="all" class="dag-hit-target"/>`;
+    // Invisible larger hit target — use near-transparent fill (fill="none" is unreliable for pointer-events in some browsers)
+    g += `<circle cx="${x}" cy="${y}" r="${R+10}" fill="rgba(0,0,0,0.001)" class="dag-hit-target"/>`;
     g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}"
       stroke-width="${isActive ? 2.5 : 1.5}" ${isActive ? 'filter="url(#glow)"' : ''}
       ${isSkipped ? 'stroke-dasharray="4 3"' : ''}/>`;
