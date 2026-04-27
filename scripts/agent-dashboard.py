@@ -1627,8 +1627,8 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     const nodesInLayer = layers[layer];
     const rowY = pos[nodesInLayer[0].id].y;
     const label = nodesInLayer.length === 1 ? nodesInLayer[0].label.toUpperCase() : `LAYER ${layer}`;
-    html += `<line x1="0" y1="${rowY}" x2="${W}" y2="${rowY}" stroke="#1e2d45" stroke-width="1" opacity="0.35" stroke-dasharray="3 4"/>`;
-    html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1">${label}</text>`;
+    html += `<line x1="0" y1="${rowY}" x2="${W}" y2="${rowY}" stroke="#1e2d45" stroke-width="1" opacity="0.35" stroke-dasharray="3 4" pointer-events="none"/>`;
+    html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1" pointer-events="none">${label}</text>`;
   });
 
   // Edges based on ACTUAL dependencies — progressive reveal
