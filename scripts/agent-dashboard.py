@@ -1714,6 +1714,18 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     g += `<circle cx="${x+R-5}" cy="${y-R+5}" r="5" fill="${dotColor}" stroke="#0a0d14" stroke-width="1.5" pointer-events="none">
       ${isActive ? `<animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
     </circle>`;
+    // Duration label for completed nodes
+    if (isDone && node.started_at && node.completed_at) {
+      const dur = Math.round((new Date(node.completed_at) - new Date(node.started_at)) / 1000);
+      const durLabel = dur >= 60 ? `${Math.floor(dur/60)}m${dur%60}s` : `${dur}s`;
+      g += `<text x="${x}" y="${y+R+25}" text-anchor="middle" font-size="7.5" pointer-events="none"
+        fill="#475569" font-family="'SF Mono',monospace">${durLabel}</text>`;
+    } else if (isActive && node.started_at) {
+      const elapsed = Math.round((Date.now() - new Date(node.started_at).getTime()) / 1000);
+      const elLabel = elapsed >= 60 ? `${Math.floor(elapsed/60)}m${elapsed%60}s…` : `${elapsed}s…`;
+      g += `<text x="${x}" y="${y+R+25}" text-anchor="middle" font-size="7.5" pointer-events="none"
+        fill="#6c8ef7" font-family="'SF Mono',monospace">${elLabel}</text>`;
+    }
     g += `</g>`;
     return g;
   }
