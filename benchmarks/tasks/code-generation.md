@@ -1,43 +1,12 @@
 # Benchmark Task 1: Code Generation
 
 ## Purpose
-Tests the developer agent's ability to generate correct, idiomatic, hexagonally-compliant Java code from a **multi-file refactoring scenario** with deliberate ambiguity. This task rotates scenarios weekly to prevent Goodhart's Law (see Variant Rotation below).
 
-## Active Variant
+Tests the developer agent's ability to generate correct, idiomatic, hexagonally-compliant Java code. Prompts rotate weekly via the prompt pool system (see `prompts/INDEX.md`).
 
-> **Rotate this each week.** Pick the next variant from the list below and update "Active Variant" to point to it.
+## Prompt Pool
 
-**Current variant: E — TDD Red-Green (Tier 3)** ← *hardened W18*
-
-## Input Prompt (Variant E — Active)
-
-```
-The following JUnit 5 tests are failing. Your job is to implement the production classes
-that make ALL of them pass. Do not modify the tests.
-
-```java
-class FuelCardPolicyTest {
-
-    @Test void card_is_blocked_when_monthly_spend_exceeds_limit() {
-        var policy = new FuelCardPolicy(Money.of(500_00)); // $500 limit
-        var card = new FuelCard("FC-001", policy);
-        card.authorise(Money.of(300_00));
-        card.authorise(Money.of(150_00));
-        assertThrows(SpendLimitExceededException.class,
-            () -> card.authorise(Money.of(100_00))); // $550 total > $500
-    }
-
-    @Test void card_resets_spend_at_start_of_new_month() {
-        var policy = new FuelCardPolicy(Money.of(500_00));
-        var card = new FuelCard("FC-001", policy);
-        card.authorise(Money.of(400_00));
-        card.resetMonthlySpend(); // simulates month rollover
-        card.authorise(Money.of(400_00)); // should succeed — new month
-        assertEquals(Money.of(400_00), card.currentMonthSpend());
-    }
-
-    @Test void authorise_raises_domain_event() {
-        var policy = new FuelCardPolicy(Money.of(500_00));
+Prompts are in `prompts/code-generation/P1-P4.md`. Each prompt file includes its own rubric, expected behavior, and ground truth. The benchmark-runner selects the prompt using the rotation formula — do NOT select manually.
         var card = new FuelCard("FC-001", policy);
         card.authorise(Money.of(100_00));
         var events = card.domainEvents();
