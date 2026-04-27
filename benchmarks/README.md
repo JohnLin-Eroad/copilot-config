@@ -84,15 +84,6 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 
 ## Score History
 
-<<<<<<< HEAD
-| Week | Overall | Code | Context | Security | Planning | Workflow | Instr. | Retention | vs Prev |
-|---|---|---|---|---|---|---|---|---|---|
-| **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | — | — | 3.0 (N) | baseline |
-| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | — | — | 3.0 (N) | +0.265 |
-| **2026-W18** *(new weights)* | TBD | — | — | — | — | — | — | — | — |
-
-> **Note:** W16/W17 used old weights (25/25/20/20/10). From W18 onward, new weights apply (20/20/20/15/15/5/5). Scores are **not comparable** across this boundary — treat W18 as a new baseline.
-=======
 | Week | Overall | Code (20%) | Context (20%) | Security (15%) | Planning (15%) | Pipeline (15%) | Halluc. (10%) | Error (5%) | vs Prev |
 |---|---|---|---|---|---|---|---|---|---|
 | **2026-W16** 🏁 | **87.0** | 100 | 72 | 92 | 98 | — | — | — | baseline |
@@ -102,4 +93,3 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 *W16/W17 scores back-converted from 1-5 scale (×20). W18 was config-audit only (not real execution) — excluded from trend analysis. W19+ will use the new system with all 7 categories, rotating prompts, separate grading, and mandatory traces. Expect scores to drop initially — this is correct behavior, not regression.*
 
 *Categories marked "—" did not exist in that week's benchmark definition.*
->>>>>>> weekly/2026-W17
