@@ -172,6 +172,10 @@ def rebuild_all_edges(conn: sqlite3.Connection, vault_name: str) -> int:
     ).fetchall()
 
     edge_count = 0
+    unresolved_count = 0
+
+    # Build set of valid node IDs for FK safety
+    valid_ids = set(r[0] for r in rows)
 
     # Wiki-link + yaml_dep edges
     for node_id, rel_path, node_content in rows:
@@ -179,8 +183,11 @@ def rebuild_all_edges(conn: sqlite3.Connection, vault_name: str) -> int:
         seen = set()
         for raw_target, _bn in links:
             resolved = resolve_wiki_link(raw_target, lookup)
+            if resolved.startswith("_unresolved/"):
+                unresolved_count += 1
+                continue
             key = ("wiki_link", resolved)
-            if resolved != node_id and key not in seen:
+            if resolved != node_id and key not in seen and resolved in valid_ids:
                 seen.add(key)
                 conn.execute(
                     "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
@@ -190,14 +197,20 @@ def rebuild_all_edges(conn: sqlite3.Connection, vault_name: str) -> int:
 
         for dep in extract_yaml_deps(node_content):
             resolved = resolve_wiki_link(dep, lookup)
+            if resolved.startswith("_unresolved/"):
+                unresolved_count += 1
+                continue
             key = ("yaml_dep", resolved)
-            if resolved != node_id and key not in seen:
+            if resolved != node_id and key not in seen and resolved in valid_ids:
                 seen.add(key)
                 conn.execute(
                     "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
                     (node_id, resolved, "yaml_dep", EDGE_WEIGHTS["yaml_dep"])
                 )
                 edge_count += 1
+
+    if unresolved_count:
+        print(f"  Skipped {unresolved_count} unresolved link targets")
 
     # Folder sibling edges
     all_nodes = [(r[0], r[1]) for r in rows]
