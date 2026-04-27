@@ -74,7 +74,7 @@ def compute_precision_at_k(actual_files, expected_files, k=5):
     return hits / len(top_k)
 
 
-def run_benchmark(vault_path=None, compact=False):
+def run_benchmark(vault_path=None, compact=False, max_results=25):
     vault = Path(vault_path) if vault_path else VAULT_PATH
 
     with open(CORPUS_PATH) as f:
@@ -102,7 +102,7 @@ def run_benchmark(vault_path=None, compact=False):
             graph_result = graph_query(
                 vault="eroad",
                 raw_query=query_text,
-                max_results=15,
+                max_results=max_results,
                 mode="full",
                 db_path=DB_PATH
             )
@@ -116,7 +116,7 @@ def run_benchmark(vault_path=None, compact=False):
 
         # --- Legacy grep ---
         t0 = time.perf_counter()
-        grep_files = run_legacy_grep(query_text, vault, max_results=15)
+        grep_files = run_legacy_grep(query_text, vault, max_results=max_results)
         grep_ms = (time.perf_counter() - t0) * 1000
 
         # --- Metrics ---
@@ -349,9 +349,12 @@ def run_benchmark(vault_path=None, compact=False):
 if __name__ == "__main__":
     vault = VAULT_PATH
     compact = False
+    max_results = 25
     for arg in sys.argv[1:]:
         if arg == "--compact":
             compact = True
+        elif arg.startswith("--max-results="):
+            max_results = int(arg.split("=")[1])
         elif arg.startswith("--vault-path"):
             pass
         elif not arg.startswith("-"):
@@ -360,4 +363,8 @@ if __name__ == "__main__":
         idx = sys.argv.index("--vault-path")
         if idx + 1 < len(sys.argv):
             vault = Path(sys.argv[idx + 1])
-    run_benchmark(vault, compact)
+    if "--max-results" in sys.argv:
+        idx = sys.argv.index("--max-results")
+        if idx + 1 < len(sys.argv):
+            max_results = int(sys.argv[idx + 1])
+    run_benchmark(vault, compact, max_results)

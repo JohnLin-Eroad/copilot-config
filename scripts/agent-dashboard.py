@@ -1413,12 +1413,21 @@ function drawPipeline(agents, timeline) {
   if (dagData && dagData.nodes && dagData.nodes.length > 0) {
     updatePipelineSummary(dagData);
     const W = svg.clientWidth || 900;
-    drawPipelineFromDag(svg, dagData, agents || [], W, 24, 100, 40);
+    drawPipelineFromDag(svg, dagData, agents || [], W, 24, 110, 40);
+    // Visual state: green glow when pipeline complete
+    const wrap = document.getElementById('pipeline-wrap');
+    const allDone = dagData.nodes.every(n => n.status === 'done' || n.status === 'skipped');
+    const hasFailed = dagData.nodes.some(n => n.status === 'failed');
+    wrap.style.border = allDone ? '1px solid rgba(52,211,153,0.25)' :
+                         hasFailed ? '1px solid rgba(248,113,113,0.25)' : '1px solid transparent';
+    wrap.style.borderRadius = '12px';
+    wrap.style.padding = '8px';
     return;
   }
 
   if (!agents || agents.length === 0) {
     svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+    document.getElementById('pipeline-summary').classList.remove('visible');
     return;
   }
 
