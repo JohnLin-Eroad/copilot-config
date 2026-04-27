@@ -335,6 +335,11 @@ MANDATORY: Write your progress to the STM at start, after each major step, and a
   bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: in_progress\nFINDINGS: ..."
   bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" "{agent-name}" "STATUS: complete\nFINDINGS: ...\nFILES: ...\nNEXT: ..."
 
+## Verify After Edit
+After editing any code file, run the quality gate:
+  bash ~/.copilot/scripts/verify-edit.sh "{file-path}"
+This checks compilation (Java), types (TypeScript), or syntax (shell/Python). Fix failures before continuing.
+
 This is non-negotiable. Do not skip STM writes even if the task is short.
 ```
 
