@@ -189,11 +189,28 @@ def dual_search(
     # ----- Pass 2: LIKE search (coverage guarantee) -----
     # This ensures we find everything grep would find
     like_search_terms = list(rewritten["like_terms"])
-    # For multi-word queries, also search individual words (≥4 chars)
+    # For multi-word queries, also search individual words — but only specific ones
+    STOP_WORDS = {
+        "service", "services", "the", "and", "for", "from", "with", "that",
+        "this", "are", "was", "were", "been", "being", "have", "has", "had",
+        "does", "did", "will", "would", "could", "should", "may", "might",
+        "shall", "can", "need", "must", "data", "type", "name", "file",
+        "code", "test", "tests", "testing", "used", "using", "uses",
+        "into", "over", "under", "between", "through", "about", "each",
+        "which", "their", "there", "when", "where", "what", "some", "more",
+        "other", "also", "than", "then", "them", "these", "those", "only",
+        "very", "just", "like", "make", "made", "many", "much", "most",
+        "such", "well", "back", "even", "still", "after", "before",
+        "mobile", "framework", "distributed", "mesh", "end", "based",
+        "management", "platform", "system", "process", "event", "events",
+        "pattern", "patterns", "application", "config", "configuration",
+        "deploy", "deployment", "build", "version", "update", "create",
+    }
     query_words = rewritten["original"].split()
     if len(query_words) >= 2:
         for w in query_words:
-            if len(w) >= 4 and w not in like_search_terms:
+            wl = w.lower()
+            if len(w) >= 5 and wl not in STOP_WORDS and w not in like_search_terms:
                 like_search_terms.append(w)
 
     for term in like_search_terms:
