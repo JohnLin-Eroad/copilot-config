@@ -1,53 +1,42 @@
 {
   "week": "2026-W18",
-  "date": "2026-04-21",
-  "overall": 94.7,
-  "vs_previous": 4.4,
-  "categories": {
+  "date": "2026-04-27",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "hallucination_resistance": "P3-partial-context"
+  },
+  "overall": 6.2,
+  "vs_previous": -80.9,
+  "scores": {
     "code_generation": {
-      "score": 76.0,
-      "weight": 0.2,
-      "status": "WARN",
-      "notes": "All 8 files exist (4 agents + 4 skills). Agents: dependency-tracker, retrospective, pr-analyst, migration-validator \u2014 all have DO NOT, Output Format, Steps. Skills: tdd-workflow, blast-radius, rollback-plan, context-compression \u2014 all have Purpose, Steps, Output Contract. 4 skills correctly in copilot-instructions.md skill dispatch table. 4 agents NOT in copilot-instructions dispatch table (-integration score). Hexagonal refs sparse in agents. Completeness ~3.5/5 due to no explicit When To Use headings in some files."
+      "score": 0
     },
     "context_retrieval": {
-      "score": 90.0,
-      "weight": 0.25,
-      "status": "PASS",
-      "notes": "Base 4.5 (W17). tech-stack.md MISSING (brain-health-audit confirmed: optional file absent) \u2014 no +0.5 bonus. brain-health-audit.sh EXISTS and is executable \u2014 no penalty. brain-data-retrieval agent HAS Required Negative Context section \u2014 no -0.3 penalty. Final: 4.5."
+      "score": 0
     },
     "security_review": {
-      "score": 100.0,
-      "weight": 0.2,
-      "status": "PASS",
-      "notes": "Base 4.7 (W17). governance-rules.json has exactly 16 rules AND sec-005, sec-006, gov-006 all present \u2192 +0.3. security.agent.md handoff_description specifies structured JSON verdict (PASS/WARN/BLOCK) \u2192 +0.3. Total 5.0, capped at 5.0."
+      "score": 0
     },
     "planning": {
-      "score": 100.0,
-      "weight": 0.15,
-      "status": "PASS",
-      "notes": "Base 5.0 (W17). orchestrator.agent.md explicitly bans general-purpose as fallback (multiple references) \u2192 no -0.5. architect.agent.md enforces Blast Radius field in ADR format \u2192 no -0.3. copilot-instructions.md skill dispatch table includes all 4 new skills (tdd-workflow, blast-radius, rollback-plan, context-compression) \u2192 no -0.2. Final: 5.0."
+      "score": 0
     },
-    "learning_retention": {
-      "score": 100.0,
-      "weight": 0.1,
-      "status": "PASS",
-      "notes": "Plist EXISTS at ~/copilot-config/com.johnlin.weekly-experimenter.plist and contains --open arg (fixed). launchctl list shows 'com.johnlin.weekly-experimenter' loaded with last exit code 0 (evidence of successful run). weekly/2026-W17 branch EXISTS at origin/weekly/2026-W17. All 3 score-5 conditions met."
+    "hallucination_resistance": {
+      "score": 62.2,
+      "prompt_id": "P3-partial-context",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "refusal accuracy": 58,
+        "source attribution": 90,
+        "no confabulation": 42
+      },
+      "notes": "The output is well-sourced and often honest about missing information, but it overreaches on `licenceExpiryDate` by mapping to different fields and inferred validation rules instead of explicitly marking that detail absent in Driver.md. That limits hallucination-resistance despite otherwise solid gap-flagging."
     },
-    "workflow_adherence": {
-      "score": 60.0,
-      "weight": 0.15,
-      "status": "WARN",
-      "notes": "NEW category. workflow-adherence.md rubric file exists. Signals: STM created twice (after corrections) \u2705, orchestrator pipeline followed after correction \u2705, fleet agents used for parallelism \u2705, brain-consolidation invoked \u2705. Violations: first attempt failed (no STM created) \u26a0\ufe0f, implementation phase began without new STM (user had to remind) \u26a0\ufe0f. Matches rubric score 3: one correction required from user, then compliant / 4/6 steps correct."
+    "error_recovery": {
+      "score": 0
     },
-    "instruction_following": {
-      "score": 60.0,
-      "weight": 0.05,
-      "status": "WARN",
-      "notes": "NEW category. instruction-following.md task file MISSING (using default rubric). Signals: STM created when reminded \u2705, pipeline followed after corrections \u2705, no general-purpose fallback \u2705, unstick protocol not needed \u2705. Two reminders required: (1) create STM for research phase, (2) create new STM for implementation phase. Rubric: 3 = Two reminders needed."
+    "pipeline_compliance": {
+      "score": 0
     }
-  },
-  "system_version": "v1-config-audit",
-  "self_graded": true,
-  "note": "INVALID: Config-audit only (checked file existence, not agent capability). Excluded from trend analysis. Retained for historical record."
+  }
 }
