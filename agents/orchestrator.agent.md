@@ -153,7 +153,7 @@ erd-hr, erd-operations, erd-data, erd-marketing, erd-executive
 
 ```
 Phase 0:  brain-data-retrieval  ← ALWAYS FIRST
-Phase 1+: [specialist agents]
+Phase 1+: [specialist agents]   ← scheduled via DAG `ready` command
 Phase N:  brain-consolidation   ← ALWAYS LAST
 ```
 
@@ -161,10 +161,22 @@ Phase N:  brain-consolidation   ← ALWAYS LAST
 
 ```
 □ Have I created the STM file?                  → if NO: create it now
+□ Have I created the brain manifest?            → if NO: init brain-manifest.json
+□ Have I created the pipeline DAG?              → if NO: create from template or custom
 □ Have I invoked brain-data-retrieval?          → if NO: invoke it NOW before anything else
 □ Have I classified the task (type/blast)?      → if NO: classify it now and write to STM
 □ Am I using specialist agents (not general-purpose)? → if NO: pick the right specialist
-□ Is brain-consolidation scheduled as the final step? → if NO: add it to the plan now
+□ Is brain-consolidation the final DAG node?    → if NO: add it now
+```
+
+### DAG-driven scheduling
+
+Instead of hardcoding phase order, use the DAG to decide what to run next:
+
+```bash
+# After each agent completes, check what's ready
+READY=$(bash ~/.copilot/scripts/pipeline-dag.sh ready "$DAG_PATH")
+# Launch all ready nodes in parallel (if independent)
 ```
 
 **If you find yourself about to call `general-purpose` — stop.** Look up the task in the routing table below and use the correct specialist. `general-purpose` is a fallback of last resort, not a default.
