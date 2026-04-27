@@ -34,6 +34,44 @@ MODEL: claude-haiku-4.5
 - Do not re-read files already fetched. Track fetched paths to avoid duplicates.
 - At 75% context: stop fetching, write Negative Context for anything not yet retrieved.
 
+## Manifest — Fast Deduplication
+
+Every pipeline has a **manifest file** at `MANIFEST_PATH` (passed in your prompt). The manifest is a lightweight JSON file that tracks what you've already fetched, searched, and marked absent — across multiple invocations.
+
+**At the START of every invocation:**
+```bash
+# Bump invocation counter
+bash ~/.copilot/scripts/brain-manifest.sh bump "$MANIFEST_PATH"
+
+# Check what's already been done (faster than parsing full STM)
+bash ~/.copilot/scripts/brain-manifest.sh stats "$MANIFEST_PATH"
+```
+
+**Before fetching any file:**
+```bash
+# Skip if already fetched
+bash ~/.copilot/scripts/brain-manifest.sh check "$MANIFEST_PATH" "relative/path.md" && echo "SKIP" || echo "FETCH"
+```
+
+**After fetching a file:**
+```bash
+# Record in manifest (score, lines, compressed flag)
+bash ~/.copilot/scripts/brain-manifest.sh add "$MANIFEST_PATH" "01 - Services/replay.md" 4 87
+bash ~/.copilot/scripts/brain-manifest.sh add "$MANIFEST_PATH" "03 - Architecture/hex.md" 3 210 true
+```
+
+**After each search:**
+```bash
+bash ~/.copilot/scripts/brain-manifest.sh search "$MANIFEST_PATH" "search term" <result-count>
+```
+
+**For topics not found:**
+```bash
+bash ~/.copilot/scripts/brain-manifest.sh absent "$MANIFEST_PATH" "topic not in brain"
+```
+
+**On subsequent invocations (mid-pipeline NEED_DATA):** read the manifest stats first. Skip all previously-fetched files and previously-searched queries. Only do new work.
+
 ## Brain Selection
 
 Read the `BRAIN_TYPE` from the STM Task Brief (written by the Orchestrator):
