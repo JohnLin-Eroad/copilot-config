@@ -479,8 +479,18 @@ def validate_service(node_path: str, content: str, repo_names: set[str],
     # Database
     claimed_db = result.claims.get('database')
     code_db = result.code_facts.get('database') or result.code_facts.get('database_config')
-    if claimed_db and code_db:
-        if claimed_db.lower() != code_db.lower():
+    if code_db and not claimed_db:
+        # Brain says no DB, but code has DB dependency
+        result.discrepancies.append({
+            'field': 'database',
+            'claimed': 'None / not mentioned',
+            'actual': f"{code_db} dependency found in build file",
+            'severity': 'HIGH'
+        })
+    elif claimed_db and code_db:
+        # Both claim a DB — check they match (handle multi-DB: "PostgreSQL,DynamoDB")
+        code_dbs = set(d.strip().lower() for d in code_db.split(','))
+        if claimed_db.lower() not in code_dbs:
             result.discrepancies.append({
                 'field': 'database',
                 'claimed': claimed_db,
