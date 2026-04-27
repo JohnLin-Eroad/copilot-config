@@ -49,28 +49,51 @@ MAX_EXPAND_NEIGHBORS = 10
 
 def rewrite_query(raw_query: str) -> dict:
     """Rewrite raw query for FTS5 and LIKE fallbacks."""
+    import re
     tokens = raw_query.split()
     fts_parts = []
     like_fallbacks = []
     basename_terms = []
+    path_prefixes = []  # for path-like queries
+
+    # Detect if query looks like a vault path (contains / with multiple segments)
+    if "/" in raw_query and len(raw_query.split("/")) >= 2:
+        path_prefixes.append(raw_query.rstrip("/"))
+        # Also extract the last segment as a search term
+        last_seg = raw_query.rstrip("/").split("/")[-1]
+        if last_seg:
+            fts_parts.append(f'"{last_seg}"')
+            like_fallbacks.append(last_seg)
 
     for token in tokens:
+        if token in [t for p in path_prefixes for t in [p]]:
+            continue  # already handled as path
         if "-" in token or "/" in token:
             # Hyphenated/path: phrase query + LIKE fallback + basename search
             clean = token.replace("-", " ").replace("/", " ")
             fts_parts.append(f'"{clean}"')
             like_fallbacks.append(token)
             basename_terms.append(token)
+        elif re.search(r'[a-z][A-Z]', token):
+            # CamelCase: split and search both original and split form
+            split_parts = re.sub(r'([a-z])([A-Z])', r'\1 \2', token).split()
+            fts_parts.append(f'"{" ".join(split_parts)}"')
+            like_fallbacks.append(token)  # exact case-sensitive LIKE
         elif token.isupper() and len(token) <= 6:
             # Acronym: exact match (skip stemmer)
             fts_parts.append(f'"{token}"')
         else:
             fts_parts.append(token)
 
+    # Multi-word queries: also add as phrase
+    if len(tokens) >= 2 and not path_prefixes:
+        fts_parts.append(f'"{raw_query}"')
+
     return {
         "fts_query": " ".join(fts_parts),
-        "like_fallbacks": list(set(like_fallbacks + [raw_query])),  # always include raw query
+        "like_fallbacks": list(set(like_fallbacks + [raw_query])),
         "basename_terms": basename_terms,
+        "path_prefixes": path_prefixes,
         "original": raw_query,
     }
 
