@@ -51,6 +51,17 @@ MAX_EXPAND_SOURCES = 7
 MAX_EXPAND_NEIGHBORS = 10
 FTS_WINDOW_MULTIPLIER = 8
 
+# Query result cache (LRU, session-scoped)
+_query_cache: dict[str, dict] = {}
+_CACHE_MAX = 64
+
+def _cache_key(vault: str, raw_query: str, max_results: int) -> str:
+    return f"{vault}|{raw_query}|{max_results}"
+
+def clear_cache():
+    """Clear the query cache (call after sync or at session boundaries)."""
+    _query_cache.clear()
+
 
 # ---------------------------------------------------------------------------
 # Query rewriting — simple 3-case handler
