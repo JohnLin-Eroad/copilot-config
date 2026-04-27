@@ -665,6 +665,15 @@ def traverse(
                     continue
                 neighbors = list(set(G.predecessors(nid)) | set(G.successors(nid)))
                 for nbr in neighbors:
+                    # Edge-type filtering
+                    if filter_edge_type:
+                        has_matching_edge = False
+                        if G.has_edge(nid, nbr) and G[nid][nbr].get("edge_type") == filter_edge_type:
+                            has_matching_edge = True
+                        if G.has_edge(nbr, nid) and G[nbr][nid].get("edge_type") == filter_edge_type:
+                            has_matching_edge = True
+                        if not has_matching_edge:
+                            continue
                     edges_traversed += 1
                     if nbr in visited:
                         continue
