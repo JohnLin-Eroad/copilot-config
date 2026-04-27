@@ -40,6 +40,6 @@ From eroad-brain vault (Vehicle-Machine.md, Device.md, README.md):
 - Device can be reassigned: uninstall → reassign → install (asset-management-service endpoints)
 - Device has serial_number (stable hardware ID), machine_id (current install target), organisation_id
 - Machine has commonIdentifier (reg plate), organisation_id, active flag (soft delete)
-- Owning services: central-service (master machine registry), device-provisioning, asset-management-service
+- Owning services: central-service (master machine registry), device-provisioning, asset-management-service, myeroad-machine-service, asset-devices-device-telemetry, replay-service
 - Specific reassignment internals (exact lifecycle state transitions) may be partially covered — agent should flag uncertainty
 - The brain does NOT contain explicit hexagonal architecture diagrams for the EROAD platform
