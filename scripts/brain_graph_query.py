@@ -726,6 +726,7 @@ def traverse(
                     "id": meta[0], "rel_path": meta[1], "title": meta[2],
                     "basename": meta[3], "domain": meta[4], "subdomain": meta[5],
                     "content_length": meta[6] or 0,
+                    "content_summary": (meta[7] or "").strip()[:150],
                     "depth": depth + 1,
                     "edge_weight": edge_w,
                     "edge_type": edge_type,
