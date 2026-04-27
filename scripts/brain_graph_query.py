@@ -578,6 +578,7 @@ def traverse(
     max_depth: int = 1,
     max_results: int = DEFAULT_MAX_RESULTS,
     filter_domain: str | None = None,
+    filter_edge_type: str | None = None,
     exclude_visited: set[str] | None = None,
     db_path: Path = DEFAULT_DB,
 ) -> dict:
@@ -595,13 +596,14 @@ def traverse(
         vault: vault name
         max_depth: BFS depth (1 = direct neighbors, 2 = neighbors of neighbors)
         max_results: max nodes to return
-        filter_domain: only return nodes in this domain folder
+        filter_domain: only return nodes in this domain
+        filter_edge_type: only follow edges of this type (wiki_link, folder_sibling)
         exclude_visited: nodes to skip (already explored and deemed irrelevant)
         db_path: path to SQLite database
     
     Returns dict with:
         - start_node: the resolved starting node
-        - results: list of neighbor nodes with metadata
+        - results: list of neighbor nodes with metadata + content_summary
         - depth_reached: actual BFS depth explored
         - edges_traversed: number of edges followed
         - pruned_count: nodes skipped due to exclude_visited
