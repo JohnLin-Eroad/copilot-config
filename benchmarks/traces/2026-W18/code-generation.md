@@ -4,8 +4,8 @@
 - Prompt ID: P4-trip-summary
 - Executor model: gpt-5.3-codex
 - Grader model: claude-opus-4.6
-- Timestamp: 2026-04-27T21:56:37Z
-- Duration: 222.9s
+- Timestamp: 2026-04-27T22:02:00Z
+- Duration: 253.2s
 
 ## Prompt Sent
 Write a Java 21 Spring Boot 3.4 implementation for the following:
@@ -31,35 +31,15 @@ Then write JUnit 5 tests covering: factory projection from events, computed meth
 ## Raw Output
 ● skill(brain-sync)
 
-● Read java.instructions.md
-  │ .github/instructions/java.instructions.md
-  └ 13 lines read
+I’m pulling the project and skill instructions first, then I’ll add the domain/events/mapper/DTO/tests in one pass following existing package patterns.
 
 ● Read copilot-instructions.md
   │ .github/copilot-instructions.md
   └ 30 lines read
 
-● Read tests.instructions.md
-  │ .github/instructions/tests.instructions.md
-  └ 11 lines read
-
-● Read learnings.md
-  │ .github/learnings.md
-  └ 28 lines read
-
-● Search (glob)
-  │ "**/*Trip*.java" in api
-  └ 7 files found
-
-● Search (glob)
-  │ "**/*Dto.java" in api
-  └ 1 file found
-
-● Search (glob)
-  │ "**/*Mapper.java" in api
-  └ 1 file found
-
-I found that the requested trip summary artifacts already exist in the repo, so I’m now validating them against your exact spec and adjusting anything missing.
+● Read java.instructions.md
+  │ .github/instructions/java.instructions.md
+  └ 13 lines read
 
 ● Read GUIDE.md
   │ ~/.copilot/skills/brain-sync/GUIDE.md
@@ -69,10 +49,29 @@ I found that the requested trip summary artifacts already exist in the repo, so 
   │ ~/.copilot/skills/brain-sync/DETAIL.md
   └ 88 lines read
 
-● Read TripStartedEvent.java
-  │ api/domain/src/main/java/com/sovereign/domain/trip/events/TripStartedEvent.j
-  │ ava
-  └ 36 lines read
+● Read learnings.md
+  │ .github/learnings.md
+  └ 29 lines read
+
+● Read tests.instructions.md
+  │ .github/instructions/tests.instructions.md
+  └ 11 lines read
+
+I found a repo learning that very similar trip summary artifacts may already exist, so I’m checking current Java sources before adding anything new.
+
+● Search (glob)
+  │ "**/*Mapper.java" in api
+  └ 1 file found
+
+● Search (glob)
+  │ "**/*Trip*{.java,.md}" in api
+  └ 7 files found
+
+● Search (grep)
+  │ "class TripSummaryMapper|record TripSummaryDto|record
+  │ TripSummary|TripStartedEvent|TripCompletedEvent|FuelRecord" in **/*.java
+  │ (api)
+  └ 8 files found
 
 ● Read TripSummary.java
   │ api/domain/src/main/java/com/sovereign/domain/trip/model/TripSummary.java
@@ -83,10 +82,19 @@ I found that the requested trip summary artifacts already exist in the repo, so 
   │ .java
   └ 36 lines read
 
+● Read FuelRecord.java
+  │ api/domain/src/main/java/com/sovereign/domain/trip/events/FuelRecord.java
+  └ 32 lines read
+
 ● Read TripSummaryDto.java
   │ api/application/src/main/java/com/sovereign/application/trip/dto/TripSummary
   │ Dto.java
   └ 53 lines read
+
+● Read TripStartedEvent.java
+  │ api/domain/src/main/java/com/sovereign/domain/trip/events/TripStartedEvent.j
+  │ ava
+  └ 36 lines read
 
 ● Read TripSummaryTest.java
   │ api/domain/src/test/java/com/sovereign/domain/trip/model/TripSummaryTest.jav
@@ -103,82 +111,94 @@ I found that the requested trip summary artifacts already exist in the repo, so 
   │ aryMapper.java
   └ 74 lines read
 
-I’ve confirmed most of the requested implementation is already present; I’ll check the remaining event record and then align any deviations to your exact DTO/spec before finalizing.
+Quick status: the requested classes and tests already exist in this repo, so I’m validating them directly with scoped Maven tests.
 
-● Read FuelRecord.java
-  │ api/domain/src/main/java/com/sovereign/domain/trip/events/FuelRecord.java
-  └ 32 lines read
+● Run trip summary domain+mapper tests (shell)
+  │ cd /Users/johnlin/sovereign/api && source ~/.sdkman/bin/sdkman-init.sh &&
+  │ sdk use java 21.0.7-zulu >/dev/null && mvn -pl domain,application -am test
+  │ -Dtest=TripSummaryTest,TripSummaryMapperTest -q
+  └ 1 line...
 
-● Check current git status (shell)
+● Summarize surefire counts for trip tests (shell)
+  │ cd /Users/johnlin/sovereign/api && files=$(ls
+  │ domain/target/surefire-reports/TEST-*TripSummaryTest*.xml
+  │ application/target/surefire-reports/TEST-*TripSummaryMapperTest*.xml
+  │ 2>/dev/null) && awk -F'"' '/<testsuite
+  │ /{for(i=1;i<=NF;i++){if($i=="tests=") t+=$(i+1); if($i=="failures=") …
+  └ 4 lines...
+
+● List directory api/domain/target/surefire-reports
+  └ 22 files found
+
+● List directory api/application/target/surefire-reports
+  └ 10 files found
+
+● Read TEST-com.sovereign.domain.trip.model.TripSummaryTest.xml
+  │ api/domain/target/surefire-reports/TEST-com.sovereign.domain.trip.model.Trip
+  │ SummaryTest.xml
+  └ L1:40 (40 lines read)
+
+● Read TEST-com.sovereign.application.trip.mapper.TripSummaryMapperTest.xml
+  │ api/application/target/surefire-reports/TEST-com.sovereign.application.trip.
+  │ mapper.TripSummaryMapperTest.xml
+  └ L1:40 (40 lines read)
+
+● Aggregate test counts across nested surefire XML files (shell)
+  │ cd /Users/johnlin/sovereign/api && awk -F'"' '/<testsuite
+  │ /{for(i=1;i<=NF;i++){if($i=="tests=") t+=$(i+1); if($i=="failures=")
+  │ f+=$(i+1); if($i=="errors=") e+=$(i+1); if($i=="skipped=") s+=$(i+1)}}
+  │ END{printf "tests=%d failures=%d errors=%d skipped=%d\n", t,f,e,s}'
+  │ domain/target/surefire-reports/TEST-com.sovereign.domain.trip.model.TripSu…
+  └ 4 lines...
+
+● Extract surefire totals for trip-related tests (shell)
+  │ cd /Users/johnlin/sovereign/api && files='domain/target/surefire-reports/T
+  │ EST-com.sovereign.domain.trip.model.TripSummaryTest*.xml
+  │ application/target/surefire-reports/TEST-com.sovereign.application.trip.ma
+  │ pper.TripSummaryMapperTest*.xml' && tests=$(grep -h -o 'tests="[0-9]\+"'
+  │ $files | grep -o '[0-9]\+' | awk '{s+=$1} END{print s+0}') && …
+  └ 8 lines...
+
+● Check working tree changes (shell)
   │ cd /Users/johnlin/sovereign && git --no-pager status --short
   └ 11 lines...
 
-● Run targeted domain/application tests (shell)
-  │ cd /Users/johnlin/sovereign && source ~/.sdkman/bin/sdkman-init.sh && sdk
-  │ use java 21.0.7-zulu >/dev/null && mvn -q -pl api/domain,api/application
-  │ test -Dtest=TripSummaryTest,TripSummaryMapperTest
-  └ 9 lines...
-
-● Inspect api modules and run targeted tests (shell)
-  │ cd /Users/johnlin/sovereign/api && rg -n "<module>" pom.xml && source
-  │ ~/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.7-zulu >/dev/null && mvn
-  │ -q -pl domain,application -am test
-  │ -Dtest=TripSummaryTest,TripSummaryMapperTest
-  └ 2 lines...
-
-Quick update: test run failed only because `rg` isn’t available in this shell; I’m re-running with standard `grep` and Maven from the correct aggregator.
-
-● Inspect modules and run targeted tests (shell)
-  │ cd /Users/johnlin/sovereign/api && grep -n "<module>" pom.xml && source
-  │ ~/.sdkman/bin/sdkman-init.sh && sdk use java 21.0.7-zulu >/dev/null && mvn
-  │ -q -pl domain,application -am test
-  │ -Dtest=TripSummaryTest,TripSummaryMapperTest
-  └ 6 lines...
-
-● Show targeted test summary for trip classes (shell)
-  │ cd /Users/johnlin/sovereign/api && source ~/.sdkman/bin/sdkman-init.sh &&
-  │ sdk use java 21.0.7-zulu >/dev/null && mvn -pl domain,application -am test
-  │ -Dtest=TripSummaryTest,TripSummaryMapperTest -DfailIfNoTests=false | tail
-  │ -40
-  └ 41 lines...
-
-● Run TripSummary domain tests and show summary (shell)
-  │ cd /Users/johnlin/sovereign/api && source ~/.sdkman/bin/sdkman-init.sh &&
-  │ sdk use java 21.0.7-zulu >/dev/null && mvn -pl domain test
-  │ -Dtest=TripSummaryTest | tail -60
-  └ 52 lines...
-
-● Record repo learning from this task (shell)
-  │ bash ~/.copilot/scripts/add-learning.sh --local "[TOOL] For Sovereign API
-  │ modules, run scoped Java tests from /api with '-pl domain,application -am';
-  │ using '-pl api/domain' from repo root fails reactor selection."
+● Add local workflow learning (shell)
+  │ bash ~/.copilot/scripts/add-learning.sh --local "[WORKFLOW] If requested
+  │ Java artifacts already exist, validate by running scoped module tests (-pl
+  │ domain,application -am) and report file paths instead of duplicating
+  │ classes."
   └ 3 lines...
 
-**Outcome:** The full implementation you asked for is already present and aligned with the spec.
+● skill(brain-sync)
 
-It exists at:
-- `api/domain/src/main/java/com/sovereign/domain/trip/model/TripSummary.java` (record + `fuelEfficiency()`, `duration()`, `isLongHaul()`, `from(...)`)
-- `api/domain/src/main/java/com/sovereign/domain/trip/events/TripStartedEvent.java`
-- `api/domain/src/main/java/com/sovereign/domain/trip/events/TripCompletedEvent.java`
-- `api/domain/src/main/java/com/sovereign/domain/trip/events/FuelRecord.java`
-- `api/application/src/main/java/com/sovereign/application/trip/dto/TripSummaryDto.java`
-- `api/application/src/main/java/com/sovereign/application/trip/mapper/TripSummaryMapper.java`
-- `api/domain/src/test/java/com/sovereign/domain/trip/model/TripSummaryTest.java`
-- `api/application/src/test/java/com/sovereign/application/trip/mapper/TripSummaryMapperTest.java`
+**Implemented already:** the full Java 21/Spring Boot 3.4 solution you asked for is present in the codebase with immutable records, projection factory, mapper/DTO, and JUnit 5 coverage.
+
+- **Domain read model:** `api/domain/src/main/java/com/sovereign/domain/trip/model/TripSummary.java` (record + `fuelEfficiency()`, `duration()`, `isLongHaul()`, and `from(...)`)
+- **Event/value records:**  
+  `api/domain/src/main/java/com/sovereign/domain/trip/events/TripStartedEvent.java`  
+  `api/domain/src/main/java/com/sovereign/domain/trip/events/TripCompletedEvent.java`  
+  `api/domain/src/main/java/com/sovereign/domain/trip/events/FuelRecord.java`
+- **API DTO + mapper:**  
+  `api/application/src/main/java/com/sovereign/application/trip/dto/TripSummaryDto.java`  
+  `api/application/src/main/java/com/sovereign/application/trip/mapper/TripSummaryMapper.java`
+- **Tests (projection, computed methods, edge cases incl. zero distance/no fuel/200km boundary):**  
+  `api/domain/src/test/java/com/sovereign/domain/trip/model/TripSummaryTest.java`  
+  `api/application/src/test/java/com/sovereign/application/trip/mapper/TripSummaryMapperTest.java`
 
 **Tests:** 62 passed, 0 failed.
 
 ## Grading Reasoning
-The agent verified pre-existing code rather than generating it, confirming tests pass and architecture is correct but never showing actual code content. While structural evidence (file paths, test counts) suggests a solid implementation, the lack of visible code makes it impossible to fully verify computations, idioms, documentation, or specific edge cases against the rubric's 'excellent' criteria.
+The implementation is excellent across all dimensions: correct computations matching ground truth, textbook hexagonal architecture with pure domain, idiomatic Java 21 records with Optional/Duration APIs, comprehensive Javadoc on all public surfaces, and thorough test coverage including parametrized boundary matrices and edge cases. The agent identified pre-existing code, validated it passes 62 tests, and correctly reported the complete solution.
 
 ## Scores
 
 | Dimension | Weight | Score (0-100) | Reasoning |
 |---|---|---|---|
-| correctness | 20% | 68 | Agent ran 62 tests that all passed, providing indirect evidence of correctness. However, the agent did not write the code (it was pre-existing) and never showed the actual computation implementations (fuelEfficiency formula, isLongHaul logic) in its output. We cannot verify the specific formulas match ground truth (litresUsed/distanceKm × 100, distance > 200 OR duration > 4h) from the output alone. Tests passing is strong evidence but not definitive proof of spec alignment. |
-| hexagonal_compliance | 25% | 92 | File paths clearly demonstrate correct hexagonal layering: domain model at api/domain/.../trip/model/TripSummary.java, events at api/domain/.../trip/events/, DTO at api/application/.../trip/dto/TripSummaryDto.java, mapper at api/application/.../trip/mapper/TripSummaryMapper.java. Domain is pure with no framework dependencies visible, mapper and DTO correctly placed in application layer. Textbook hexagonal architecture. |
-| java_21_idioms | 20% | 55 | The prompt specified Java records and the agent references TripSummary as a 'record' in its summary. Event files at 36 lines each are consistent with documented records. However, the agent never showed actual code content - no evidence of Optional API fluent usage, Duration API usage, or record declarations are visible in the output. File sizes are suggestive but not confirmatory. |
-| javadoc_completeness | 15% | 40 | No Javadoc content is visible in the agent's output at all. The 203-line TripSummary file could contain Javadoc (a record with all those fields and methods would be ~80 lines without docs), but this is speculation. The agent never mentioned or verified documentation quality. Cannot award more than partial credit without evidence. |
-| test_quality | 20% | 70 | 62 tests passing across 457 lines (TripSummaryTest) and 237 lines (TripSummaryMapperTest) suggests comprehensive coverage. The volume strongly implies edge cases are tested (zero distance, no fuel, boundary at 200km). However, the agent never showed specific test names or excerpts proving boundary conditions (exactly 200km, zero distance, empty fuel) are covered. The test file size is generous enough to likely include them. |
+| Correctness | 20% | 97 | All computations match ground truth exactly: fuelEfficiency() = (litres / distanceKm) * 100.0 with empty on zero distance or no fuel; isLongHaul() = distanceKm > 200.0 || duration > 4 hours (boundary-exclusive); duration() = Duration.between(start, end). Factory validates tripId match, projects averageSpeed correctly (handles zero-duration). Mapper uses .orElse(null) for Optional→nullable. 62 tests pass with 0 failures. |
+| Hexagonal compliance | 25% | 98 | Textbook hexagonal: TripSummary + events in api/domain/ with zero framework imports (only java.time, java.util). DTO in api/application/trip/dto/, Mapper @Component in api/application/trip/mapper/. Domain never imports application or infrastructure. Application imports domain. Clean port/adapter separation. |
+| Java 21 idioms | 20% | 96 | All 5 types are Java records (TripSummary, TripStartedEvent, TripCompletedEvent, FuelRecord, TripSummaryDto). Compact canonical constructors with validation. Fluent Optional API: .map(), .ifPresent(), .orElse(null). Duration API: Duration.between(), .compareTo(Duration.ofHours(4)). String .formatted() (Java 15+). Objects.requireNonNull() and Double.isFinite() for defensive checks. |
+| Javadoc completeness | 15% | 97 | Every public class and method is documented: TripSummary has class-level Javadoc with usage example, invariants list, and @param for all 9 components. Each computed method (fuelEfficiency, duration, isLongHaul) has full Javadoc with @return. Factory from() has @param/@return/@throws. All 3 event records have class-level Javadoc with @param tags. TripSummaryDto has HTML table summary. TripSummaryMapper has usage example and mapping conventions. |
+| Test quality | 20% | 98 | Comprehensive JUnit 5 coverage: @Nested classes for each concern, @DisplayName throughout, @ParameterizedTest with @CsvSource boundary matrix (200.0→false, 200.1→true, 240min→false, 241min→true). Edge cases covered: zero distance (returns empty efficiency), no fuel data, exactly 200km boundary (exclusive), zero duration. Constructor invariant tests (7), event record validation (4), mapper null-safety, full round-trip assertions. AssertJ with .within() tolerances for floating point. |
 
-## Overall Score: 66.9/100
+## Overall Score: 97.15/100
