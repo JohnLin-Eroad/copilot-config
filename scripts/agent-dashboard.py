@@ -1287,22 +1287,17 @@ const STAGE_LABELS = {
 
 function drawPipeline(agents, timeline) {
   const svg = document.getElementById("pipeline-svg");
-  if (!agents || agents.length === 0) {
-    svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+  const dagData = window.__latestData?.dag;
+
+  // DAG takes priority — render even with empty agents array
+  if (dagData && dagData.nodes && dagData.nodes.length > 0) {
+    const W = svg.clientWidth || 900;
+    drawPipelineFromDag(svg, dagData, agents || [], W, 24, 100, 40);
     return;
   }
 
-  const W       = svg.clientWidth || 900;
-  const R       = 24;
-  const ROW_H   = 100;
-  const TOP_PAD = 40;
-
-  // Check if DAG data is available (passed via window.__latestData)
-  const dagData = window.__latestData?.dag;
-
-  if (dagData && dagData.nodes && dagData.nodes.length > 0) {
-    // ── DAG-based layout ───────────────────────────────────────────────
-    drawPipelineFromDag(svg, dagData, agents, W, R, ROW_H, TOP_PAD);
+  if (!agents || agents.length === 0) {
+    svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
     return;
   }
 
