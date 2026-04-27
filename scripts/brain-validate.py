@@ -190,14 +190,18 @@ def check_pom_xml(owner: str, repo: str) -> dict:
 
     # Java version
     for pattern in [
-        r'<java\.version>(\d+)</java\.version>',
-        r'<maven\.compiler\.source>(\d+)',
+        r'<java\.version>([\d.]+)</java\.version>',
+        r'<maven\.compiler\.source>([\d.]+)',
         r'<release>(\d+)</release>',
-        r'<source>(\d+)</source>',
+        r'<source>([\d.]+)</source>',
     ]:
         m = re.search(pattern, content)
         if m:
-            facts['java_version'] = m.group(1)
+            ver = m.group(1)
+            # Normalize: 1.8 → 8, 1.11 → 11, 17 → 17
+            if ver.startswith('1.'):
+                ver = ver[2:]
+            facts['java_version'] = ver
             break
 
     # Spring Boot version
@@ -207,13 +211,17 @@ def check_pom_xml(owner: str, repo: str) -> dict:
     if m:
         facts['spring_boot_version'] = m.group(1)
 
-    # Database dependencies
-    if 'postgresql' in content.lower():
+    # Database dependencies — check actual dependency artifacts, not just any mention
+    dep_section = re.findall(r'<dependency>.*?</dependency>', content, re.DOTALL)
+    dep_text = '\n'.join(dep_section).lower()
+    if 'org.postgresql' in dep_text or 'postgresql</artifactid>' in dep_text:
         facts['database'] = 'PostgreSQL'
-    elif 'mysql' in content.lower():
-        facts['database'] = 'MySQL'
-    elif 'dynamodb' in content.lower():
-        facts['database'] = 'DynamoDB'
+    if 'mysql-connector' in dep_text or 'mysql</artifactid>' in dep_text:
+        facts['database'] = facts.get('database', '') + ',MySQL' if facts.get('database') else 'MySQL'
+    if 'dynamodb' in dep_text:
+        facts['database'] = facts.get('database', '') + ',DynamoDB' if facts.get('database') else 'DynamoDB'
+    if 'mongodb' in dep_text or 'mongo-java-driver' in dep_text:
+        facts['database'] = facts.get('database', '') + ',MongoDB' if facts.get('database') else 'MongoDB'
 
     # Key dependencies
     deps = []
