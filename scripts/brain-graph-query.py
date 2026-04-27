@@ -938,7 +938,7 @@ def query(
 ) -> dict:
     """Execute query with 4-tier fallback ladder. Results are LRU-cached."""
     # Check cache (only for full/fts-only modes with no manifest)
-    ck = _cache_key(vault, raw_query, max_results)
+    ck = _cache_key(vault, raw_query, max_results, db_path)
     if manifest is None and mode in ("full", "fts-only") and ck in _query_cache:
         cached = _query_cache[ck].copy()
         cached["cached"] = True
