@@ -2071,6 +2071,7 @@ async function fetchStatus() {
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
 
     const scrollPos = saveScrollPositions();
+    window.__latestData = data;
     renderStats(data);
     renderStmSections(data);
     drawPipeline(data.agents, data.timeline);
