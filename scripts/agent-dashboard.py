@@ -1753,20 +1753,28 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
   // Smart agent matching: STM uses "developer (dev-01)" but DAG has id="dev-01" agent="developer"
   function findAgentEntry(node) {
     if (!agents || agents.length === 0) return null;
+    const nId = node.id.toLowerCase();
+    const nAgent = node.agent.toLowerCase();
     // 1. Exact match by node.id in parentheses: "developer (dev-01)" or "security" etc.
     let entry = agents.find(a => {
       const m = a.agent.match(/\(([^)]+)\)/);
-      return m && m[1] === node.id;
+      return m && m[1].toLowerCase() === nId;
     });
     if (entry) return entry;
-    // 2. Exact match on agent type (works when only one of that type, e.g., "architect")
-    const sameType = agents.filter(a => a.agent === node.agent || a.agent.startsWith(node.agent));
+    // 2. Case-insensitive match on agent type (works when only one of that type, e.g., "architect")
+    const sameType = agents.filter(a => {
+      const aLow = a.agent.toLowerCase();
+      return aLow === nAgent || aLow.startsWith(nAgent);
+    });
     if (sameType.length === 1) return sameType[0];
     // 3. Match by unit field if present
-    entry = agents.find(a => a.unit && a.unit === node.id);
+    entry = agents.find(a => a.unit && a.unit.toLowerCase() === nId);
     if (entry) return entry;
-    // 4. Match where agent name contains the node label
-    entry = agents.find(a => a.agent.toLowerCase().includes(node.id.toLowerCase()));
+    // 4. Match where agent name contains the node id (case-insensitive)
+    entry = agents.find(a => a.agent.toLowerCase().includes(nId));
+    if (entry) return entry;
+    // 5. Match where node agent contains agent name
+    entry = agents.find(a => nAgent.includes(a.agent.toLowerCase()));
     if (entry) return entry;
     return null;
   }
