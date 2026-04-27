@@ -1,19 +1,3 @@
-<<<<<<< HEAD
-# Trace: Planning — 2026-W17
-
-## Prompt Sent
-Plan a migration of a monolithic Spring Boot app to hexagonal architecture.
-
-## Raw Plan Output
-1. Map domain boundaries
-2. Extract domain layer with no infrastructure deps
-3. Define ports/adapters
-4. Move persistence to infrastructure module
-5. Wire up with DI
-
-## Failure Observations
-- Score 3.8/5 — Plan lacks verify steps after each phase. No rollback strategy. Does not call out blast radius of cross-cutting changes. Steps 3 and 4 have implicit ordering but it isn't stated.
-=======
 # Trace: planning — 2026-W17
 
 ## Metadata
@@ -66,4 +50,3 @@ Acceptance criteria (20%): 10 Given/When/Then with specific values. Missing expl
 
 ## Overall Score: 92.4/100
 Weighted average: (98×0.15) + (95×0.20) + (88×0.15) + (90×0.15) + (96×0.15) + (88×0.20) = 14.7 + 19.0 + 13.2 + 13.5 + 14.4 + 17.6 = 92.4
->>>>>>> weekly/2026-W17
