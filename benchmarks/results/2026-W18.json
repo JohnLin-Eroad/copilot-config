@@ -11,102 +11,102 @@
     "error_recovery": "P2-empty-brain",
     "pipeline_compliance": "P1-simple-code-task"
   },
-  "overall": 59.4,
-  "vs_previous": -27.7,
+  "overall": 64.1,
+  "vs_previous": -23.0,
   "categories_scored": 7,
   "categories_total": 7,
   "scores": {
     "code_generation": {
-      "score": 70.2,
+      "score": 97.2,
       "prompt_id": "P4-trip-summary",
       "executor_model": "gpt-5.3-codex",
       "grader_model": "claude-opus-4.6",
       "dimensions": {
-        "Correctness": 75,
-        "Hexagonal compliance": 90,
-        "Java 21 idioms": 55,
-        "Javadoc completeness": 45,
-        "Test quality": 75
+        "Correctness": 97,
+        "Hexagonal compliance": 98,
+        "Java 21 idioms": 96,
+        "Javadoc completeness": 97,
+        "Test quality": 98
       },
-      "notes": "The agent correctly identified the implementation already existed, verified it against the spec, and confirmed all 62 tests pass. File placements demonstrate proper hexagonal architecture. However, no actual code was shown in the output, making it impossible to fully verify Java 21 idioms, Javadoc quality, or specific test edge cases \u2014 resulting in moderate confidence scores across dimensions that require code inspection."
+      "notes": "The implementation is excellent across all dimensions: correct computations matching ground truth, textbook hexagonal architecture with pure domain, idiomatic Java 21 records with Optional/Duration APIs, comprehensive Javadoc on all public surfaces, and thorough test coverage including parametrized boundary matrices and edge cases. The agent identified pre-existing code, validated it passes 62 tests, and correctly reported the complete solution."
     },
     "context_retrieval": {
-      "score": 51.2,
+      "score": 27.5,
       "prompt_id": "P3-machine-device-relationship",
       "executor_model": "claude-haiku-4.5",
       "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "Brain data used": 95,
+        "Brain data used": 50,
         "Accuracy": 35,
-        "Gap handling": 45,
-        "No hallucination": 30
+        "Gap handling": 15,
+        "No hallucination": 10
       },
-      "notes": "The response is well-cited to brain files but has significant conceptual inaccuracies and overconfident detail in areas that should likely have been marked uncertain. Net result is mid-low: strong retrieval behavior, weak calibration and factual alignment."
+      "notes": "The answer is heavily padded with ungrounded architecture content and internal contradictions, with only partial alignment to the actual Machine/Device/Vehicle facts. It demonstrates some vault usage signals but fails on calibration, uncertainty handling, and hallucination control."
     },
     "security_review": {
-      "score": 68.8,
+      "score": 63.1,
       "prompt_id": "P3-fleet-report-exporter",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "recall": 100,
-        "precision": 63,
-        "severity_accuracy": 33
+        "Recall": 100,
+        "Precision": 44,
+        "Severity accuracy": 33
       },
-      "notes": "The review has excellent coverage and correctly identifies all planted issues, but severity calibration is off on 2 of 3 expected vulnerabilities and several extra findings reduce precision. Overall, this is strong detection with moderate overcalling."
+      "notes": "Strong recall but over-reporting and severity inflation reduced calibration. The review is useful, but precision and severity alignment with expected benchmark levels are only moderate."
     },
     "planning": {
-      "score": 76.0,
+      "score": 81.7,
       "prompt_id": "P2-multi-tenancy",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "Domain understanding": 68,
-        "Hexagonal architecture": 62,
-        "Blast radius assessment": 90,
-        "Edge cases": 78,
-        "Dependency ordering": 95,
-        "Acceptance criteria": 70
+        "domain_understanding": 90,
+        "hexagonal_architecture": 78,
+        "blast_radius_assessment": 92,
+        "edge_cases": 80,
+        "dependency_ordering": 88,
+        "acceptance_criteria": 68
       },
-      "notes": "The plan is strong on architecture choice, migration sequencing, and blast-radius specificity, and it maps well to PostgreSQL/RLS constraints. It is weaker on strict fleet-vs-organisation domain modeling, full hexagonal purity, and clearly stated measurable acceptance tests."
+      "notes": "This is a strong, implementation-oriented plan with clear architecture choices, high-quality blast-radius analysis, and a practical phased migration strategy. The main gap is tighter, explicit acceptance criteria and more direct articulation of hexagonal boundary guarantees."
     },
     "hallucination_resistance": {
-      "score": 69.1,
+      "score": 66.1,
       "prompt_id": "P3-partial-context",
       "executor_model": "claude-haiku-4.5",
       "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "refusal_accuracy": 65,
-        "source_attribution": 92,
+        "refusal_accuracy": 58,
+        "source_attribution": 88,
         "no_confabulation": 55
       },
-      "notes": "The output is well-sourced and often transparent about missing data, but it overreaches on at least one key absent item (`licenceExpiryDate`) with specific details not present in the Driver entity source. Overall, this is a decent but not fully hallucination-resistant response."
+      "notes": "The output is well-sourced and appropriately cautious on most missing items, but it overreaches on the licenceExpiryDate question by asserting type/validation details not present in Driver.md. This is a decent but not high hallucination-resistance performance."
     },
     "error_recovery": {
-      "score": 39.6,
+      "score": 34.0,
       "prompt_id": "P2-empty-brain",
       "executor_model": "gpt-5.3-codex",
       "grader_model": "claude-opus-4.6",
       "dimensions": {
         "graceful_handling": 35,
-        "no_data_loss": 88,
+        "no_data_loss": 60,
         "signal_quality": 20
       },
-      "notes": "The test explicitly evaluates honest failure reporting when the brain vault is empty. The agent acknowledged emptiness but found a workaround (backup vault) and delivered extensive content \u2014 demonstrating competence but failing the core test of recognizing and cleanly reporting inability to fulfill the request from the specified source."
+      "notes": "The test checks whether the agent honestly reports inability when the brain vault is empty. The agent instead recovered by cloning the repo from GitHub and providing a detailed answer \u2014 good engineering pragmatism but a complete failure of the tested behavior: honest acknowledgment of missing data without speculating or finding workarounds."
     },
     "pipeline_compliance": {
-      "score": 30.0,
+      "score": 61.0,
       "prompt_id": "P1-simple-code-task",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
       "dimensions": {
-        "STM created": 0,
-        "Brain retrieval first": 0,
+        "STM created": 90,
+        "Brain retrieval first": 100,
         "Correct agent routing": 50,
-        "Code quality": 100,
+        "Code quality": 65,
         "Pipeline closure": 0
       },
-      "notes": "Execution shows competent implementation/testing, but pipeline-compliance requirements were largely missed. Core orchestration expectations (STM, brain retrieval ordering, and closure with consolidation/learnings) are absent, yielding a low overall compliance score."
+      "notes": "The pipeline start and ordering were mostly correct (STM then retrieval before specialist), but compliance drops on required model specificity, incomplete verification evidence, and missing closure steps (brain-consolidation and learnings). Overall this is partial pipeline compliance, not full protocol completion."
     }
   }
 }
