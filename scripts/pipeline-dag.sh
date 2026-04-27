@@ -1,25 +1,31 @@
 #!/usr/bin/env bash
-# pipeline-dag.sh — Manage a pipeline DAG (Directed Acyclic Graph)
+# pipeline-dag.sh — Fully dynamic pipeline DAG manager
 #
-# The DAG tracks agent dependencies and execution state. The orchestrator
-# uses it to determine which agents can run next. The dashboard reads it
-# to render the actual dependency graph.
+# The DAG is built incrementally by the orchestrator. There are NO fixed
+# pipelines. The orchestrator decides what agents are needed based on the
+# task, adds them to the DAG, and agents themselves can signal that they
+# need sub-agents (orchestrator adds those too).
 #
-# DAG file lives alongside the STM: ${STM_DIR}/pipeline-dag.json
+# Flow:
+#   1. init       → empty DAG with orchestrator root node (auto-completed)
+#   2. add-node   → orchestrator adds agents as it decides they're needed
+#   3. start/complete/fail/skip → lifecycle management
+#   4. ready      → query which nodes can run next (all deps satisfied)
+#   5. remove-node → prune a pending node no longer needed
+#
+# DAG file: ${STM_DIR}/pipeline-dag.json
 #
 # Usage:
-#   pipeline-dag.sh init      <dag-path>
-#   pipeline-dag.sh add-node  <dag-path> <node-id> <agent-type> [--label "..."] [--deps "a,b,c"]
-#   pipeline-dag.sh ready     <dag-path>              # list nodes ready to run
-#   pipeline-dag.sh start     <dag-path> <node-id>    # mark as running
-#   pipeline-dag.sh complete  <dag-path> <node-id>    # mark as done
-#   pipeline-dag.sh fail      <dag-path> <node-id> [reason]
-#   pipeline-dag.sh skip      <dag-path> <node-id>    # mark as skipped (deps met but not needed)
-#   pipeline-dag.sh status    <dag-path>              # show full state summary
-#   pipeline-dag.sh viz       <dag-path>              # text visualization
-#   pipeline-dag.sh template  <dag-path> <template>   # init from a named template
-#
-# Templates: minimal, standard, full-transformation
+#   pipeline-dag.sh init        <dag-path>
+#   pipeline-dag.sh add-node    <dag-path> <node-id> <agent-type> [--label "..."] [--deps "a,b,c"]
+#   pipeline-dag.sh remove-node <dag-path> <node-id>              # remove a pending node
+#   pipeline-dag.sh ready       <dag-path>                        # list nodes ready to run
+#   pipeline-dag.sh start       <dag-path> <node-id>
+#   pipeline-dag.sh complete    <dag-path> <node-id>
+#   pipeline-dag.sh fail        <dag-path> <node-id> [reason]
+#   pipeline-dag.sh skip        <dag-path> <node-id>
+#   pipeline-dag.sh status      <dag-path>
+#   pipeline-dag.sh viz         <dag-path>
 
 set -euo pipefail
 
@@ -52,15 +58,28 @@ _update_node_ts() {
 
 case "$ACTION" in
     init)
+        TS_NOW="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
         cat > "$DAG_PATH" << EOF
 {
-  "version": 1,
-  "created_at": "$TS",
-  "updated_at": "$TS",
-  "nodes": []
+  "version": 2,
+  "created_at": "$TS_NOW",
+  "updated_at": "$TS_NOW",
+  "nodes": [
+    {
+      "id": "orchestrator",
+      "agent": "orchestrator",
+      "label": "Orchestrator",
+      "deps": [],
+      "status": "done",
+      "added_at": "$TS_NOW",
+      "started_at": "$TS_NOW",
+      "completed_at": "$TS_NOW",
+      "failed_reason": null
+    }
+  ]
 }
 EOF
-        echo "[pipeline-dag] ✅ Initialized: $DAG_PATH"
+        echo "[pipeline-dag] ✅ Initialized (orchestrator auto-completed): $DAG_PATH"
         ;;
 
     add-node)
@@ -108,6 +127,30 @@ EOF
             "$DAG_PATH" > "${DAG_PATH}.tmp" && mv "${DAG_PATH}.tmp" "$DAG_PATH"
 
         echo "[pipeline-dag] ✅ Added node: $NODE_ID ($AGENT) deps=[$(echo "$DEPS" | jq -r 'join(",")')]"
+        ;;
+
+    remove-node)
+        NODE_ID="${3:-}"
+        if [[ -z "$NODE_ID" ]]; then
+            echo "[pipeline-dag] ERROR: remove-node requires <node-id>" >&2; exit 1
+        fi
+        # Only allow removing pending nodes
+        STATUS=$(jq -r --arg id "$NODE_ID" '.nodes[] | select(.id == $id) | .status' "$DAG_PATH" 2>/dev/null)
+        if [[ -z "$STATUS" ]]; then
+            echo "[pipeline-dag] ERROR: Node '$NODE_ID' not found" >&2; exit 1
+        fi
+        if [[ "$STATUS" != "pending" ]]; then
+            echo "[pipeline-dag] ERROR: Can only remove pending nodes (node '$NODE_ID' is '$STATUS')" >&2; exit 1
+        fi
+        # Check no other node depends on it
+        DEPENDENTS=$(jq -r --arg id "$NODE_ID" '[.nodes[] | select(.deps[] == $id) | .id] | join(", ")' "$DAG_PATH" 2>/dev/null)
+        if [[ -n "$DEPENDENTS" ]]; then
+            echo "[pipeline-dag] ERROR: Cannot remove '$NODE_ID' — depended on by: $DEPENDENTS" >&2; exit 1
+        fi
+        jq --arg id "$NODE_ID" --arg t "$TS" \
+            '.nodes = [.nodes[] | select(.id != $id)] | .updated_at = $t' \
+            "$DAG_PATH" > "${DAG_PATH}.tmp" && mv "${DAG_PATH}.tmp" "$DAG_PATH"
+        echo "[pipeline-dag] 🗑  Removed: $NODE_ID"
         ;;
 
     ready)
@@ -219,61 +262,9 @@ EOF
         jq -r '.nodes[] | select(.deps | length > 0) | "\(.deps | join(", ")) → \(.id)"' "$DAG_PATH"
         ;;
 
-    template)
-        TEMPLATE="${3:-standard}"
-        # Init first
-        bash "$0" init "$DAG_PATH"
-
-        case "$TEMPLATE" in
-            minimal)
-                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
-                bash "$0" add-node "$DAG_PATH" specialist specialist --label "Specialist" --deps "brain-retrieval"
-                bash "$0" add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "specialist"
-                ;;
-            standard)
-                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
-                bash "$0" add-node "$DAG_PATH" architect architect --label "Architecture" --deps "brain-retrieval"
-                bash "$0" add-node "$DAG_PATH" security-arch security --label "Security Review" --deps "architect"
-                bash "$0" add-node "$DAG_PATH" tech-lead tech-lead --label "Decompose" --deps "architect"
-                bash "$0" add-node "$DAG_PATH" dev-a developer --label "Dev Unit A" --deps "tech-lead"
-                bash "$0" add-node "$DAG_PATH" dev-b developer --label "Dev Unit B" --deps "tech-lead"
-                bash "$0" add-node "$DAG_PATH" testing testing --label "Tests" --deps "dev-a,dev-b"
-                bash "$0" add-node "$DAG_PATH" code-review code-reviewer --label "Code Review" --deps "testing,security-arch"
-                bash "$0" add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "code-review"
-                ;;
-            full-transformation)
-                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
-                bash "$0" add-node "$DAG_PATH" product-mgr product-manager --label "Product Spec" --deps "brain-retrieval"
-                bash "$0" add-node "$DAG_PATH" architect architect --label "Architecture" --deps "product-mgr"
-                bash "$0" add-node "$DAG_PATH" security-arch security --label "Arch Security" --deps "architect"
-                bash "$0" add-node "$DAG_PATH" tech-lead tech-lead --label "Decompose" --deps "architect"
-                bash "$0" add-node "$DAG_PATH" dev-a developer --label "Dev Unit A" --deps "tech-lead"
-                bash "$0" add-node "$DAG_PATH" dev-b developer --label "Dev Unit B" --deps "tech-lead"
-                bash "$0" add-node "$DAG_PATH" dev-c developer --label "Dev Unit C" --deps "tech-lead"
-                bash "$0" add-node "$DAG_PATH" testing qa-engineer --label "QA" --deps "dev-a,dev-b,dev-c"
-                bash "$0" add-node "$DAG_PATH" security-code security --label "Code Security" --deps "dev-a,dev-b,dev-c"
-                bash "$0" add-node "$DAG_PATH" code-review code-reviewer --label "Code Review" --deps "testing,security-code,security-arch"
-                bash "$0" add-node "$DAG_PATH" devops devops --label "CI/CD" --deps "code-review"
-                bash "$0" add-node "$DAG_PATH" docs documentation --label "Docs" --deps "code-review"
-                bash "$0" add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "devops,docs"
-                ;;
-            *)
-                echo "[pipeline-dag] ERROR: Unknown template '$TEMPLATE'. Options: minimal, standard, full-transformation" >&2
-                exit 1
-                ;;
-        esac
-
-        echo ""
-        echo "[pipeline-dag] 📋 Template '$TEMPLATE' applied"
-        bash "$0" status "$DAG_PATH"
-        ;;
-
     *)
         echo "[pipeline-dag] ERROR: Unknown action '$ACTION'" >&2
-        echo "Actions: init, add-node, ready, start, complete, fail, skip, status, viz, template" >&2
+        echo "Actions: init, add-node, remove-node, ready, start, complete, fail, skip, status, viz" >&2
         exit 1
         ;;
 esac
