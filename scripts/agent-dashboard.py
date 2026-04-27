@@ -537,8 +537,8 @@ class WorkflowPoller:
     - Adaptive polling: 2s active, 10s idle
     """
 
-    ACTIVE_INTERVAL_S = 2.0     # any workflow changed recently
-    IDLE_INTERVAL_S = 10.0      # no changes in last 60s
+    ACTIVE_INTERVAL_S = 1.0     # any workflow changed recently
+    IDLE_INTERVAL_S = 5.0       # no changes in last 60s
     FORCE_REPARSE_S = 30.0      # bypass fast-path every 30s
     IDLE_THRESHOLD_S = 60.0     # no change for this long → idle mode
 
