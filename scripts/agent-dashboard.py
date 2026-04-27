@@ -1520,9 +1520,11 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       const toFailed = node.status === "failed";
       const active   = toActive;
 
-      const col    = toFailed ? "#f87171" : active ? agentColor(node.agent) : fromDone ? "#34d399" : "#1e2d45";
-      const op     = active ? 0.9 : fromDone ? 0.5 : 0.2;
-      const sw     = active ? 2   : fromDone ? 1.5 : 1;
+      const toDone   = node.status === "done" || node.status === "skipped";
+      const bothDone = fromDone && toDone;
+      const col    = toFailed ? "#f87171" : active ? agentColor(node.agent) : bothDone ? "#34d399" : fromDone ? "#6c8ef7" : "#334155";
+      const op     = active ? 0.95 : bothDone ? 0.7 : fromDone ? 0.6 : 0.3;
+      const sw     = active ? 2.5  : bothDone ? 2   : fromDone ? 1.8 : 1.2;
       const mid    = (fromPos.y + toPos.y) / 2;
       const marker = toFailed ? "arr-red" : active ? "arr-blue" : fromDone ? "arr-green" : "arr";
 
