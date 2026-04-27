@@ -1222,6 +1222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     <!-- Pipeline SVG diagram -->
     <div class="section-label" style="margin-bottom:12px">Pipeline Flow</div>
+    <div id="pipeline-summary"></div>
     <div id="pipeline-wrap">
       <svg id="pipeline-svg" width="100%" height="240"></svg>
     </div>
