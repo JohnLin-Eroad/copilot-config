@@ -2,12 +2,18 @@
 """
 brain-graph-query.py — Graph-augmented retrieval for the brain index.
 
-Architecture: FTS search (primary) → graph re-rank (Jaccard) → 1-hop expand → merge → deliver
+Architecture: Dual-search (FTS + LIKE) → graph re-rank → 1-hop BFS expand → deliver
 4-tier fallback: full pipeline → FTS-only → legacy grep → empty+error
+
+Design principles:
+  1. Recall-first: LIKE search guarantees coverage parity with grep
+  2. FTS for ranking: BM25 provides relevance ordering
+  3. Graph for discovery: 1-hop BFS expansion finds structurally related docs
+  4. Overfetch over underfetch: default 25 results
 
 Usage:
   python3 brain-graph-query.py --vault eroad --query "media-service SQS events"
-  python3 brain-graph-query.py --vault eroad --query "auth patterns" --max-results 20
+  python3 brain-graph-query.py --vault eroad --query "auth patterns" --max-results 30
   python3 brain-graph-query.py --vault eroad --query "RUCUS compliance" --mode fts-only
 """
 
@@ -15,8 +21,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
-import re
 import sqlite3
 import subprocess
 import sys
@@ -36,68 +42,63 @@ except ImportError:
 
 DEFAULT_DB = Path.home() / ".copilot" / "brain-graph.db"
 FLAGS_PATH = Path.home() / ".copilot" / "config" / "feature-flags.json"
+DEFAULT_MAX_RESULTS = 25
 BM25_LOW_CONFIDENCE_THRESHOLD = 2.0
 LOW_CONFIDENCE_MIN_HITS = 3
 GRAPH_BONUS_CAP = 0.5
-MAX_EXPAND_SOURCES = 5
+MAX_EXPAND_SOURCES = 7
 MAX_EXPAND_NEIGHBORS = 10
+FTS_WINDOW_MULTIPLIER = 8
 
 
 # ---------------------------------------------------------------------------
-# Query rewriting — handles hyphens, paths, acronyms
+# Query rewriting — simple 3-case handler
 # ---------------------------------------------------------------------------
 
 def rewrite_query(raw_query: str) -> dict:
-    """Rewrite raw query for FTS5 and LIKE fallbacks."""
-    import re
+    """Rewrite raw query for FTS5 + LIKE dual search.
+
+    Three cases:
+      1. Path queries ('Brain/Departments/...') → path prefix + last-segment FTS
+      2. Hyphenated terms ('media-service') → phrase FTS + basename search
+      3. Everything else → pass through + multi-word phrase
+    """
     tokens = raw_query.split()
     fts_parts = []
-    like_fallbacks = []
+    like_terms = [raw_query]  # always LIKE the raw query
     basename_terms = []
-    path_prefixes = []  # for path-like queries
+    path_prefix = None
 
-    # Detect if query looks like a vault path (contains / with multiple segments)
-    if "/" in raw_query and len(raw_query.split("/")) >= 2:
-        path_prefixes.append(raw_query.rstrip("/"))
-        # Also extract the last segment as a search term
-        last_seg = raw_query.rstrip("/").split("/")[-1]
+    # Case 1: Path query (≥3 slash-separated segments)
+    if "/" in raw_query and len(raw_query.split("/")) >= 3:
+        path_prefix = raw_query.rstrip("/")
+        last_seg = path_prefix.split("/")[-1]
         if last_seg:
             fts_parts.append(f'"{last_seg}"')
-            like_fallbacks.append(last_seg)
-
-    for token in tokens:
-        if token in [t for p in path_prefixes for t in [p]]:
-            continue  # already handled as path
-        if "-" in token or "/" in token:
-            # Hyphenated/path: phrase query + LIKE fallback + basename search
-            clean = token.replace("-", " ").replace("/", " ")
-            fts_parts.append(f'"{clean}"')
-            like_fallbacks.append(token)
-            basename_terms.append(token)
-        elif re.search(r'[a-z][A-Z]', token):
-            # CamelCase: split and search both original and split form
-            split_parts = re.sub(r'([a-z])([A-Z])', r'\1 \2', token).split()
-            # Only treat as CamelCase if split produces meaningful words (each ≥3 chars)
-            if len(split_parts) >= 2 and all(len(p) >= 3 for p in split_parts):
-                fts_parts.append(f'"{" ".join(split_parts)}"')
+            like_terms.append(last_seg)
+    else:
+        # Case 2 & 3: token-level processing
+        for token in tokens:
+            if "-" in token:
+                # Hyphenated: phrase query in FTS + exact LIKE + basename
+                fts_parts.append(f'"{token.replace("-", " ")}"')
+                like_terms.append(token)
+                basename_terms.append(token)
+            elif token.isupper() and len(token) <= 6:
+                # Acronym: exact match
+                fts_parts.append(f'"{token}"')
             else:
                 fts_parts.append(token)
-            like_fallbacks.append(token)
-        elif token.isupper() and len(token) <= 6:
-            # Acronym: exact match (skip stemmer)
-            fts_parts.append(f'"{token}"')
-        else:
-            fts_parts.append(token)
 
-    # Multi-word queries: also add as phrase
-    if len(tokens) >= 2 and not path_prefixes:
-        fts_parts.append(f'"{raw_query}"')
+        # Multi-word: also search as exact phrase
+        if len(tokens) >= 2:
+            fts_parts.append(f'"{raw_query}"')
 
     return {
         "fts_query": " ".join(fts_parts),
-        "like_fallbacks": list(set(like_fallbacks + [raw_query])),
+        "like_terms": list(set(like_terms)),
         "basename_terms": basename_terms,
-        "path_prefixes": path_prefixes,
+        "path_prefix": path_prefix,
         "original": raw_query,
     }
 
@@ -106,37 +107,59 @@ def rewrite_query(raw_query: str) -> dict:
 # Graph loading (NetworkX)
 # ---------------------------------------------------------------------------
 
+_graph_cache: tuple[nx.DiGraph | None, float] = (None, 0.0)
+
 def load_graph(conn: sqlite3.Connection) -> nx.DiGraph | None:
-    """Load edge table into NetworkX DiGraph."""
+    """Load edge table into NetworkX DiGraph. Cached for 60s."""
+    global _graph_cache
     if not HAS_NETWORKX:
         return None
+
+    now = time.monotonic()
+    if _graph_cache[0] is not None and (now - _graph_cache[1]) < 60:
+        return _graph_cache[0]
+
     G = nx.DiGraph()
     for src, tgt, etype, weight in conn.execute(
         "SELECT source_id, target_id, edge_type, weight FROM edges"
     ):
         G.add_edge(src, tgt, edge_type=etype, weight=weight)
-    # Also add nodes with no edges
     for (nid,) in conn.execute("SELECT id FROM nodes WHERE tombstone = 0"):
         if nid not in G:
             G.add_node(nid)
+
+    _graph_cache = (G, now)
     return G
 
 
 def get_hub_threshold(conn: sqlite3.Connection) -> int:
     """Read adaptive hub threshold from sync_meta."""
     row = conn.execute("SELECT value FROM sync_meta WHERE key = 'hub_threshold'").fetchone()
-    return int(row[0]) if row else 10
+    return int(row[0]) if row else 200
 
 
 # ---------------------------------------------------------------------------
-# Tier 1: Full pipeline — FTS + graph rerank + 1-hop expand + gap analysis
+# Dual search: FTS (ranking) + LIKE (coverage guarantee)
 # ---------------------------------------------------------------------------
 
-def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_results: int) -> list[dict]:
-    """Run FTS5 search and return ranked hits with BM25 scores."""
-    fts_query = rewritten["fts_query"]
+def dual_search(
+    conn: sqlite3.Connection,
+    vault: str,
+    rewritten: dict,
+    max_results: int,
+) -> list[dict]:
+    """Run FTS for ranking, then LIKE for coverage guarantee.
+
+    Pass 1: FTS5 BM25 search (provides relevance ranking)
+    Pass 2: LIKE search for all query terms (catches what FTS misses)
+    Pass 3: Path prefix search (for path-like queries)
+    Pass 4: Basename exact match boost
+    """
     hits = []
+    seen_ids: set[str] = set()
+    fts_query = rewritten["fts_query"]
 
+    # ----- Pass 1: FTS search -----
     if fts_query.strip():
         try:
             rows = conn.execute("""
@@ -149,30 +172,33 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                   AND n.tombstone = 0
                 ORDER BY score ASC
                 LIMIT ?
-            """, (fts_query, vault, max_results * 8)).fetchall()
+            """, (fts_query, vault, max_results * FTS_WINDOW_MULTIPLIER)).fetchall()
 
             for r in rows:
+                seen_ids.add(r[0])
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": abs(r[6]),  # bm25() returns negative; lower = better
+                    "bm25_score": abs(r[6]),
                     "graph_bonus": 0.0, "combined_score": abs(r[6]),
                     "source": "fts",
                 })
         except sqlite3.OperationalError:
-            # FTS query syntax error — fall through to LIKE
-            pass
+            pass  # FTS syntax error — rely on LIKE pass
 
-    # LIKE fallback for hyphenated terms that FTS may tokenize wrong
-    seen_ids = {h["id"] for h in hits}
-    for term in rewritten.get("like_fallbacks", []):
+    # ----- Pass 2: LIKE search (coverage guarantee) -----
+    # This ensures we find everything grep would find
+    for term in rewritten["like_terms"]:
+        if len(term) < 2:
+            continue
         like_rows = conn.execute("""
             SELECT id, rel_path, title, basename, domain, subdomain
             FROM nodes
             WHERE vault = ? AND tombstone = 0
-              AND (basename LIKE ? OR content LIKE ?)
+              AND (content LIKE ? OR title LIKE ? OR basename LIKE ?)
             LIMIT ?
-        """, (vault, f"%{term}%", f"%{term}%", max_results * 3)).fetchall()
+        """, (vault, f"%{term}%", f"%{term}%", f"%{term}%",
+              max_results * 4)).fetchall()
 
         for r in like_rows:
             if r[0] not in seen_ids:
@@ -180,18 +206,18 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": 1.0,
-                    "graph_bonus": 0.0, "combined_score": 1.0,
-                    "source": "like_fallback",
+                    "bm25_score": 0.5,  # base score for LIKE-only hits
+                    "graph_bonus": 0.0, "combined_score": 0.5,
+                    "source": "like",
                 })
 
-    # Path-prefix search: for path-like queries, find nodes under that path
-    for prefix in rewritten.get("path_prefixes", []):
+    # ----- Pass 3: Path prefix search -----
+    if rewritten["path_prefix"]:
+        prefix = rewritten["path_prefix"]
         path_rows = conn.execute("""
             SELECT id, rel_path, title, basename, domain, subdomain
             FROM nodes
-            WHERE vault = ? AND tombstone = 0
-              AND rel_path LIKE ?
+            WHERE vault = ? AND tombstone = 0 AND rel_path LIKE ?
             LIMIT ?
         """, (vault, f"{prefix}%", max_results * 3)).fetchall()
 
@@ -208,14 +234,14 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
             else:
                 # Boost existing hits that are under the path prefix
                 for h in hits:
-                    if h["id"] == r[0] and h["combined_score"] < 15.0:
-                        h["bm25_score"] = 15.0
-                        h["combined_score"] = 15.0
+                    if h["id"] == r[0]:
+                        h["bm25_score"] = max(h["bm25_score"], 15.0)
+                        h["combined_score"] = max(h["combined_score"], 15.0)
                         h["source"] = "path_prefix"
                         break
 
-    # Basename exact match boost — push direct name matches to top
-    for term in rewritten.get("basename_terms", []):
+    # ----- Pass 4: Basename exact match boost -----
+    for term in rewritten["basename_terms"]:
         bn_rows = conn.execute("""
             SELECT id, rel_path, title, basename, domain, subdomain
             FROM nodes
@@ -228,12 +254,11 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": 20.0,  # high score for exact basename match
+                    "bm25_score": 20.0,
                     "graph_bonus": 0.0, "combined_score": 20.0,
                     "source": "basename_match",
                 })
             else:
-                # Boost existing hit
                 for h in hits:
                     if h["id"] == r[0]:
                         h["bm25_score"] = max(h["bm25_score"], 20.0)
@@ -241,51 +266,51 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                         h["source"] = "basename_match"
                         break
 
-    # Content-match boost: FTS BM25 penalizes large documents.
-    # Re-check if the *exact* query substring appears in content/title/basename
-    # and boost those hits based on term frequency to ensure content-rich matches
-    # aren't buried by BM25 document-length penalty.
+    # ----- Content-match boost: reward files containing the exact query -----
     raw_lower = rewritten["original"].lower()
     if hits and len(raw_lower) >= 3:
-        # Compute p75 BM25 score as baseline boost
-        fts_scores = sorted([h["bm25_score"] for h in hits if h["source"] == "fts"], reverse=True)
-        p75_score = fts_scores[len(fts_scores) // 4] if fts_scores else 3.0
-        base_boost = max(p75_score, 3.0)
+        fts_scores = sorted(
+            [h["bm25_score"] for h in hits if h["source"] == "fts"],
+            reverse=True,
+        )
+        if fts_scores:
+            p75 = fts_scores[len(fts_scores) // 4]
+            boost_base = max(p75, 3.0)
+        else:
+            boost_base = 3.0
 
-        # Count term occurrences in content for each hit
+        # Check content for exact term and count occurrences
         hit_ids_list = [h["id"] for h in hits]
-        if hit_ids_list:
-            placeholders = ",".join("?" for _ in hit_ids_list)
-            # Get content for matching files
-            content_tf = {}
-            for row in conn.execute(f"""
-                SELECT id, content, title, basename FROM nodes
-                WHERE id IN ({placeholders})
-            """, hit_ids_list):
-                nid, content, title, basename = row
-                text = f"{content or ''} {title or ''} {basename or ''}".lower()
-                count = text.count(raw_lower)
-                if count > 0:
-                    content_tf[nid] = count
+        placeholders = ",".join("?" for _ in hit_ids_list)
+        content_tf: dict[str, int] = {}
+        for row in conn.execute(
+            f"SELECT id, content, title, basename FROM nodes WHERE id IN ({placeholders})",
+            hit_ids_list,
+        ):
+            text = f"{row[1] or ''} {row[2] or ''} {row[3] or ''}".lower()
+            count = text.count(raw_lower)
+            if count > 0:
+                content_tf[row[0]] = count
 
-            for h in hits:
-                if h["id"] in content_tf:
-                    tf = content_tf[h["id"]]
-                    # Scale boost: base + log(tf) to reward multiple occurrences
-                    import math
-                    tf_boost = base_boost + math.log1p(tf) * 1.5
-                    if h["bm25_score"] < tf_boost:
-                        h["bm25_score"] = tf_boost
-                        h["combined_score"] = tf_boost
-                        if h["source"] == "fts":
-                            h["source"] = "fts+content_boost"
+        for h in hits:
+            if h["id"] in content_tf and h["source"] in ("fts", "like"):
+                tf = content_tf[h["id"]]
+                tf_boost = boost_base + math.log1p(tf) * 2.0
+                if h["bm25_score"] < tf_boost:
+                    h["bm25_score"] = tf_boost
+                    h["combined_score"] = tf_boost
+                    h["source"] = h["source"] + "+boost"
 
     return hits
 
 
+# ---------------------------------------------------------------------------
+# Graph re-ranking
+# ---------------------------------------------------------------------------
+
 def graph_rerank(hits: list[dict], G: nx.DiGraph) -> list[dict]:
-    """Jaccard-normalized graph reranking, bonus capped at 0.5."""
-    if not G or not hits:
+    """Re-rank hits using Jaccard graph connectivity bonus."""
+    if not G or len(hits) < 2:
         return hits
 
     hit_ids = {h["id"] for h in hits}
@@ -310,15 +335,19 @@ def graph_rerank(hits: list[dict], G: nx.DiGraph) -> list[dict]:
     return sorted(hits, key=lambda h: h["combined_score"], reverse=True)
 
 
+# ---------------------------------------------------------------------------
+# 1-hop BFS expansion
+# ---------------------------------------------------------------------------
+
 def expand_neighbors(
     hits: list[dict],
     G: nx.DiGraph,
     hub_threshold: int,
-    max_results: int,
+    max_expand: int,
     conn: sqlite3.Connection,
     vault: str,
 ) -> list[dict]:
-    """1-hop expansion from top hits. Returns new nodes not already in hits."""
+    """1-hop BFS expansion from top hits. Returns new nodes not already in hits."""
     if not G or not hits:
         return []
 
@@ -326,34 +355,32 @@ def expand_neighbors(
     expanded = []
     seen = set(hit_ids)
 
-    # Expand from top N hits
     for hit in hits[:MAX_EXPAND_SOURCES]:
         nid = hit["id"]
         if nid not in G:
             continue
 
-        # Get all neighbors (both directions)
         neighbors = list(set(G.predecessors(nid)) | set(G.successors(nid)))
-        # Filter out hubs and already-seen
         neighbors = [
             n for n in neighbors
             if n not in seen and G.in_degree(n) <= hub_threshold
         ]
+
         # Sort by edge weight (prefer wiki_link over folder_sibling)
-        def edge_weight(n):
+        def edge_weight(n, _nid=nid):
             w = 0.0
-            if G.has_edge(nid, n):
-                w = max(w, G[nid][n].get("weight", 0.0))
-            if G.has_edge(n, nid):
-                w = max(w, G[n][nid].get("weight", 0.0))
+            if G.has_edge(_nid, n):
+                w = max(w, G[_nid][n].get("weight", 0.0))
+            if G.has_edge(n, _nid):
+                w = max(w, G[n][_nid].get("weight", 0.0))
             return w
+
         neighbors.sort(key=edge_weight, reverse=True)
 
         for n in neighbors[:MAX_EXPAND_NEIGHBORS]:
             if n in seen:
                 continue
             seen.add(n)
-            # Fetch node metadata
             row = conn.execute("""
                 SELECT id, rel_path, title, basename, domain, subdomain
                 FROM nodes WHERE id = ? AND vault = ? AND tombstone = 0
@@ -366,23 +393,25 @@ def expand_neighbors(
                     "source": "graph_expand",
                 })
 
-        if len(expanded) >= max_results:
+        if len(expanded) >= max_expand:
             break
 
-    return expanded[:max_results]
+    return expanded[:max_expand]
 
+
+# ---------------------------------------------------------------------------
+# Gap analysis
+# ---------------------------------------------------------------------------
 
 def gap_analysis(conn: sqlite3.Connection, vault: str, hits: list[dict]) -> dict:
     """Per-domain gap analysis: how many nodes exist vs how many were hit."""
-    # Get domain totals
     domain_totals = {}
     for domain, count in conn.execute(
         "SELECT domain, COUNT(*) FROM nodes WHERE vault = ? AND tombstone = 0 GROUP BY domain",
-        (vault,)
+        (vault,),
     ):
         domain_totals[domain] = count
 
-    # Count hits per domain
     domain_hits = defaultdict(int)
     for h in hits:
         if h.get("domain"):
@@ -399,6 +428,10 @@ def gap_analysis(conn: sqlite3.Connection, vault: str, hits: list[dict]) -> dict
     return gaps
 
 
+# ---------------------------------------------------------------------------
+# Tier 1: Full pipeline
+# ---------------------------------------------------------------------------
+
 def tier1_query(
     conn: sqlite3.Connection,
     vault: str,
@@ -406,13 +439,13 @@ def tier1_query(
     max_results: int,
     manifest: set[str] | None = None,
 ) -> dict:
-    """Full pipeline: FTS + graph rerank + expand + gap analysis."""
+    """Full pipeline: dual-search + graph rerank + 1-hop expand + gap analysis."""
     rewritten = rewrite_query(raw_query)
 
-    # FTS search
-    hits = fts_search(conn, vault, rewritten, max_results)
+    # Dual search
+    hits = dual_search(conn, vault, rewritten, max_results)
 
-    # Load graph + rerank
+    # Graph rerank
     G = load_graph(conn)
     hub_threshold = get_hub_threshold(conn)
 
@@ -423,43 +456,8 @@ def tier1_query(
     expand_budget = max(max_results - len(hits), 5)
     expanded = expand_neighbors(hits, G, hub_threshold, expand_budget, conn, vault)
 
-    # Merge and apply domain diversity
+    # Merge
     all_results = hits + expanded
-
-    # Domain diversity: ensure results cover different domains (architecture, learning, etc.)
-    # This prevents BM25 from returning only service docs when architecture/decision docs also match
-    domain_counts = defaultdict(int)
-    for r in all_results[:max_results]:
-        domain_counts[r.get("domain", "unclassified")] += 1
-
-    # Find domains in ALL results (not just top-N) that are missing from top-N
-    all_domains = set()
-    domain_best = {}  # best scoring hit per domain not in top-N
-    for i, r in enumerate(all_results):
-        d = r.get("domain", "unclassified")
-        all_domains.add(d)
-        if d not in domain_counts and i >= max_results:
-            if d not in domain_best:
-                domain_best[d] = r
-
-    # Inject missing-domain representatives into results (replace lowest-scoring same-domain dups)
-    if domain_best:
-        # Sort current top-N by score ascending to find replacement candidates
-        top = all_results[:max_results]
-        overflow_domains = {d: c for d, c in domain_counts.items() if c > 2}
-        for missing_domain, rep in domain_best.items():
-            # Find lowest-scoring item from an over-represented domain
-            candidates = [(i, r) for i, r in enumerate(top)
-                         if r.get("domain") in overflow_domains]
-            if candidates:
-                candidates.sort(key=lambda x: x[1]["combined_score"])
-                idx = candidates[0][0]
-                replaced_domain = top[idx].get("domain")
-                top[idx] = rep
-                overflow_domains[replaced_domain] = overflow_domains.get(replaced_domain, 1) - 1
-                if overflow_domains.get(replaced_domain, 0) <= 2:
-                    del overflow_domains[replaced_domain]
-        all_results = top + all_results[max_results:]
 
     # Deduplicate against manifest
     if manifest:
@@ -483,7 +481,8 @@ def tier1_query(
         "degraded": False,
         "query_rewritten": rewritten["fts_query"],
         "result_count": len(all_results),
-        "fts_hits": len(hits),
+        "fts_hits": sum(1 for h in hits if h["source"].startswith("fts")),
+        "like_hits": sum(1 for h in hits if h["source"].startswith("like")),
         "graph_expanded": len(expanded),
     }
 
@@ -501,12 +500,12 @@ def tier2_query(
 ) -> dict:
     """FTS-only fallback — no graph, no expansion."""
     rewritten = rewrite_query(raw_query)
-    hits = fts_search(conn, vault, rewritten, max_results)
+    hits = dual_search(conn, vault, rewritten, max_results)
 
     if manifest:
         hits = [r for r in hits if r["id"] not in manifest]
 
-    hits = hits[:max_results]
+    hits = sorted(hits, key=lambda h: h["combined_score"], reverse=True)[:max_results]
     high_score_count = sum(1 for h in hits if h["bm25_score"] >= BM25_LOW_CONFIDENCE_THRESHOLD)
 
     return {
@@ -518,12 +517,13 @@ def tier2_query(
         "query_rewritten": rewritten["fts_query"],
         "result_count": len(hits),
         "fts_hits": len(hits),
+        "like_hits": 0,
         "graph_expanded": 0,
     }
 
 
 # ---------------------------------------------------------------------------
-# Tier 3: Legacy grep fallback (no DB at all)
+# Tier 3: Legacy grep fallback (no DB)
 # ---------------------------------------------------------------------------
 
 def tier3_query(
@@ -543,7 +543,7 @@ def tier3_query(
     results = []
     terms = raw_query.split()
 
-    for term in terms[:3]:  # limit to avoid slow grep
+    for term in terms[:3]:
         try:
             proc = subprocess.run(
                 ["grep", "-ril", "--include=*.md", term, str(vault_path)],
@@ -573,16 +573,16 @@ def tier3_query(
         "query_rewritten": raw_query,
         "result_count": len(results[:max_results]),
         "fts_hits": 0,
+        "like_hits": 0,
         "graph_expanded": 0,
     }
 
 
 # ---------------------------------------------------------------------------
-# Tier 4: Empty result with error signal
+# Tier 4: Empty result with error
 # ---------------------------------------------------------------------------
 
 def tier4_error(error_msg: str) -> dict:
-    """Terminal fallback — return empty with error."""
     return {
         "results": [],
         "gap_analysis": {},
@@ -593,6 +593,7 @@ def tier4_error(error_msg: str) -> dict:
         "query_rewritten": "",
         "result_count": 0,
         "fts_hits": 0,
+        "like_hits": 0,
         "graph_expanded": 0,
     }
 
@@ -604,26 +605,15 @@ def tier4_error(error_msg: str) -> dict:
 def query(
     vault: str,
     raw_query: str,
-    max_results: int = 15,
+    max_results: int = DEFAULT_MAX_RESULTS,
     manifest: set[str] | None = None,
     mode: str = "full",
     db_path: Path = DEFAULT_DB,
 ) -> dict:
-    """Execute query with 4-tier fallback ladder.
-
-    Args:
-        vault: Vault name (eroad/john)
-        raw_query: Search query
-        max_results: Max results to return
-        manifest: Set of node IDs already fetched (to deduplicate)
-        mode: 'full' (Tier 1), 'fts-only' (Tier 2), 'grep' (Tier 3)
-        db_path: Path to SQLite database
-    """
-    # Check mode override
+    """Execute query with 4-tier fallback ladder."""
     if mode == "grep":
         return tier3_query(vault, raw_query, max_results)
 
-    # Try to open DB
     if not db_path.exists():
         print(f"  WARN: DB not found at {db_path}, falling to Tier 3", file=sys.stderr)
         return tier3_query(vault, raw_query, max_results)
@@ -639,34 +629,29 @@ def query(
         if mode == "fts-only":
             return tier2_query(conn, vault, raw_query, max_results, manifest)
 
-        # Tier 1: Full pipeline
         try:
             return tier1_query(conn, vault, raw_query, max_results, manifest)
         except Exception as e:
             print(f"  WARN: Tier 1 failed: {e}, falling to Tier 2", file=sys.stderr)
 
-        # Tier 2: FTS-only
         try:
             return tier2_query(conn, vault, raw_query, max_results, manifest)
         except Exception as e:
             print(f"  WARN: Tier 2 failed: {e}, falling to Tier 3", file=sys.stderr)
 
-        # Tier 3: Grep
         return tier3_query(vault, raw_query, max_results)
-
     finally:
         conn.close()
 
 
 # ---------------------------------------------------------------------------
-# Content fetcher — retrieve full content for result nodes
+# Content fetcher
 # ---------------------------------------------------------------------------
 
 def fetch_content(result_ids: list[str], db_path: Path = DEFAULT_DB) -> dict[str, str]:
     """Fetch full markdown content for a list of node IDs."""
     if not result_ids or not db_path.exists():
         return {}
-
     conn = sqlite3.connect(str(db_path))
     try:
         placeholders = ",".join("?" for _ in result_ids)
@@ -685,14 +670,14 @@ def fetch_content(result_ids: list[str], db_path: Path = DEFAULT_DB) -> dict[str
 
 def main():
     parser = argparse.ArgumentParser(description="Brain graph query engine")
-    parser.add_argument("--vault", required=True, help="Vault name (eroad/john)")
-    parser.add_argument("--query", required=True, help="Search query")
-    parser.add_argument("--max-results", type=int, default=15, help="Max results (default: 15)")
+    parser.add_argument("--vault", required=True)
+    parser.add_argument("--query", required=True)
+    parser.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
     parser.add_argument("--mode", choices=["full", "fts-only", "grep"], default="full")
     parser.add_argument("--db-path", type=Path, default=DEFAULT_DB)
     parser.add_argument("--manifest", help="Comma-separated node IDs already fetched")
-    parser.add_argument("--fetch-content", action="store_true", help="Include full content in results")
-    parser.add_argument("--compact", action="store_true", help="Compact JSON output (no indent)")
+    parser.add_argument("--fetch-content", action="store_true")
+    parser.add_argument("--compact", action="store_true")
     args = parser.parse_args()
 
     manifest = set(args.manifest.split(",")) if args.manifest else None
@@ -709,7 +694,6 @@ def main():
     elapsed = time.monotonic() - t0
     result["elapsed_ms"] = round(elapsed * 1000, 1)
 
-    # Optionally fetch content
     if args.fetch_content and result["results"]:
         content_map = fetch_content([r["id"] for r in result["results"]], args.db_path)
         for r in result["results"]:
