@@ -6,7 +6,7 @@ description: >
   and automatically open it in the browser.
 ---
 
-# Skill: HTML Report
+# HTML Report
 
 On task completion, generate a self-contained HTML page that shows the user what you did — then save it and open it in the browser.
 
