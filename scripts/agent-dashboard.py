@@ -2105,7 +2105,7 @@ async function fetchStatus() {
 }
 
 fetchStatus();
-setInterval(fetchStatus, 2000);
+setInterval(fetchStatus, 1000);
 </script>
 </body>
 </html>
