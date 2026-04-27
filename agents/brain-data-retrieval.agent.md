@@ -132,50 +132,6 @@ Read the task description and any specific data needs passed to you. Identify th
 
 Use targeted searches to find relevant files. Do NOT fetch everything — be selective.
 
-**Check retrieval mode first:**
-```bash
-MODE=$(python3 -c "import json; print(json.load(open('$HOME/.copilot/config/feature-flags.json')).get('brain_retrieval_mode','legacy'))" 2>/dev/null || echo "legacy")
-DB_PATH="$HOME/.copilot/brain-graph.db"
-```
-
-#### Graph Mode (MODE = `graph` or `hybrid`, and DB exists)
-
-**⚠️ IMPORTANT: Always use the `brain-graph-query.py` script. Do NOT query the SQLite DB directly — the FTS5 schema requires JOINs that the script handles internally.**
-
-**Keyword search** — use this for most queries:
-```bash
-# Returns ranked, graph-augmented results with content
-python3 ~/.copilot/scripts/brain-graph-query.py search \
-  --vault eroad --query "KEYWORD" --max-results 25 --fetch-content --compact
-```
-
-The output is JSON with `results[]` containing `rel_path`, `combined_score`, and `content`. Parse it with `python3 -c "import sys,json; ..."` to extract what you need.
-
-**Node-centric traversal** — use when starting from a known entity:
-```bash
-# Start from a service/domain and expand outward (BFS)
-python3 ~/.copilot/scripts/brain-graph-query.py traverse \
-  --vault eroad --start "service-name.md" --max-depth 1 --max-results 15 --fetch-content --compact
-
-# Iterative expansion: exclude already-fetched nodes to get next layer
-python3 ~/.copilot/scripts/brain-graph-query.py traverse \
-  --start "service-name.md" --exclude "node_id_1,node_id_2" --max-depth 2 --compact
-
-# Filter by domain or edge type
-python3 ~/.copilot/scripts/brain-graph-query.py traverse \
-  --start "service-name.md" --domain service --edge-type wiki_link --compact
-```
-
-**Graph advantages:** 30x faster (~14ms vs ~500ms), ranked results (BM25 + graph structure), discovers structurally related docs via BFS, handles negative queries correctly (returns 0 for off-topic), self-contained DB (no vault files needed).
-
-**Retrieval pattern for agents:**
-1. Search for the task's primary keyword → get ranked results
-2. Pick the most relevant result → traverse from it to discover neighbors
-3. Mark irrelevant neighbors in `exclude_visited` → traverse again for next layer
-4. Stop when context is sufficient or no new relevant nodes discovered
-
-#### Legacy Mode (MODE = `legacy`, or graph unavailable)
-
 **For eroad-brain (`BRAIN_TYPE: eroad`):**
 
 ```bash
