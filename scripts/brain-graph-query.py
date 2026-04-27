@@ -281,31 +281,35 @@ def dual_search(
     # ----- Pass 5: Basename-substring match (basename ⊂ query or query ⊂ basename) -----
     query_lower = rewritten["original"].lower()
     if len(query_lower) >= 3:
-        all_nodes = conn.execute("""
+        # Search for files where basename contains query or query contains basename
+        # Use LIKE for basename contains query
+        bn_sub_rows = conn.execute("""
             SELECT id, rel_path, title, basename, domain, subdomain
             FROM nodes WHERE vault = ? AND tombstone = 0
-        """, (vault,)).fetchall()
-        for r in all_nodes:
+              AND (LOWER(basename) LIKE ? OR ? LIKE '%' || LOWER(basename) || '%')
+            LIMIT ?
+        """, (vault, f"%{query_lower}%", query_lower, max_results * 3)).fetchall()
+
+        for r in bn_sub_rows:
             bn_lower = (r[3] or "").lower()
             if len(bn_lower) < 3:
                 continue
-            if bn_lower in query_lower or query_lower in bn_lower:
-                if r[0] not in seen_ids:
-                    seen_ids.add(r[0])
-                    hits.append({
-                        "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
-                        "domain": r[4], "subdomain": r[5],
-                        "bm25_score": 12.0,
-                        "graph_bonus": 0.0, "combined_score": 12.0,
-                        "source": "basename_substring",
-                    })
-                else:
-                    for h in hits:
-                        if h["id"] == r[0]:
-                            if h["bm25_score"] < 12.0:
-                                h["bm25_score"] = 12.0
-                                h["combined_score"] = max(h["combined_score"], 12.0)
-                            break
+            if r[0] not in seen_ids:
+                seen_ids.add(r[0])
+                hits.append({
+                    "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
+                    "domain": r[4], "subdomain": r[5],
+                    "bm25_score": 12.0,
+                    "graph_bonus": 0.0, "combined_score": 12.0,
+                    "source": "basename_substring",
+                })
+            else:
+                for h in hits:
+                    if h["id"] == r[0]:
+                        if h["bm25_score"] < 12.0:
+                            h["bm25_score"] = 12.0
+                            h["combined_score"] = max(h["combined_score"], 12.0)
+                        break
 
     # ----- Content-match boost: reward files containing the exact query -----
     raw_lower = rewritten["original"].lower()
