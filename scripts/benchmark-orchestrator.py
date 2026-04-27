@@ -34,6 +34,7 @@ COPILOT = "/opt/homebrew/bin/copilot"
 
 # 7 scored categories with locked weights
 # cwd = working directory for the copilot agent (most need the sovereign codebase)
+# timeout = max seconds for execution (default 600, override per category)
 CATEGORIES = {
     "code-generation":          {"pool_size": 4, "weight": 0.20, "executor_agent": "developer",            "cwd": SOVEREIGN},
     "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
@@ -41,7 +42,7 @@ CATEGORIES = {
     "planning":                 {"pool_size": 4, "weight": 0.15, "executor_agent": "architect",             "cwd": SOVEREIGN},
     "hallucination-resistance": {"pool_size": 4, "weight": 0.10, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
     "error-recovery":           {"pool_size": 3, "weight": 0.05, "executor_agent": "developer",             "cwd": SOVEREIGN},
-    "pipeline-compliance":      {"pool_size": 3, "weight": 0.15, "executor_agent": "orchestrator",          "cwd": SOVEREIGN},
+    "pipeline-compliance":      {"pool_size": 3, "weight": 0.15, "executor_agent": "orchestrator",          "cwd": SOVEREIGN, "timeout": 1200},
 }
 
 # Cross-model grading: Claude executor → GPT grades, GPT executor → Claude grades
@@ -404,7 +405,7 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
     raw_output, stderr, exit_code, exec_duration = run_copilot(
         prompt=prompt_text,
         agent=executor_agent,
-        timeout=600,
+        timeout=config.get("timeout", 600),
         cwd=cwd,
     )
 
