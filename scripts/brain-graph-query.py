@@ -215,6 +215,9 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                         h["source"] = "fts+content_boost"
 
     return hits
+
+
+def graph_rerank(hits: list[dict], G: nx.DiGraph) -> list[dict]:
     """Jaccard-normalized graph reranking, bonus capped at 0.5."""
     if not G or not hits:
         return hits
