@@ -188,7 +188,15 @@ def dual_search(
 
     # ----- Pass 2: LIKE search (coverage guarantee) -----
     # This ensures we find everything grep would find
-    for term in rewritten["like_terms"]:
+    like_search_terms = list(rewritten["like_terms"])
+    # For multi-word queries, also search individual words (≥4 chars)
+    query_words = rewritten["original"].split()
+    if len(query_words) >= 2:
+        for w in query_words:
+            if len(w) >= 4 and w not in like_search_terms:
+                like_search_terms.append(w)
+
+    for term in like_search_terms:
         if len(term) < 2:
             continue
         like_rows = conn.execute("""
@@ -200,14 +208,18 @@ def dual_search(
         """, (vault, f"%{term}%", f"%{term}%", f"%{term}%",
               max_results * 4)).fetchall()
 
+        # LIKE-only hits get a base score; individual words get less than full phrase
+        is_individual_word = term != rewritten["original"] and term in query_words
+        base_score = 0.3 if is_individual_word else 0.5
+
         for r in like_rows:
             if r[0] not in seen_ids:
                 seen_ids.add(r[0])
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": 0.5,  # base score for LIKE-only hits
-                    "graph_bonus": 0.0, "combined_score": 0.5,
+                    "bm25_score": base_score,
+                    "graph_bonus": 0.0, "combined_score": base_score,
                     "source": "like",
                 })
 
@@ -264,6 +276,39 @@ def dual_search(
                         h["bm25_score"] = max(h["bm25_score"], 20.0)
                         h["combined_score"] = max(h["combined_score"], 20.0)
                         h["source"] = "basename_match"
+                        break
+
+    # ----- Pass 5: Basename-substring match (basename ⊂ query or query ⊂ basename) -----
+    query_lower = rewritten["original"].lower()
+    if len(query_lower) >= 3:
+        # Search for files where basename contains query or query contains basename
+        # Use LIKE for basename contains query
+        bn_sub_rows = conn.execute("""
+            SELECT id, rel_path, title, basename, domain, subdomain
+            FROM nodes WHERE vault = ? AND tombstone = 0
+              AND (LOWER(basename) LIKE ? OR ? LIKE '%' || LOWER(basename) || '%')
+            LIMIT ?
+        """, (vault, f"%{query_lower}%", query_lower, max_results * 3)).fetchall()
+
+        for r in bn_sub_rows:
+            bn_lower = (r[3] or "").lower()
+            if len(bn_lower) < 3:
+                continue
+            if r[0] not in seen_ids:
+                seen_ids.add(r[0])
+                hits.append({
+                    "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
+                    "domain": r[4], "subdomain": r[5],
+                    "bm25_score": 12.0,
+                    "graph_bonus": 0.0, "combined_score": 12.0,
+                    "source": "basename_substring",
+                })
+            else:
+                for h in hits:
+                    if h["id"] == r[0]:
+                        if h["bm25_score"] < 12.0:
+                            h["bm25_score"] = 12.0
+                            h["combined_score"] = max(h["combined_score"], 12.0)
                         break
 
     # ----- Content-match boost: reward files containing the exact query -----
