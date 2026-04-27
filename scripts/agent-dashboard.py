@@ -1682,12 +1682,22 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
   });
 
-  svg.querySelectorAll('.dag-node').forEach(g => {
-    const nodeId = g.getAttribute('data-node-id');
+  // ── Event delegation on SVG — survives re-renders ──
+  // (Listeners attached once globally, not per-node)
+  if (!svg.__dagDelegated) {
+    svg.__dagDelegated = true;
+
+    // Helper: find nodeId from event target
+    function nodeIdFromEvent(e) {
+      const g = e.target.closest('.dag-node');
+      return g ? g.getAttribute('data-node-id') : null;
+    }
 
     // HOVER → tooltip
-    g.addEventListener('mouseenter', (e) => {
-      const meta = window.__dagNodeMeta[nodeId];
+    svg.addEventListener('mouseover', (e) => {
+      const nodeId = nodeIdFromEvent(e);
+      if (!nodeId) return;
+      const meta = window.__dagNodeMeta?.[nodeId];
       if (!meta) return;
       const tt = document.getElementById('dag-tooltip');
       const n = meta.node;
@@ -1713,18 +1723,22 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       }
       tt.innerHTML = html;
       tt.style.display = 'block';
+      const g = e.target.closest('.dag-node');
       const rect = g.getBoundingClientRect();
       tt.style.left = Math.min(rect.left + rect.width/2 - 150, window.innerWidth - 360) + 'px';
       tt.style.top  = (rect.bottom + 10) + 'px';
     });
 
-    g.addEventListener('mouseleave', () => {
-      document.getElementById('dag-tooltip').style.display = 'none';
+    svg.addEventListener('mouseout', (e) => {
+      const nodeId = nodeIdFromEvent(e);
+      if (nodeId) document.getElementById('dag-tooltip').style.display = 'none';
     });
 
     // CLICK → detail modal
-    g.addEventListener('click', () => {
-      const meta = window.__dagNodeMeta[nodeId];
+    svg.addEventListener('click', (e) => {
+      const nodeId = nodeIdFromEvent(e);
+      if (!nodeId) return;
+      const meta = window.__dagNodeMeta?.[nodeId];
       if (!meta) return;
       const n = meta.node;
       const a = meta.entry;
@@ -1809,7 +1823,6 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
             ${desc ? `<div style="color:#94a3b8;margin-top:4px;padding-top:8px;border-top:1px solid #1e2d45"><strong style="color:#64748b;font-size:0.7rem;text-transform:uppercase">Task Brief:</strong><br/>${desc}</div>` : ''}
           </span></div>`;
       } else if (n.status === 'done' && !a) {
-        // Completed but no STM entry (e.g., orchestrator node)
         const desc = n.description || 'Completed successfully';
         body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Output</span>
           <span class="detail-value findings" style="color:#34d399">✅ ${desc}</span></div>`;
@@ -1843,7 +1856,7 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       document.getElementById('modal-body').innerHTML = body;
       document.getElementById('dag-modal-overlay').classList.add('visible');
     });
-  });
+  }
 }
 
 function hexToRgb(hex) {
