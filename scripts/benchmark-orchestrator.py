@@ -623,22 +623,22 @@ def write_report(week: str, results: dict):
 
 def git_commit(week: str):
     """Stage, commit, and push benchmark results."""
-    os.chdir(CONFIG)
-    subprocess.run(["git", "add", "benchmarks/"], capture_output=True)
+    git_cwd = str(CONFIG)
+    subprocess.run(["git", "add", "benchmarks/"], capture_output=True, cwd=git_cwd)
 
     status = subprocess.run(["git", "status", "--porcelain", "benchmarks/"],
-                            capture_output=True, text=True)
+                            capture_output=True, text=True, cwd=git_cwd)
     if not status.stdout.strip():
         log("Nothing to commit — no changes in benchmarks/")
         return
 
     msg = f"benchmark: {week} results\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
-    commit = subprocess.run(["git", "commit", "-m", msg], capture_output=True, text=True)
+    commit = subprocess.run(["git", "commit", "-m", msg], capture_output=True, text=True, cwd=git_cwd)
     if commit.returncode != 0:
         log(f"Git commit failed: {commit.stderr[:200]}", "WARN")
         return
 
-    push = subprocess.run(["git", "push"], capture_output=True, text=True, timeout=60)
+    push = subprocess.run(["git", "push"], capture_output=True, text=True, timeout=60, cwd=git_cwd)
     if push.returncode == 0:
         log("Committed and pushed to git")
     else:
