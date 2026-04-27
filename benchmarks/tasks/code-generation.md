@@ -148,11 +148,7 @@ Then write a JUnit 5 unit test for VehicleOdometer covering: valid creation, zer
 
 ---
 
-<<<<<<< HEAD
-## Variant Archive (A–D: Baseline / Intermediate)
-=======
 **Final score** = average of 5 dimensions (1–100)
->>>>>>> weekly/2026-W17
 
 <details>
 <summary>Variant A — Prompt (FuelEfficiencyUseCase)</summary>
