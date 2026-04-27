@@ -242,6 +242,17 @@ The dashboard auto-refreshes every 3 seconds as agents write to the STM. The use
 **STM location:** `~/.copilot/stm/YYYY-MM-DD-{slug}/short-term-memory.md`  
 **Dashboard:** Opens automatically at `http://localhost:77xx`
 
+### Creating the Brain Manifest
+
+Immediately after creating the STM, initialize the brain fetch manifest:
+
+```bash
+MANIFEST_PATH="${STM_DIR}/brain-manifest.json"
+bash ~/.copilot/scripts/brain-manifest.sh init "$MANIFEST_PATH"
+```
+
+The manifest tracks fetched files, search queries, and absent topics across all brain-data-retrieval invocations in this pipeline. Pass `MANIFEST_PATH` to every brain-data-retrieval call.
+
 After creating the STM, update the Classification block immediately:
 
 ```
