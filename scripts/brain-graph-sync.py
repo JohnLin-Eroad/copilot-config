@@ -234,11 +234,14 @@ def rebuild_node_edges(conn: sqlite3.Connection, node_id: str, node_content: str
     conn.execute("DELETE FROM edges WHERE source_id = ?", (node_id,))
 
     lookup = build_basename_lookup(conn)
+    valid_ids = set(r[0] for r in conn.execute("SELECT id FROM nodes WHERE tombstone = 0").fetchall())
     edge_count = 0
     seen = set()
 
     for raw_target, _bn in extract_wiki_links(node_content):
         resolved = resolve_wiki_link(raw_target, lookup)
+        if resolved.startswith("_unresolved/") or resolved not in valid_ids:
+            continue
         key = ("wiki_link", resolved)
         if resolved != node_id and key not in seen:
             seen.add(key)
@@ -250,6 +253,8 @@ def rebuild_node_edges(conn: sqlite3.Connection, node_id: str, node_content: str
 
     for dep in extract_yaml_deps(node_content):
         resolved = resolve_wiki_link(dep, lookup)
+        if resolved.startswith("_unresolved/") or resolved not in valid_ids:
+            continue
         key = ("yaml_dep", resolved)
         if resolved != node_id and key not in seen:
             seen.add(key)
