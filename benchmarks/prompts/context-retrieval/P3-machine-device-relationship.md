@@ -14,10 +14,11 @@ Answer based on what is in the eroad-brain vault. For anything not covered, say 
 
 ## Expected Behavior
 
-- brain-data-retrieval fetches Vehicle-Machine.md and related domain model files
-- Agent correctly describes the Machine-Device-Vehicle triangle
-- Acknowledges gaps in lifecycle/reassignment details if not in brain
-- No fabricated API endpoints or database schemas
+- brain-data-retrieval fetches Vehicle-Machine.md, Device.md, and README.md from domain models
+- Agent correctly identifies that Machine and Vehicle are the SAME entity (different names)
+- Agent correctly describes Device as physical hardware installed in a Machine
+- Acknowledges gaps in lifecycle/reassignment details if not fully covered in brain
+- No fabricated API endpoints or database schemas beyond what brain files contain
 
 ## Grading Rubric
 
@@ -32,9 +33,13 @@ Answer based on what is in the eroad-brain vault. For anything not covered, say 
 
 ## Ground Truth
 
-From eroad-brain:
-- Machine is the physical hardware unit installed in a vehicle
-- Device is the firmware/communication layer
-- Vehicle is the logical entity (plate number, fleet assignment)
-- Machine ↔ Vehicle is a 1:1 mapping that can change over time
-- Specific reassignment details may not be in brain vault
+From eroad-brain vault (Vehicle-Machine.md, Device.md, README.md):
+- **Machine** = the EROAD term for a physical vehicle or asset equipped with an EROAD tracking device. "Vehicle" is the customer-facing synonym — they are the SAME entity (Vehicle-Machine.md: "'Machine' is the internal EROAD term; 'Vehicle' is used in customer-facing UI")
+- **Device** = a physical EROAD hardware unit (e.g. EBOX_GEN2, DASHCAM, COREHUB) installed in a Machine. Managed independently — can be moved between machines.
+- Machine ↔ Device is 1:1 at any point in time (Device.machine_id FK, nullable when in transit/workshop)
+- Device can be reassigned: uninstall → reassign → install (asset-management-service endpoints)
+- Device has serial_number (stable hardware ID), machine_id (current install target), organisation_id
+- Machine has commonIdentifier (reg plate), organisation_id, active flag (soft delete)
+- Owning services: central-service (master machine registry), device-provisioning, asset-management-service
+- Specific reassignment internals (exact lifecycle state transitions) may be partially covered — agent should flag uncertainty
+- The brain does NOT contain explicit hexagonal architecture diagrams for the EROAD platform

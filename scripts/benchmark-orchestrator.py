@@ -53,8 +53,8 @@ GRADING_MODELS = {
 # Prompts requiring special environment setup — handled explicitly
 SPECIAL_SETUP_PROMPTS = {
     "error-recovery/P2-empty-brain": {
-        "setup": "mv ~/eroad-brain ~/eroad-brain.bak && mkdir ~/eroad-brain",
-        "teardown": "rm -rf ~/eroad-brain && mv ~/eroad-brain.bak ~/eroad-brain",
+        "setup": "mv ~/eroad-brain /tmp/.eroad-brain-bench-backup && mkdir ~/eroad-brain",
+        "teardown": "rm -rf ~/eroad-brain && mv /tmp/.eroad-brain-bench-backup ~/eroad-brain",
     },
 }
 

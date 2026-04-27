@@ -37,5 +37,5 @@ From eroad-brain vault:
 - Architecture: microservices including espserver-service, ebox-service, dvir, location, safety, machine services
 - Sovereign: local transformation platform for AI-governed migration
 - Java 21 + Spring Boot 3.4 (from sovereign codebase)
-- Domain entities: Driver, Vehicle, Machine, Device, Fleet, Organisation, Trip, Event
+- Domain entities: Driver, Vehicle/Machine (same entity — "Machine" internally, "Vehicle" customer-facing), Device, Fleet, Organisation, Trip, Event
 - Java/Spring version lives in copilot-instructions.md or sovereign pom.xml, NOT in brain vault (gap expected)
