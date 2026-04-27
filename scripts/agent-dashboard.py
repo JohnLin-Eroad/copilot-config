@@ -1785,22 +1785,38 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
   });
 
-  // Direct addEventListener on each node — inline SVG event attributes are unreliable in Safari
-  svg.querySelectorAll('.dag-node').forEach(g => {
-    const nodeId = g.getAttribute('data-node-id');
-    if (!nodeId) return;
-    g.style.cursor = 'pointer';
-    g.addEventListener('click', function(e) {
-      e.stopPropagation();
-      window.__dagShowModal(nodeId);
+  // ── HTML click overlay: positioned divs on top of SVG for reliable click handling ──
+  // SVG inline event handlers and addEventListener on <g> are unreliable across browsers.
+  // HTML divs with pointer-events are guaranteed to work.
+  const overlay = document.getElementById('pipeline-click-overlay');
+  if (overlay) {
+    overlay.style.height = svg.getAttribute('height') + 'px';
+    let overlayHtml = '';
+    const hitR = R + 12; // slightly larger than node radius for easy clicking
+    nodes.forEach(node => {
+      const p = pos[node.id];
+      if (!p) return;
+      overlayHtml += `<div class="dag-click-target" data-nid="${node.id}"
+        style="position:absolute;left:${p.x - hitR}px;top:${p.y - hitR}px;
+        width:${hitR*2}px;height:${hitR*2}px;border-radius:50%;
+        pointer-events:all;cursor:pointer;z-index:6"
+        title="${(node.label||node.agent).replace(/-/g,' ')}"></div>`;
     });
-    g.addEventListener('mouseover', function(e) {
-      window.__dagShowTooltip(e, nodeId);
+    overlay.innerHTML = overlayHtml;
+    overlay.querySelectorAll('.dag-click-target').forEach(div => {
+      const nid = div.getAttribute('data-nid');
+      div.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.__dagShowModal(nid);
+      });
+      div.addEventListener('mouseover', function(e) {
+        window.__dagShowTooltip(e, nid);
+      });
+      div.addEventListener('mouseout', function() {
+        window.__dagHideTooltip();
+      });
     });
-    g.addEventListener('mouseout', function() {
-      window.__dagHideTooltip();
-    });
-  });
+  }
 
 }
 
