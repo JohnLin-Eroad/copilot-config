@@ -77,8 +77,12 @@ def rewrite_query(raw_query: str) -> dict:
         elif re.search(r'[a-z][A-Z]', token):
             # CamelCase: split and search both original and split form
             split_parts = re.sub(r'([a-z])([A-Z])', r'\1 \2', token).split()
-            fts_parts.append(f'"{" ".join(split_parts)}"')
-            like_fallbacks.append(token)  # exact case-sensitive LIKE
+            # Only treat as CamelCase if split produces meaningful words (each ≥3 chars)
+            if len(split_parts) >= 2 and all(len(p) >= 3 for p in split_parts):
+                fts_parts.append(f'"{" ".join(split_parts)}"')
+            else:
+                fts_parts.append(token)
+            like_fallbacks.append(token)
         elif token.isupper() and len(token) <= 6:
             # Acronym: exact match (skip stemmer)
             fts_parts.append(f'"{token}"')
