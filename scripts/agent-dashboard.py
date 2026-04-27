@@ -1572,7 +1572,8 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
                     isFailed  ? `rgba(248,113,113,0.1)` : "#111827";
     const stroke  = isActive  ? col : isDone ? "#34d399" : isFailed ? "#f87171" : "#1e2d45";
     const label   = (node.label || name).replace(/-/g, " ");
-    const opacity = isSkipped ? "0.4" : "1";
+    const isPending = !isActive && !isDone && !isFailed && !isSkipped;
+    const opacity = isSkipped ? "0.35" : isPending ? "0.45" : "1";
 
     let g = `<g opacity="${opacity}">`;
     if (isActive) {
