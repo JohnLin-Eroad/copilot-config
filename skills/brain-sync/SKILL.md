@@ -12,247 +12,63 @@ description: >
 ## Vault Location
 
 ```
-~/eroad-brain
+~/eroad-brain        # EROAD/work context  ($BRAIN)
+~/john-brain         # Personal/general context
 ```
 
-Shorthand: `$BRAIN`
+---
+
+## When to Use
+
+- **START of every task** — search the Brain for relevant context before doing any work
+- **END of every task** — write new knowledge back to the Brain
 
 ---
 
-## Folder Structure & Routing
+## Knowledge Lookup — 3-Step Escalation
 
-Every artifact you produce belongs in a specific folder. Always route to the correct one:
-
-| Artifact Type | Brain Folder | Template |
-|---|---|---|
-| Service documentation | `01 - Services/` | `Templates/Service.md` |
-| Operational runbooks | `02 - Runbooks/` | `Templates/Runbook.md` |
-| Architecture documents | `03 - Architecture/` | `Templates/Architecture.md` |
-| ADRs / Decisions | `04 - Decisions/` | `Templates/Decision.md` |
-| Working notes / scratch | `05 - Scratch/` | None (freeform) |
-| Agent session logs & task summaries | `06 - AI Agent Outputs/` | None (freeform) |
-| General knowledge articles | Any relevant folder | `Templates/Knowledge.md` |
+1. **Search the Brain** — `grep -r --include="*.md" -l "KEYWORD" "$BRAIN"` — read any relevant notes fully
+2. **Ask another agent** — if Brain doesn't have what you need, signal the Orchestrator to delegate to a specialist
+3. **Ask the user** — only after steps 1-2 are exhausted; explain what you searched for and why you couldn't find it
 
 ---
 
-## Knowledge Lookup Protocol
+## Core Write-Back Principles
 
-**Before starting any task**, follow this order:
+- **No duplicates** — check if a note exists before creating a new one; update existing notes with dated sections
+- **Use templates** — always start from `$BRAIN/Templates/<Type>.md` when creating new notes
+- **YAML frontmatter required** — every note needs `title`, `tags`, `date` at minimum
+- **Append-only** — never delete content; mark superseded sections with a blockquote
+- **Cross-link** — use `[[wiki-link]]` syntax to connect related notes
 
-### Step 1 — Search the Brain
-Search the vault for relevant notes before doing any other work. Use these search strategies:
+---
 
+## Gotchas
+
+- **Always search before creating** — duplicate notes are the #1 brain pollution problem. `find "$BRAIN" -name "*keyword*"` first.
+- **Check STM before searching the Brain** — the data may already be fetched. Don't waste tool calls on redundant lookups.
+- **Never delete content** — if something is wrong, mark it superseded with a dated blockquote. Append-only vault.
+- **Don't forget YAML frontmatter** — notes without `title`, `tags`, `date` break Obsidian's graph and search index.
+- **Use kebab-case filenames only** — `payment-service.md` not `PaymentService.md`. Obsidian wiki-links are case-sensitive.
+- **Don't use `~` in wiki-links** — use relative Obsidian syntax: `[[01 - Services/payment-service]]` not absolute paths.
+- **Route to the correct vault** — `~/eroad-brain` for EROAD/work, `~/john-brain` for personal/general. Wrong vault = lost knowledge.
+
+---
+
+## STM Integration
+
+Before doing brain lookups, **check the STM first** — the data may already be there. If you need brain data not in the STM, emit `PIPELINE_SIGNAL: NEED_DATA` with the topics you need.
+
+---
+
+## Progressive Loading
+
+When ready to execute brain operations:
 ```bash
-# Search all markdown files for a keyword
-grep -r --include="*.md" -l "KEYWORD" "$BRAIN"
-
-# Search inside files for context
-grep -r --include="*.md" -n "KEYWORD" "$BRAIN"
-
-# List all files in a folder
-ls "$BRAIN/01 - Services/"
-
-# Find a note by partial name
-find "$BRAIN" -name "*service-name*" -type f
+cat ~/.copilot/skills/brain-sync/GUIDE.md     # Search commands, write-back rules, STM protocol
 ```
 
-If you find relevant notes, read them fully. Use the information to inform your work.
-
-### Step 2 — Ask Another Agent
-If the Brain does not contain what you need, identify which specialist agent would know
-and signal the Orchestrator to delegate the question. For example:
-- Technical implementation details → Developer agent
-- Security implications → Security agent  
-- Architecture constraints → Architect agent
-- Business requirements → Product Manager agent
-
-### Step 3 — Ask the User
-Only if Steps 1 and 2 have been exhausted and the question cannot be inferred. Phrase
-the question clearly, explain what you searched for and why you couldn't find it.
-
----
-
-## Write-Back Rules
-
-After completing your work, write your outputs to the Brain. Follow these rules:
-
-### Rule 1 — No Duplicates
-Before creating a new note, check if one already exists:
+For session log templates and folder routing:
 ```bash
-find "$BRAIN" -name "*similar-name*" -type f
-grep -r --include="*.md" -l "title: \"Similar Title\"" "$BRAIN"
+cat ~/.copilot/skills/brain-sync/DETAIL.md    # Folder structure, templates, session log format
 ```
-If a note exists, **update it** rather than creating a new one. Add a new dated section
-rather than overwriting existing content.
-
-### Rule 2 — Use Templates
-When creating a new note, always start from the correct template:
-```bash
-cat "$BRAIN/Templates/Service.md"       # for service docs
-cat "$BRAIN/Templates/Architecture.md"  # for architecture
-cat "$BRAIN/Templates/Decision.md"      # for ADRs
-cat "$BRAIN/Templates/Runbook.md"       # for runbooks
-cat "$BRAIN/Templates/Knowledge.md"     # for general knowledge
-```
-
-Replace all `{{placeholders}}` with real values before writing the file.
-
-### Rule 3 — YAML Frontmatter is Required
-Every note must have valid YAML frontmatter. At minimum:
-```yaml
----
-title: "Descriptive Title"
-tags:
-  - relevant-tag
-date: "YYYY-MM-DD"
----
-```
-
-### Rule 4 — Filename Convention
-- Lowercase, hyphen-separated (kebab-case)
-- Descriptive and unique
-- Examples: `payment-service.md`, `adr-007-event-driven-provisioning.md`
-
-### Rule 5 — Vault is Append/Update Only
-Never delete content from the Brain. If something is superseded, mark the old section
-with a `> **Superseded on YYYY-MM-DD:** ...` blockquote and add the new content below.
-
-### Rule 6 — Cross-Link Notes
-Use Obsidian wiki-link syntax to link related notes:
-```markdown
-See also: [[01 - Services/asset-management-service]]
-Related decision: [[04 - Decisions/adr-007-event-driven-provisioning]]
-```
-
----
-
-## Agent Session Log Format
-
-At the end of every Orchestrator-managed task, write a session log to `06 - AI Agent Outputs/<task-slug>/`:
-
-**Folder structure:**
-```
-06 - AI Agent Outputs/
-└── YYYY-MM-DD-<task-slug>/
-    ├── session-log.md              ← full pipeline summary
-    ├── CHECKPOINT-v1-product-manager.md
-    ├── CHECKPOINT-v2-architect.md
-    ├── CHECKPOINT-v3-security-arch.md
-    ├── CHECKPOINT-v4-developer.md
-    ├── CHECKPOINT-v5-security-code.md
-    ├── CHECKPOINT-v6-qa-engineer.md
-    ├── CHECKPOINT-v7-devops.md
-    └── CHECKPOINT-v8-code-reviewer.md
-```
-
-The checkpoints provide a complete decision trail — what each agent did, what the user approved or changed, and any pushbacks that occurred.
-
-**`session-log.md` format:**
-
-```markdown
----
-title: "Agent Session: <task title>"
-date: "YYYY-MM-DD"
-tags:
-  - agent-output
-  - session-log
-agents_involved:
-  - orchestrator
-  - product-manager
-  - architect
-  - developer
-  - qa-engineer
----
-
-# Agent Session: <task title>
-
-## Task Brief
-<original user request>
-
-## Pipeline Summary
-| Agent | Status | Key Output |
-|---|---|---|
-| Product Manager | ✅ Done | Jira ticket XYZ, Confluence spec |
-| Architect | ✅ Done | ADR written to brain |
-| Developer | ✅ Done | PR #123 opened |
-| Security | ⚠️ Flagged | 2 issues found, 1 pushed back to Dev |
-| QA | ✅ Done | 47 tests written, 100% pass |
-| DevOps | ✅ Done | CI pipeline updated |
-| Code Reviewer | ✅ Done | 1 nit, approved |
-
-## User Amendments
-<any changes the user made at checkpoints>
-
-## Pushback Log
-<any feedback loops that occurred>
-
-## Brain Notes Written
-- [[03 - Architecture/payment-flow-redesign]]
-- [[04 - Decisions/adr-012-jwt-auth]]
-
-## Checkpoints
-All checkpoint files are in this folder.
-
-## Links
-- Jira: <ticket URL>
-- PR: <PR URL>
-- Confluence: <page URL>
-```
-
----
-
-## Short-Term Memory (STM) Integration
-
-Every Orchestrator-managed pipeline uses a **Short-Term Memory file** as the shared in-session context. As a brain-interacting agent, you must be aware of this:
-
-### Reading from STM
-
-Before doing any brain lookups yourself, check the STM first — the data may already be there:
-
-```bash
-# The STM path is passed to you in your prompt as: STM: /tmp/sov-task-<slug>/short-term-memory.md
-cat "$STM_PATH"
-```
-
-The STM contains:
-- `## [STM] Brain Data` — all brain content already fetched for this task
-- `## [STM] Fetch Manifest` — list of brain files already loaded (prevents duplicate fetches)
-- `## [STM] Agent Contributions` — outputs from prior agents in the pipeline
-
-### Requesting More Brain Data
-
-If you need brain data not in the STM, **do not fetch it yourself**. Append a request and signal the Orchestrator:
-
-```markdown
-### REQUEST from <your-agent-name> — <ISO timestamp>
-**Topics needed:**
-- <specific service, domain, ADR topic>
-**Reason:** <why you need this>
-**Status:** PENDING
-```
-
-Then emit:
-```
-PIPELINE_SIGNAL: NEED_DATA
-TOPICS: <comma-separated list>
-```
-
-The Orchestrator invokes `brain-data-retrieval`, which fetches the data, updates the STM, and resumes your agent.
-
-### Writing Your Outputs to STM
-
-After completing your work, append your key outputs to the STM under `## [STM] Agent Contributions`:
-
-```markdown
-### [<your-agent-name>] — <ISO timestamp>
-**Status:** ✅ Complete
-**Key outputs:**
-- <output 1>
-- <output 2>
-**Brain notes written:**
-- <vault path> — <what it contains>
-**Learnings identified:**
-- <learning statement> [scope: repo | project | domain | global]
-```
-
-This allows the `brain-consolidation` agent to harvest all learnings at the end of the pipeline in one pass without missing anything.
