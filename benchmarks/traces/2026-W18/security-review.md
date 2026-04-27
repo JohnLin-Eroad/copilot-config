@@ -4,8 +4,8 @@
 - Prompt ID: P3-fleet-report-exporter
 - Executor model: claude-opus-4.7
 - Grader model: gpt-5.3-codex
-- Timestamp: 2026-04-27T08:29:57Z
-- Duration: 138.6s
+- Timestamp: 2026-04-27T11:46:56Z
+- Duration: 175.5s
 
 ## Prompt Sent
 Review the following Java REST controller for security vulnerabilities.
@@ -71,205 +71,139 @@ public class FleetReportExporter {
 SECURITY_FINDING:
   id: SF-001
   severity: CRITICAL
-  owasp_ref: A01:2021 (Broken Access Control) / CWE-22 Path Traversal
+  owasp_ref: A01:2021 (Broken Access Control) / A03:2021 (Injection — Path Traversal)
   file: FleetReportExporter.java
-  line: 17-19 (exportReport)
-  title: Path Traversal via unsanitised filename parameter
-  attack_vector: Attacker calls GET /api/reports/export/{fleetId}?filename=../../etc/passwd or
-                 ?filename=../../../home/app/.ssh/authorized_keys — Files.write() will resolve
-                 the relative path components and overwrite ARBITRARY files on the host filesystem
-                 with attacker-influenced report bytes. This is a write-anywhere primitive →
-                 trivial RCE (overwrite cron, systemd unit, .ssh/authorized_keys, jar on classpath).
+  line: 18-20 (exportReport)
+  title: Path traversal via unsanitised `filename` request parameter
+  attack_vector: Attacker calls `/api/reports/export/123?filename=../../etc/passwd` (or `../../../home/app/.ssh/authorized_keys`). `Paths.get("/tmp/reports/" + filename)` resolves outside `/tmp/reports/`, allowing arbitrary file write anywhere the JVM user can write — full RCE potential by overwriting cron, systemd units, app JARs, or SSH keys.
   evidence: 'Path outputPath = Paths.get("/tmp/reports/" + filename); Files.write(outputPath, reportData);'
-  fix: 1) Reject filenames containing "/", "\\", "..", or null bytes.
-       2) Resolve and canonicalise: Path base = Paths.get("/tmp/reports").toAbsolutePath().normalize();
-          Path resolved = base.resolve(filename).normalize();
-          if (!resolved.startsWith(base)) throw new SecurityException("Path traversal");
-       3) Better: don't use the client-supplied filename for the FS path at all — generate a
-          server-side UUID and only use the client filename in the Content-Disposition header
-          (after sanitising for header injection).
-       4) Question whether persisting to /tmp at all is needed — the bytes are returned in the
-          response body anyway; the disk write appears unused (dead + dangerous).
+  fix: Reject filenames containing path separators or `..`; canonicalise and assert the resolved path starts with the intended base directory. Prefer generating a server-side filename (UUID) and ignoring user input. Example:
+        Path base = Paths.get("/tmp/reports").toRealPath();
+        Path resolved = base.resolve(filename).normalize();
+        if (!resolved.startsWith(base)) throw new SecurityException();
 
 SECURITY_FINDING:
   id: SF-002
   severity: CRITICAL
   owasp_ref: A10:2021 (Server-Side Request Forgery)
   file: FleetReportExporter.java
-  line: 28-30 (receiveWebhook)
-  title: Unvalidated SSRF via attacker-controlled callbackUrl
-  attack_vector: Attacker POSTs {"callbackUrl":"http://169.254.169.254/latest/meta-data/iam/security-credentials/"}
-                 (AWS IMDS) or "http://localhost:8080/api/internal/...", "file:///etc/passwd",
-                 "http://10.0.0.5:6379/" (internal Redis), etc. The server fetches the URL with
-                 RestTemplate and passes the body to reportService.processWebhookData — and the
-                 raw response is also returned to the attacker on most RestTemplate error paths.
-                 In AWS/EC2 this is a direct path to credential theft.
+  line: 28-31 (receiveWebhook)
+  title: Unrestricted SSRF via attacker-controlled `callbackUrl`
+  attack_vector: Attacker POSTs `{"callbackUrl":"http://169.254.169.254/latest/meta-data/iam/security-credentials/"}` (AWS IMDS) or `http://localhost:8080/actuator/env`, `file:///etc/passwd`, internal RDS/Redis endpoints. The server fetches the URL and the body is then passed into `processWebhookData`, which may also expose it back. Full SSRF — credential theft, internal network reconnaissance, bypass of network ACLs.
   evidence: 'String callbackUrl = payload.getCallbackUrl(); restTemplate.getForEntity(callbackUrl, String.class);'
-  fix: 1) Allow-list scheme (https only) and host (against an explicit allow-list of partner domains).
-       2) Resolve DNS and reject RFC1918 / loopback / link-local / IMDS (169.254.0.0/16) ranges
-          BEFORE the request, and re-check after redirects (disable auto-redirect on RestTemplate).
-       3) Set tight connect/read timeouts; cap response size.
-       4) Reconsider the design — webhooks should be PUSHED with a signed payload (HMAC), not
-          require the server to call back to a client-supplied URL.
+  fix: Do not fetch arbitrary URLs from request bodies. If callbacks are required: (a) allowlist scheme (`https` only), (b) allowlist hosts/domains, (c) resolve DNS and reject RFC1918/loopback/link-local/IMDS ranges (re-resolve to defeat DNS rebinding), (d) disable redirects, (e) use IMDSv2-required EC2 metadata or block 169.254.169.254 at egress. Consider moving outbound calls behind an egress proxy.
 
 SECURITY_FINDING:
   id: SF-003
   severity: HIGH
-  owasp_ref: A07:2021 (Identification and Authentication Failures) / Missing AuthZ
+  owasp_ref: A01:2021 (Broken Access Control)
   file: FleetReportExporter.java
-  line: class-level — entire controller
-  title: No authentication/authorisation annotations; no fleet ownership check
-  attack_vector: There is no @PreAuthorize, no tenant scoping, and no verification that the
-                 caller's principal is entitled to fleetId. Even if Spring Security is globally
-                 configured, any authenticated user (or unauthenticated, if a permitAll matcher
-                 covers /api/reports/**) can export ANY fleet's report by iterating fleetId. This
-                 is IDOR. Same issue applies to /import and /webhook (no caller identity bound to
-                 the imported data).
-  evidence: 'No @PreAuthorize / @Secured / tenant filter visible on any handler.'
-  fix: Add @PreAuthorize("@fleetAccess.canRead(#fleetId, principal)") on exportReport;
-       restrict /webhook and /import to a service role; verify caller-tenant matches data tenant
-       inside reportService.
+  line: 17, 27, 34 (all endpoints)
+  title: No authentication / authorisation enforcement on sensitive endpoints
+  attack_vector: No `@PreAuthorize`, tenant scoping, or fleet ownership check. Any authenticated (or possibly anonymous) caller can export reports for arbitrary `fleetId` (IDOR), trigger SSRF, or import data into another tenant's dataset.
+  evidence: Controller methods have no authorisation annotations and no fleet-ownership verification against the caller's principal.
+  fix: Add `@PreAuthorize("hasAuthority('REPORT_EXPORT')")` plus an explicit ownership check (`reportService.assertCallerOwns(fleetId, principal)`). Webhook/import endpoints should require service-to-service auth (signed HMAC, mTLS, or scoped JWT).
 
 SECURITY_FINDING:
   id: SF-004
   severity: HIGH
-  owasp_ref: A09:2021 (Security Logging and Monitoring Failures) / CWE-117 Log Injection
+  owasp_ref: A03:2021 (Injection — Log Injection / CRLF)
   file: FleetReportExporter.java
-  line: 41-43 (importData)
-  title: Log forging / CRLF injection via unsanitised user-controlled fields
-  attack_vector: data.get("user") is attacker-controlled JSON. Supplying
-                 "alice\n2026-04-27 INFO  reports: Import received: fleet=999 user=admin action=DELETE_ALL"
-                 lets the attacker forge log lines, frame other users, or poison SIEM rules.
-                 If logs are ever rendered in an HTML viewer, this also becomes stored XSS.
-  evidence: 'Logger.getLogger("reports").info("Import received: fleet=" + data.get("fleet_id") + " user=" + data.get("user") + ...);'
-  fix: Use SLF4J with parameterised messages (logger.info("Import received: fleet={} user={} action={}", ...))
-       AND strip CR/LF from string fields before logging. Also avoid logging PII (user identifiers)
-       at INFO without a clear retention/justification.
+  line: 38-40 (importData)
+  title: Log forging via unsanitised user input concatenated into log message
+  attack_vector: Attacker submits `{"user":"alice\n2026-04-27 INFO admin granted role=ROOT"}`. Newlines/CRLF injected into log files forge fake entries, poison SIEM/audit trails, or inject ANSI escape sequences into terminal-tailed logs.
+  evidence: '"Import received: fleet=" + data.get("fleet_id") + " user=" + data.get("user") + " action=" + data.get("action")'
+  fix: Use parameterised logging (`logger.info("Import received: fleet={} user={} action={}", ...)`) AND strip/encode CR/LF from values before logging. Also use SLF4J (not `java.util.logging.Logger.getLogger`) consistent with the rest of the platform.
 
 SECURITY_FINDING:
   id: SF-005
   severity: HIGH
-  owasp_ref: A08:2021 (Software and Data Integrity Failures) / CWE-502
+  owasp_ref: A09:2021 (Security Logging & Monitoring Failures) / A04:2021 (Insecure Design)
   file: FleetReportExporter.java
-  line: 38-40 (importData)
-  title: Untyped deserialisation into Map<String,Object> with no schema validation
-  attack_vector: Accepting arbitrary JSON into Map<String,Object> and forwarding to
-                 reportService.importData(data) defers all type/size/shape checks to downstream
-                 code. Risks: (a) unexpected nested structures causing NPE/parse DoS,
-                 (b) extremely large payloads (no @RequestBody size cap evident) → memory DoS,
-                 (c) if reportService later passes this into JPA/JPQL/native SQL or a templating
-                 engine, this is a direct injection vector. Also: if Jackson default typing is
-                 ever enabled globally, untyped Map deserialisation becomes RCE.
-  evidence: 'Map<String, Object> data = mapper.readValue(rawJson, new TypeReference<>() {}); reportService.importData(data);'
-  fix: Define a strongly-typed DTO with @Valid, @NotNull, @Size, @Pattern constraints. Configure
-       ObjectMapper with FAIL_ON_UNKNOWN_PROPERTIES=true and explicitly DISABLE default typing.
-       Enforce request body size limit (server.tomcat.max-http-form-post-size or filter).
+  line: 46 (importData catch block)
+  title: Exception details leaked to client via response body
+  attack_vector: `return ResponseEntity.badRequest().body("Parse error: " + e.getMessage());` returns Jackson/JVM exception messages that reveal class structure, field names, and parser internals — useful for attackers profiling the deserialisation surface (especially relevant given the polymorphic `Map<String,Object>` deserialisation).
+  fix: Return a generic error message to the client (`"Invalid request payload"`) with a correlation id; log the full stack trace server-side only. Add a `@ControllerAdvice` exception handler.
 
 SECURITY_FINDING:
   id: SF-006
   severity: MEDIUM
-  owasp_ref: A05:2021 (Security Misconfiguration) / CWE-209
+  owasp_ref: A08:2021 (Software and Data Integrity Failures)
   file: FleetReportExporter.java
-  line: 46 (importData catch block)
-  title: Verbose exception message returned to client
-  attack_vector: ResponseEntity.badRequest().body("Parse error: " + e.getMessage()) leaks
-                 internal parser state, field names, line/column offsets, and potentially class
-                 names — useful for crafting follow-up payloads and fingerprinting versions.
-  evidence: 'return ResponseEntity.badRequest().body("Parse error: " + e.getMessage());'
-  fix: Return a generic message ("Invalid request payload") with a correlation ID; log the full
-       exception server-side only. Centralise via @ControllerAdvice.
+  line: 35-37 (importData)
+  title: Untyped polymorphic deserialisation into Map<String,Object>
+  attack_vector: `mapper.readValue(rawJson, new TypeReference<Map<String,Object>>(){})` itself is not vulnerable, but downstream `reportService.importData(data)` receives an attacker-controlled untyped map. If any consumer reflectively dispatches on type or values are passed into expression languages / SpEL / template engines, this becomes an RCE vector. No schema validation is performed.
+  fix: Bind to a strongly-typed DTO with `@Valid` constraints. Reject unknown fields (`FAIL_ON_UNKNOWN_PROPERTIES`). Ensure `ObjectMapper` has default typing disabled (Spring's default — confirm the shared bean is used rather than a freshly-constructed `new ObjectMapper()` whose config is unknown).
 
 SECURITY_FINDING:
   id: SF-007
   severity: MEDIUM
-  owasp_ref: A03:2021 (Injection) / CWE-93 + RFC 6266
+  owasp_ref: A04:2021 (Insecure Design)
   file: FleetReportExporter.java
-  line: 21 (exportReport)
-  title: HTTP response header injection / unsafe Content-Disposition filename
-  attack_vector: setContentDispositionFormData("attachment", filename) with an unsanitised
-                 filename can contain CR/LF (HTTP response splitting on older containers) or
-                 quote/encoding tricks that confuse browsers into saving with a different
-                 extension (e.g. "report.pdf\";x.html") — aiding phishing / reflected file
-                 download attacks.
-  evidence: 'headers.setContentDispositionFormData("attachment", filename);'
-  fix: Validate filename against ^[A-Za-z0-9._-]{1,128}$; reject otherwise. Use
-       ContentDisposition.attachment().filename(safe, StandardCharsets.UTF_8).build().
+  line: 19-20 (exportReport)
+  title: Unbounded file writes to shared `/tmp/reports/` with no quota or cleanup
+  attack_vector: An attacker can repeatedly call the endpoint to fill the disk (DoS), or overwrite previously-written reports of other tenants if filenames collide (information disclosure between tenants). Writing the report to disk before streaming it back is also unnecessary — the bytes are already in memory.
+  fix: Stream `reportData` directly in the response without writing to disk. If persistence is required, write to a per-tenant prefixed path with server-generated names and a retention policy.
 
 SECURITY_FINDING:
   id: SF-008
   severity: MEDIUM
-  owasp_ref: A04:2021 (Insecure Design)
+  owasp_ref: A05:2021 (Security Misconfiguration)
   file: FleetReportExporter.java
-  line: 28-32 (receiveWebhook)
-  title: No webhook authenticity check (HMAC/signature)
-  attack_vector: /webhook accepts any POST and acts on it (triggers an outbound HTTP call,
-                 ingests the response). Without HMAC/signature verification or mTLS, anyone on
-                 the internet can drive this endpoint — amplifying SF-002 and enabling abuse of
-                 the service as an open HTTP proxy / scanner.
-  evidence: 'No signature header read; no HMAC verification before processing.'
-  fix: Require an X-Signature header (HMAC-SHA256 of body with a shared secret) and verify
-       constant-time before any processing. Rate-limit the endpoint.
-
-SECURITY_FINDING:
-  id: SF-009
-  severity: LOW
-  owasp_ref: A09:2021
-  file: FleetReportExporter.java
-  line: 42
-  title: Use of java.util.logging instead of project standard SLF4J
-  attack_vector: Inconsistent logging bypasses centralised log scrubbing/PII filters and
-                 SIEM enrichment configured for SLF4J/Logback.
-  evidence: 'Logger.getLogger("reports").info(...)'
-  fix: Use private static final Logger log = LoggerFactory.getLogger(FleetReportExporter.class);
+  line: 26 (Content-Disposition header)
+  title: Reflected user input in Content-Disposition header (response splitting / filename spoofing)
+  attack_vector: `headers.setContentDispositionFormData("attachment", filename)` — Spring's setter does encode per RFC 6266, so HTTP response splitting is mitigated, but the attacker still controls the displayed download filename, enabling user-deception attacks (e.g., presenting `invoice.pdf` for a malicious payload).
+  fix: Server-generate the download filename based on `fleetId` and timestamp; never echo the request param.
 ```
 
 ## Part 2 — Prose Summary
 
 ### 🔴 CRITICAL — Block immediately
-- **SF-001 · exportReport L17-19** — Path traversal: `Paths.get("/tmp/reports/" + filename)` with attacker-controlled `filename` is a write-anywhere primitive (overwrite `.ssh/authorized_keys`, cron, jars → RCE). Canonicalise and assert `startsWith(base)`, or eliminate the disk write entirely (it appears unused — bytes are returned in the response body).
-- **SF-002 · receiveWebhook L28-30** — Classic SSRF: `RestTemplate.getForEntity(payload.getCallbackUrl(), …)`. Attacker can hit AWS IMDS (`169.254.169.254`) and exfiltrate IAM credentials, or pivot into internal services. Allow-list scheme/host, block RFC1918/loopback/link-local pre- and post-DNS, disable auto-redirect, cap timeouts and response size. Reconsider the push-vs-pull design.
+- **SF-001 · exportReport L18-20** — Path traversal: `Paths.get("/tmp/reports/" + filename)` allows arbitrary file write via `../`. Validate against a canonicalised base directory or generate the filename server-side.
+- **SF-002 · receiveWebhook L28-31** — Full SSRF: `restTemplate.getForEntity(payload.getCallbackUrl(), …)` fetches any attacker-supplied URL, including AWS IMDS (`169.254.169.254`) and internal services. Allowlist scheme/hosts and block private/link-local ranges.
 
 ### 🟠 HIGH — Escalate for review
-- **SF-003 · class-level** — No `@PreAuthorize` / tenant ownership check anywhere. Any caller can export any fleet (IDOR). Add fleet-access expression and service-role restriction on `/import` and `/webhook`.
-- **SF-004 · importData L41-43** — Log injection / CRLF forging via `data.get("user")`. Switch to SLF4J parameterised logging and strip CR/LF.
-- **SF-005 · importData L38-40** — Untyped `Map<String,Object>` deserialisation with no size limit, no schema, no validation. Replace with a `@Valid` DTO; ensure Jackson default typing is disabled; cap request body size.
+- **SF-003 · all endpoints** — No `@PreAuthorize` and no fleet-ownership check; classic IDOR plus unauthenticated SSRF/import. Add authorisation annotations and tenant scoping.
+- **SF-004 · importData L38-40** — Log forging via newline injection in `user`/`action`. Use parameterised SLF4J logging and strip CR/LF.
+- **SF-005 · importData L46** — Exception messages leaked to client. Use `@ControllerAdvice` with a generic error body.
 
 ### 🟡 MEDIUM — Fix this sprint
-- **SF-006 · importData L46** — `e.getMessage()` echoed to client leaks internals. Return generic error + correlation ID.
-- **SF-007 · exportReport L21** — `Content-Disposition` filename unsanitised; allows header confusion / reflected file download. Validate against a strict regex and use `ContentDisposition.attachment().filename(...)`.
-- **SF-008 · receiveWebhook** — No HMAC/signature on inbound webhook; combined with SF-002 this endpoint is fully attacker-driven.
+- **SF-006 · importData L35-37** — Untyped `Map<String,Object>` deserialisation with no schema validation. Bind to a typed, `@Valid` DTO.
+- **SF-007 · exportReport L19-20** — Unnecessary disk write to shared `/tmp/reports/`; DoS and cross-tenant overwrite risk. Stream the bytes directly.
+- **SF-008 · exportReport L26** — Attacker-controlled download filename enables user deception. Server-generate the filename.
 
 ### 🟢 LOW — Tech debt
-- **SF-009 · L42** — `java.util.logging` instead of project SLF4J standard; bypasses central scrubbing/SIEM enrichment.
+- None beyond above.
 
 ### ⚪ Code Quality Notes (not security findings)
-- `exportReport` writes to `/tmp/reports/...` but never reads the file back — the disk write appears to be dead code (also amplifies SF-001). Recommend removing.
-- `ObjectMapper` is instantiated per request; should be a Spring-managed singleton. (Performance, not security.)
+- **L34** — `new ObjectMapper()` instantiated per request; should use the injected, Spring-configured bean (consistency, not a vuln by itself — but see SF-006 re: default typing).
+- **L39** — `java.util.logging.Logger.getLogger("reports")` is inconsistent with platform SLF4J conventions.
+- **L17** — `throws IOException` propagates to the framework — consider an explicit handler.
 
 ### OWASP Top 10 Recall Check
-- A01 Broken Access Control — SF-001, SF-003 ✓
-- A02 Cryptographic Failures — No evidence of vulnerability found (no crypto in this controller; check transport TLS at gateway).
-- A03 Injection — SF-007 (header), and SF-005 enables downstream injection ✓
-- A04 Insecure Design — SF-008 ✓
-- A05 Security Misconfiguration — SF-006 ✓
-- A06 Vulnerable Components — Not assessable from this snippet (run `mvn dependency-check`).
-- A07 AuthN Failures — SF-003 ✓
-- A08 Software/Data Integrity — SF-005 ✓
-- A09 Logging/Monitoring — SF-004, SF-009 ✓
-- A10 SSRF — SF-002 ✓
+- A01 Broken Access Control — SF-001, SF-003 ✅
+- A02 Cryptographic Failures — No evidence of vulnerability found (no crypto in this controller).
+- A03 Injection — SF-001 (path), SF-004 (log) ✅
+- A04 Insecure Design — SF-005, SF-007 ✅
+- A05 Security Misconfiguration — SF-008 ✅
+- A06 Vulnerable Components — Not assessable from this snippet (review `pom.xml` separately).
+- A07 Identification & Auth Failures — Covered under SF-003.
+- A08 Software & Data Integrity — SF-006 ✅
+- A09 Logging & Monitoring Failures — SF-004, SF-005 ✅
+- A10 SSRF — SF-002 ✅
 
 ### Verdict
-**BLOCKED** — 2 CRITICAL (Path Traversal, SSRF) + 3 HIGH (missing AuthZ, log injection, untyped deserialisation). Do not promote. SF-001 and SF-002 are directly exploitable as written and either one alone justifies a block: SF-001 yields filesystem write → RCE; SF-002 yields cloud credential theft on any EC2/ECS/EKS host. Fix all CRITICAL and HIGH findings, then re-submit for review.
+**BLOCKED** — 2 CRITICAL (path traversal, SSRF) and 3 HIGH findings. Do not promote. SF-001 and SF-002 are directly exploitable for RCE/credential theft and must be fixed before merge. SF-003 (missing authz) should be addressed in the same change set as it amplifies every other finding.
 
 ## Grading Reasoning
-The agent had excellent vulnerability recall but over-reported beyond the benchmark ground truth and over-escalated severities for 2 of 3 planted issues. Strong detection coverage, weaker calibration.
+The review has excellent coverage and correctly identifies all planted issues, but severity calibration is off on 2 of 3 expected vulnerabilities and several extra findings reduce precision. Overall, this is strong detection with moderate overcalling.
 
 ## Scores
 
 | Dimension | Weight | Score (0-100) | Reasoning |
 |---|---|---|---|
-| Recall | 40% | 100 | The output explicitly identified all 3 planted vulnerabilities: path traversal ("Path Traversal via unsanitised filename parameter"), SSRF ("Unvalidated SSRF via attacker-controlled callbackUrl"), and log injection ("Log forging / CRLF injection via unsanitised user-controlled fields"). |
-| Precision | 30% | 44.4 | It reported 9 total findings (SF-001 to SF-009), but only 4 align with ground truth/bonus in this benchmark (SF-001 path traversal, SF-002 SSRF, SF-004 log injection, SF-006 error detail leak). The remaining findings are extra/speculative for this prompt, reducing precision. |
-| Severity accuracy | 30% | 33.3 | Against expected severities for planted vulns: Path Traversal was correctly marked CRITICAL; SSRF was marked CRITICAL but expected HIGH; Log Injection was marked HIGH but expected MEDIUM. That is 1 correct out of 3. |
+| recall | 40% | 100 | The agent found all 3 planted vulnerabilities with explicit findings: path traversal ('SF-001 ... Path traversal via unsanitised `filename`'), SSRF ('SF-002 ... Unrestricted SSRF via attacker-controlled `callbackUrl`'), and log injection ('SF-004 ... Log forging via unsanitised user input'). This is full recall: 3/3. |
+| precision | 30% | 63 | It reported 8 findings total, but several are speculative or context-dependent rather than clearly evidenced in the snippet, e.g., 'No authentication / authorisation enforcement on sensitive endpoints' (could be enforced globally), and 'Untyped polymorphic deserialisation ... this becomes an RCE vector' (conditional downstream claim). With about 5 clearly valid findings out of 8, precision is roughly 62.5%. |
+| severity_accuracy | 30% | 33 | Against expected severities for planted vulns: path traversal was correctly CRITICAL ('SF-001 ... severity: CRITICAL'), but SSRF was overclassified as CRITICAL (expected HIGH), and log injection was overclassified as HIGH (expected MEDIUM). That is 1 correct out of 3 severity labels. |
 
-## Overall Score: 63.3/100
+## Overall Score: 68.8/100
