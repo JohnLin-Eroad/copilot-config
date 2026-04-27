@@ -1655,10 +1655,30 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
   svg.innerHTML = html;
 
   // ── Attach hover + click handlers to rendered nodes ──
+  // Smart agent matching: STM uses "developer (dev-01)" but DAG has id="dev-01" agent="developer"
+  function findAgentEntry(node) {
+    if (!agents || agents.length === 0) return null;
+    // 1. Exact match by node.id in parentheses: "developer (dev-01)" or "security" etc.
+    let entry = agents.find(a => {
+      const m = a.agent.match(/\(([^)]+)\)/);
+      return m && m[1] === node.id;
+    });
+    if (entry) return entry;
+    // 2. Exact match on agent type (works when only one of that type, e.g., "architect")
+    const sameType = agents.filter(a => a.agent === node.agent || a.agent.startsWith(node.agent));
+    if (sameType.length === 1) return sameType[0];
+    // 3. Match by unit field if present
+    entry = agents.find(a => a.unit && a.unit === node.id);
+    if (entry) return entry;
+    // 4. Match where agent name contains the node label
+    entry = agents.find(a => a.agent.toLowerCase().includes(node.id.toLowerCase()));
+    if (entry) return entry;
+    return null;
+  }
+
   window.__dagNodeMeta = {};
   nodes.forEach(node => {
-    const entry = agents.find(a => a.agent === node.agent);
-    window.__dagNodeMeta[node.id] = { node, entry: entry || null };
+    window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
   });
 
   svg.querySelectorAll('.dag-node').forEach(g => {
