@@ -93,9 +93,11 @@ EOF
 
         LABEL="$NODE_ID"
         DEPS="[]"
+        DESC=""
         while [[ $# -gt 0 ]]; do
             case "$1" in
                 --label) LABEL="${2:-$NODE_ID}"; shift 2 ;;
+                --desc) DESC="${2:-}"; shift 2 ;;
                 --deps)
                     # Convert comma-separated to JSON array
                     IFS=',' read -ra DEP_ARR <<< "${2:-}"
@@ -112,11 +114,12 @@ EOF
             exit 0
         fi
 
-        jq --arg id "$NODE_ID" --arg agent "$AGENT" --arg label "$LABEL" --argjson deps "$DEPS" --arg t "$TS" \
+        jq --arg id "$NODE_ID" --arg agent "$AGENT" --arg label "$LABEL" --argjson deps "$DEPS" --arg t "$TS" --arg desc "$DESC" \
             '.nodes += [{
                 "id": $id,
                 "agent": $agent,
                 "label": $label,
+                "description": $desc,
                 "deps": $deps,
                 "status": "pending",
                 "added_at": $t,
