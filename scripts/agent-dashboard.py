@@ -1685,182 +1685,168 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
   });
 
-  // ── Event delegation on SVG — survives re-renders ──
-  // (Listeners attached once globally, not per-node)
-  if (!svg.__dagDelegated) {
-    svg.__dagDelegated = true;
-
-    // Helper: find nodeId from event target
-    function nodeIdFromEvent(e) {
-      const g = e.target.closest('.dag-node');
-      return g ? g.getAttribute('data-node-id') : null;
-    }
-
-    // HOVER → tooltip
-    svg.addEventListener('mouseover', (e) => {
-      const nodeId = nodeIdFromEvent(e);
-      if (!nodeId) return;
-      const meta = window.__dagNodeMeta?.[nodeId];
-      if (!meta) return;
-      const tt = document.getElementById('dag-tooltip');
-      const n = meta.node;
-      const a = meta.entry;
-      const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
-      const sCol = statusColors[n.status] || '#475569';
-      let html = `<div class="tt-agent">${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}</div>`;
-      html += `<span class="tt-status" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span>`;
-      if (a && a.findings) {
-        const preview = a.findings.length > 180 ? a.findings.slice(0,180) + '…' : a.findings;
-        html += `<div class="tt-findings">${preview}</div>`;
-      } else if (n.status === 'pending') {
-        const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
-        html += `<div class="tt-findings" style="color:#475569">${desc || 'Waiting for dependencies…'}</div>`;
-      } else if (n.status === 'running') {
-        const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
-        html += `<div class="tt-findings" style="color:#6c8ef7">${desc || 'Agent is working…'}</div>`;
-      } else if (n.status === 'done' && !a) {
-        html += `<div class="tt-findings" style="color:#34d399">✅ Completed</div>`;
-      }
-      if (a && a.model) {
-        html += `<div class="tt-meta">Model: ${a.model}</div>`;
-      }
-      tt.innerHTML = html;
-      tt.style.display = 'block';
-      const g = e.target.closest('.dag-node');
-      const rect = g.getBoundingClientRect();
-      tt.style.left = Math.min(rect.left + rect.width/2 - 150, window.innerWidth - 360) + 'px';
-      tt.style.top  = (rect.bottom + 10) + 'px';
-    });
-
-    svg.addEventListener('mouseout', (e) => {
-      const nodeId = nodeIdFromEvent(e);
-      if (nodeId) document.getElementById('dag-tooltip').style.display = 'none';
-    });
-
-    // CLICK → detail modal
-    svg.addEventListener('click', (e) => {
-      const nodeId = nodeIdFromEvent(e);
-      if (!nodeId) return;
-      const meta = window.__dagNodeMeta?.[nodeId];
-      if (!meta) return;
-      const n = meta.node;
-      const a = meta.entry;
-      const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
-      const sCol = statusColors[n.status] || '#475569';
-
-      document.getElementById('modal-title').innerHTML =
-        `${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}`;
-
-      let body = '';
-
-      // Status badge
-      body += `<div class="detail-row"><span class="detail-label">Status</span>
-        <span class="detail-value"><span class="badge" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span></span></div>`;
-
-      // Agent type
-      body += `<div class="detail-row"><span class="detail-label">Agent</span>
-        <span class="detail-value">${n.agent}</span></div>`;
-
-      // Model
-      if (a && a.model) {
-        body += `<div class="detail-row"><span class="detail-label">Model</span>
-          <span class="detail-value">${a.model}</span></div>`;
-      }
-
-      // Tool usage
-      if (a && (a.tool_used || a.tool_max)) {
-        const used = a.tool_used || 0;
-        const max  = a.tool_max || '?';
-        const pct  = a.tool_max ? Math.round(used/a.tool_max*100) : 0;
-        const barCol = pct > 75 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
-        body += `<div class="detail-row"><span class="detail-label">Tools</span>
-          <span class="detail-value">${used}/${max} calls
-            <div style="background:#1e2d45;height:4px;border-radius:2px;width:120px;margin-top:4px">
-              <div style="background:${barCol};height:4px;border-radius:2px;width:${pct}%"></div>
-            </div>
-          </span></div>`;
-      }
-
-      // Dependencies
-      if (n.deps && n.deps.length > 0) {
-        body += `<div class="detail-row"><span class="detail-label">Depends</span>
-          <span class="detail-value">${n.deps.map(d => `<span class="badge" style="background:#1e2d45;color:#64748b">${d}</span>`).join(' ')}</span></div>`;
-      }
-
-      // Timing
-      if (n.started_at) {
-        body += `<div class="detail-row"><span class="detail-label">Started</span>
-          <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.started_at).toLocaleTimeString()}</span></div>`;
-      }
-      if (n.completed_at) {
-        body += `<div class="detail-row"><span class="detail-label">Finished</span>
-          <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.completed_at).toLocaleTimeString()}</span></div>`;
-      }
-      if (n.started_at && n.completed_at) {
-        const dur = Math.round((new Date(n.completed_at) - new Date(n.started_at)) / 1000);
-        body += `<div class="detail-row"><span class="detail-label">Duration</span>
-          <span class="detail-value">${dur}s</span></div>`;
-      }
-
-      // Findings (main content)
-      if (a && a.findings) {
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
-          <span class="detail-value findings">${a.findings}</span></div>`;
-      } else if (n.status === 'pending') {
-        const desc = n.description || '';
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Status</span>
-          <span class="detail-value findings" style="color:#334155">⏳ Waiting for dependencies to complete…</span></div>`;
-        if (desc) {
-          body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Task Brief</span>
-            <span class="detail-value findings" style="color:#64748b">${desc}</span></div>`;
-        }
-      } else if (n.status === 'running') {
-        const desc = n.description || '';
-        const elapsed = n.started_at ? Math.round((Date.now() - new Date(n.started_at).getTime()) / 1000) : 0;
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Live Status</span>
-          <span class="detail-value findings" style="color:#6c8ef7">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-              <span style="display:inline-block;width:8px;height:8px;background:#6c8ef7;border-radius:50%;animation:pulse 1.2s infinite"></span>
-              Agent is working… ${elapsed > 0 ? `(${elapsed}s elapsed)` : ''}
-            </div>
-            ${desc ? `<div style="color:#94a3b8;margin-top:4px;padding-top:8px;border-top:1px solid #1e2d45"><strong style="color:#64748b;font-size:0.7rem;text-transform:uppercase">Task Brief:</strong><br/>${desc}</div>` : ''}
-          </span></div>`;
-      } else if (n.status === 'done' && !a) {
-        const desc = n.description || 'Completed successfully';
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Output</span>
-          <span class="detail-value findings" style="color:#34d399">✅ ${desc}</span></div>`;
-      }
-
-      // Decisions
-      if (a && a.decisions) {
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Decisions</span>
-          <span class="detail-value findings" style="border-color:#fbbf2433">${a.decisions}</span></div>`;
-      }
-
-      // Files
-      if (a && a.files && a.files.length > 0) {
-        const fileItems = a.files.map(f => `<li>📄 ${f}</li>`).join('');
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Files</span>
-          <ul class="files-list">${fileItems}</ul></div>`;
-      }
-
-      // Next step
-      if (a && a.next) {
-        body += `<div class="detail-row"><span class="detail-label">Next</span>
-          <span class="detail-value" style="color:#fbbf24">${a.next}</span></div>`;
-      }
-
-      // Failed reason
-      if (n.failed_reason) {
-        body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Error</span>
-          <span class="detail-value findings" style="color:#f87171;border-color:#f8717133">${n.failed_reason}</span></div>`;
-      }
-
-      document.getElementById('modal-body').innerHTML = body;
-      document.getElementById('dag-modal-overlay').classList.add('visible');
-    });
-  }
 }
+
+// ── Global handlers for DAG node hover/click — called via inline SVG attributes ──
+// (Inline handlers survive innerHTML replacement; no event delegation needed)
+window.__dagShowTooltip = function(evt, nodeId) {
+  const meta = window.__dagNodeMeta?.[nodeId];
+  if (!meta) return;
+  const tt = document.getElementById('dag-tooltip');
+  const n = meta.node;
+  const a = meta.entry;
+  const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
+  const sCol = statusColors[n.status] || '#475569';
+  let html = `<div class="tt-agent">${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}</div>`;
+  html += `<span class="tt-status" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span>`;
+  if (a && a.findings) {
+    const preview = a.findings.length > 180 ? a.findings.slice(0,180) + '…' : a.findings;
+    html += `<div class="tt-findings">${preview}</div>`;
+  } else if (n.status === 'pending') {
+    const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+    html += `<div class="tt-findings" style="color:#475569">${desc || 'Waiting for dependencies…'}</div>`;
+  } else if (n.status === 'running') {
+    const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+    html += `<div class="tt-findings" style="color:#6c8ef7">${desc || 'Agent is working…'}</div>`;
+  } else if (n.status === 'done' && !a) {
+    html += `<div class="tt-findings" style="color:#34d399">✅ Completed</div>`;
+  }
+  if (a && a.model) {
+    html += `<div class="tt-meta">Model: ${a.model}</div>`;
+  }
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  // Position near the node
+  const g = evt.currentTarget;
+  const rect = g.getBoundingClientRect();
+  tt.style.left = Math.min(rect.left + rect.width/2 - 150, window.innerWidth - 360) + 'px';
+  tt.style.top  = (rect.bottom + 10) + 'px';
+};
+
+window.__dagHideTooltip = function() {
+  document.getElementById('dag-tooltip').style.display = 'none';
+};
+
+window.__dagShowModal = function(nodeId) {
+  const meta = window.__dagNodeMeta?.[nodeId];
+  if (!meta) return;
+  document.getElementById('dag-tooltip').style.display = 'none';
+  const n = meta.node;
+  const a = meta.entry;
+  const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
+  const sCol = statusColors[n.status] || '#475569';
+
+  document.getElementById('modal-title').innerHTML =
+    `${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}`;
+
+  let body = '';
+
+  // Status badge
+  body += `<div class="detail-row"><span class="detail-label">Status</span>
+    <span class="detail-value"><span class="badge" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span></span></div>`;
+
+  // Agent type
+  body += `<div class="detail-row"><span class="detail-label">Agent</span>
+    <span class="detail-value">${n.agent}</span></div>`;
+
+  // Model
+  if (a && a.model) {
+    body += `<div class="detail-row"><span class="detail-label">Model</span>
+      <span class="detail-value">${a.model}</span></div>`;
+  }
+
+  // Tool usage
+  if (a && (a.tool_used || a.tool_max)) {
+    const used = a.tool_used || 0;
+    const max  = a.tool_max || '?';
+    const pct  = a.tool_max ? Math.round(used/a.tool_max*100) : 0;
+    const barCol = pct > 75 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
+    body += `<div class="detail-row"><span class="detail-label">Tools</span>
+      <span class="detail-value">${used}/${max} calls
+        <div style="background:#1e2d45;height:4px;border-radius:2px;width:120px;margin-top:4px">
+          <div style="background:${barCol};height:4px;border-radius:2px;width:${pct}%"></div>
+        </div>
+      </span></div>`;
+  }
+
+  // Dependencies
+  if (n.deps && n.deps.length > 0) {
+    body += `<div class="detail-row"><span class="detail-label">Depends</span>
+      <span class="detail-value">${n.deps.map(d => `<span class="badge" style="background:#1e2d45;color:#64748b">${d}</span>`).join(' ')}</span></div>`;
+  }
+
+  // Timing
+  if (n.started_at) {
+    body += `<div class="detail-row"><span class="detail-label">Started</span>
+      <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.started_at).toLocaleTimeString()}</span></div>`;
+  }
+  if (n.completed_at) {
+    body += `<div class="detail-row"><span class="detail-label">Finished</span>
+      <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.completed_at).toLocaleTimeString()}</span></div>`;
+  }
+  if (n.started_at && n.completed_at) {
+    const dur = Math.round((new Date(n.completed_at) - new Date(n.started_at)) / 1000);
+    body += `<div class="detail-row"><span class="detail-label">Duration</span>
+      <span class="detail-value">${dur}s</span></div>`;
+  }
+
+  // Findings (main content)
+  if (a && a.findings) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
+      <span class="detail-value findings">${a.findings}</span></div>`;
+  } else if (n.status === 'pending') {
+    const desc = n.description || '';
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Status</span>
+      <span class="detail-value findings" style="color:#334155">⏳ Waiting for dependencies to complete…</span></div>`;
+    if (desc) {
+      body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Task Brief</span>
+        <span class="detail-value findings" style="color:#64748b">${desc}</span></div>`;
+    }
+  } else if (n.status === 'running') {
+    const desc = n.description || '';
+    const elapsed = n.started_at ? Math.round((Date.now() - new Date(n.started_at).getTime()) / 1000) : 0;
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Live Status</span>
+      <span class="detail-value findings" style="color:#6c8ef7">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="display:inline-block;width:8px;height:8px;background:#6c8ef7;border-radius:50%;animation:pulse 1.2s infinite"></span>
+          Agent is working… ${elapsed > 0 ? '(' + elapsed + 's elapsed)' : ''}
+        </div>
+        ${desc ? '<div style="color:#94a3b8;margin-top:4px;padding-top:8px;border-top:1px solid #1e2d45"><strong style="color:#64748b;font-size:0.7rem;text-transform:uppercase">Task Brief:</strong><br/>' + desc + '</div>' : ''}
+      </span></div>`;
+  } else if (n.status === 'done' && !a) {
+    const desc = n.description || 'Completed successfully';
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Output</span>
+      <span class="detail-value findings" style="color:#34d399">✅ ${desc}</span></div>`;
+  }
+
+  // Decisions
+  if (a && a.decisions) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Decisions</span>
+      <span class="detail-value findings" style="border-color:#fbbf2433">${a.decisions}</span></div>`;
+  }
+
+  // Files
+  if (a && a.files && a.files.length > 0) {
+    const fileItems = a.files.map(f => `<li>📄 ${f}</li>`).join('');
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Files</span>
+      <ul class="files-list">${fileItems}</ul></div>`;
+  }
+
+  // Next step
+  if (a && a.next) {
+    body += `<div class="detail-row"><span class="detail-label">Next</span>
+      <span class="detail-value" style="color:#fbbf24">${a.next}</span></div>`;
+  }
+
+  // Failed reason
+  if (n.failed_reason) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Error</span>
+      <span class="detail-value findings" style="color:#f87171;border-color:#f8717133">${n.failed_reason}</span></div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('dag-modal-overlay').classList.add('visible');
+};
 
 function hexToRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
