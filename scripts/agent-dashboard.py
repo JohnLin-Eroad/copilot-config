@@ -1711,7 +1711,7 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       </circle>`;
     }
     // Invisible larger hit target for easier hover/click
-    g += `<circle cx="${x}" cy="${y}" r="${R+8}" fill="transparent" class="dag-hit-target"/>`;
+    g += `<circle cx="${x}" cy="${y}" r="${R+8}" fill="none" pointer-events="all" class="dag-hit-target"/>`;
     g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}"
       stroke-width="${isActive ? 2.5 : 1.5}" ${isActive ? 'filter="url(#glow)"' : ''}
       ${isSkipped ? 'stroke-dasharray="4 3"' : ''}/>`;
