@@ -557,6 +557,179 @@ def gap_analysis(conn: sqlite3.Connection, vault: str, hits: list[dict]) -> dict
 
 
 # ---------------------------------------------------------------------------
+# Node-centric traversal (BFS from a starting node)
+# ---------------------------------------------------------------------------
+
+def traverse(
+    start_node: str,
+    vault: str = "eroad",
+    max_depth: int = 1,
+    max_results: int = DEFAULT_MAX_RESULTS,
+    filter_domain: str | None = None,
+    exclude_visited: set[str] | None = None,
+    db_path: Path = DEFAULT_DB,
+) -> dict:
+    """
+    BFS traversal starting from a specific node.
+    
+    This is the expanding-search mode the brain retrieval agent uses:
+    1. Start from a known node (e.g., a service, domain, or repo)
+    2. Expand 1-hop (or multi-hop) via graph edges
+    3. Return neighbors with metadata
+    4. Agent marks irrelevant nodes in exclude_visited for next call
+    
+    Args:
+        start_node: rel_path or partial path of the starting node
+        vault: vault name
+        max_depth: BFS depth (1 = direct neighbors, 2 = neighbors of neighbors)
+        max_results: max nodes to return
+        filter_domain: only return nodes in this domain folder
+        exclude_visited: nodes to skip (already explored and deemed irrelevant)
+        db_path: path to SQLite database
+    
+    Returns dict with:
+        - start_node: the resolved starting node
+        - results: list of neighbor nodes with metadata
+        - depth_reached: actual BFS depth explored
+        - edges_traversed: number of edges followed
+        - pruned_count: nodes skipped due to exclude_visited
+    """
+    if not db_path.exists():
+        return {"error": "DB not found", "results": [], "result_count": 0}
+    
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA journal_mode = WAL")
+    exclude = exclude_visited or set()
+    
+    try:
+        # Resolve start_node: try exact match, then LIKE on rel_path, then basename
+        row = conn.execute(
+            "SELECT id, rel_path, title, domain FROM nodes WHERE vault=? AND tombstone=0 AND rel_path=?",
+            (vault, start_node)
+        ).fetchone()
+        
+        if not row:
+            row = conn.execute(
+                "SELECT id, rel_path, title, domain FROM nodes WHERE vault=? AND tombstone=0 AND rel_path LIKE ?",
+                (vault, f"%{start_node}%")
+            ).fetchone()
+        
+        if not row:
+            row = conn.execute(
+                "SELECT id, rel_path, title, domain FROM nodes WHERE vault=? AND tombstone=0 AND basename LIKE ?",
+                (vault, f"%{start_node}%")
+            ).fetchone()
+        
+        if not row:
+            return {"error": f"Node '{start_node}' not found", "results": [], "result_count": 0}
+        
+        start_id, start_path, start_title, start_domain = row
+        
+        # Load graph
+        G = load_graph(conn)
+        if not G or start_id not in G:
+            return {
+                "error": "Graph unavailable or node not in graph",
+                "start_node": {"id": start_id, "rel_path": start_path, "title": start_title},
+                "results": [], "result_count": 0,
+            }
+        
+        hub_threshold = get_hub_threshold(conn)
+        
+        # BFS expansion
+        visited = {start_id}
+        current_layer = [start_id]
+        all_neighbors = []
+        edges_traversed = 0
+        pruned = 0
+        depth_reached = 0
+        
+        for depth in range(max_depth):
+            next_layer = []
+            for nid in current_layer:
+                if nid not in G:
+                    continue
+                neighbors = list(set(G.predecessors(nid)) | set(G.successors(nid)))
+                for nbr in neighbors:
+                    edges_traversed += 1
+                    if nbr in visited:
+                        continue
+                    if nbr in exclude:
+                        pruned += 1
+                        visited.add(nbr)
+                        continue
+                    # Skip hubs (too generic)
+                    if G.in_degree(nbr) > hub_threshold:
+                        continue
+                    visited.add(nbr)
+                    next_layer.append(nbr)
+            
+            if not next_layer:
+                break
+            
+            depth_reached = depth + 1
+            
+            # Fetch metadata for this layer
+            for nbr_id in next_layer:
+                meta = conn.execute("""
+                    SELECT id, rel_path, title, basename, domain, subdomain,
+                           LENGTH(content) as content_len
+                    FROM nodes WHERE id = ? AND vault = ? AND tombstone = 0
+                """, (nbr_id, vault)).fetchone()
+                
+                if not meta:
+                    continue
+                
+                node_domain = meta[4]
+                if filter_domain and node_domain and filter_domain.lower() not in node_domain.lower():
+                    continue
+                
+                # Calculate edge weight from start
+                edge_w = 0.0
+                if G.has_edge(start_id, nbr_id):
+                    edge_w = max(edge_w, G[start_id][nbr_id].get("weight", 0.0))
+                if G.has_edge(nbr_id, start_id):
+                    edge_w = max(edge_w, G[nbr_id][start_id].get("weight", 0.0))
+                
+                # Get edge type
+                edge_type = "unknown"
+                for src, tgt in [(start_id, nbr_id), (nbr_id, start_id)]:
+                    if G.has_edge(src, tgt):
+                        edge_type = G[src][tgt].get("edge_type", "wiki_link")
+                        break
+                
+                all_neighbors.append({
+                    "id": meta[0], "rel_path": meta[1], "title": meta[2],
+                    "basename": meta[3], "domain": meta[4], "subdomain": meta[5],
+                    "content_length": meta[6] or 0,
+                    "depth": depth + 1,
+                    "edge_weight": edge_w,
+                    "edge_type": edge_type,
+                })
+            
+            current_layer = next_layer
+            if len(all_neighbors) >= max_results:
+                break
+        
+        # Sort by edge weight (strongest connections first), then by depth (closer first)
+        all_neighbors.sort(key=lambda x: (-x["edge_weight"], x["depth"]))
+        results = all_neighbors[:max_results]
+        
+        return {
+            "start_node": {"id": start_id, "rel_path": start_path, "title": start_title, "domain": start_domain},
+            "results": results,
+            "result_count": len(results),
+            "depth_reached": depth_reached,
+            "edges_traversed": edges_traversed,
+            "pruned_count": pruned,
+            "total_discovered": len(all_neighbors),
+            "tier": "traverse",
+        }
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
 # Tier 1: Full pipeline
 # ---------------------------------------------------------------------------
 
