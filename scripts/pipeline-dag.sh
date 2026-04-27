@@ -226,12 +226,14 @@ EOF
 
         case "$TEMPLATE" in
             minimal)
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch"
+                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
+                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
                 bash "$0" add-node "$DAG_PATH" specialist specialist --label "Specialist" --deps "brain-retrieval"
                 bash "$0" add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "specialist"
                 ;;
             standard)
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch"
+                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
+                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
                 bash "$0" add-node "$DAG_PATH" architect architect --label "Architecture" --deps "brain-retrieval"
                 bash "$0" add-node "$DAG_PATH" security-arch security --label "Security Review" --deps "architect"
                 bash "$0" add-node "$DAG_PATH" tech-lead tech-lead --label "Decompose" --deps "architect"
@@ -242,7 +244,8 @@ EOF
                 bash "$0" add-node "$DAG_PATH" consolidation brain-consolidation --label "Brain Save" --deps "code-review"
                 ;;
             full-transformation)
-                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch"
+                bash "$0" add-node "$DAG_PATH" orchestrator orchestrator --label "Orchestrator"
+                bash "$0" add-node "$DAG_PATH" brain-retrieval brain-data-retrieval --label "Brain Fetch" --deps "orchestrator"
                 bash "$0" add-node "$DAG_PATH" product-mgr product-manager --label "Product Spec" --deps "brain-retrieval"
                 bash "$0" add-node "$DAG_PATH" architect architect --label "Architecture" --deps "product-mgr"
                 bash "$0" add-node "$DAG_PATH" security-arch security --label "Arch Security" --deps "architect"
