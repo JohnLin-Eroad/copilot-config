@@ -1,9 +1,10 @@
 ---
 name: handoff-protocol
 description: >
-  Defines how agents hand off context to each other during a pipeline run. Each handoff
-  is targeted — only what the next agent needs. If more context is required, the agent
-  checks STM first, then raises NEED_DATA for brain retrieval.
+  Invoke when an agent in a pipeline needs to pass context to the next agent, or when
+  the orchestrator is constructing a targeted handoff payload. Each handoff is targeted —
+  only what the next agent needs. If more context is required, the agent checks STM first,
+  then raises NEED_DATA for brain retrieval.
 ---
 
 # Handoff Protocol — Targeted Context Passing

@@ -1,10 +1,10 @@
 ---
 name: brain-sync
 description: >
-  Teaches agents how to read from and write to the Obsidian knowledge vault (the Brain).
-  Use this skill at the START of every task to look up relevant context, and at the END
-  of every task to persist new knowledge. This is the single source of truth for all
-  institutional knowledge about EROAD's systems, services, and decisions.
+  Invoke at the START of every task to look up relevant context from the Obsidian
+  knowledge vault (the Brain), and at the END of every task to persist new knowledge.
+  The Brain is the single source of truth for all institutional knowledge about EROAD's
+  systems, services, and decisions.
 ---
 
 # Brain Sync — Obsidian Vault Integration
