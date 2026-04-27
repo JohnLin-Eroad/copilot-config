@@ -1784,6 +1784,23 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
   });
 
+  // Direct addEventListener on each node — inline SVG event attributes are unreliable in Safari
+  svg.querySelectorAll('.dag-node').forEach(g => {
+    const nodeId = g.getAttribute('data-node-id');
+    if (!nodeId) return;
+    g.style.cursor = 'pointer';
+    g.addEventListener('click', function(e) {
+      e.stopPropagation();
+      window.__dagShowModal(nodeId);
+    });
+    g.addEventListener('mouseover', function(e) {
+      window.__dagShowTooltip(e, nodeId);
+    });
+    g.addEventListener('mouseout', function() {
+      window.__dagHideTooltip();
+    });
+  });
+
 }
 
 // ── Global handlers for DAG node hover/click — called via inline SVG attributes ──
