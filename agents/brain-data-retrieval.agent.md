@@ -7,7 +7,7 @@ description: >
   duplicate fetches. Can be called at the start of a pipeline or mid-pipeline when an
   agent needs additional context. Always checks the STM manifest before fetching.
 handoff_description: "Fetches relevant context from the brain vault into the STM. Invoke first in every pipeline."
-model: claude-haiku-4.5
+model: claude-sonnet-4.6
 tools:
   - task
   - read_file
