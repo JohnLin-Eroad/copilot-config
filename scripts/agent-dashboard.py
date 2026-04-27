@@ -2264,6 +2264,13 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "entry_count": len(wf.entries),
                 "updated_at":  datetime.now(timezone.utc).isoformat(),
             }
+            # Attach DAG if present
+            dag_path = wf.identity.directory / "pipeline-dag.json"
+            if dag_path.exists():
+                try:
+                    selected_data["dag"] = json.loads(dag_path.read_text(encoding="utf-8"))
+                except Exception:
+                    selected_data["dag"] = None
 
         payload = {
             "active_workflow_id":   state.active_workflow_id,
