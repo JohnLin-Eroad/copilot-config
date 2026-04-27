@@ -473,36 +473,82 @@ def load_previous_results(week: str) -> dict | None:
                 continue
     return None
 
-def write_results(week: str, scores: dict, prompt_rotation: dict) -> dict:
-    """Write the v2 results JSON file."""
+def write_results(week: str, scores: dict, prompt_rotation: dict,
+                  cats_run: dict = None) -> dict:
+    """Write the v2 results JSON file.
+    
+    When running a subset of categories (--category flag), merges new scores
+    into any existing results file rather than overwriting with zeros.
+    """
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    cats_run = cats_run or CATEGORIES
 
-    total_weight = sum(c["weight"] for c in CATEGORIES.values())
-    weighted_sum = sum(
-        scores.get(cat, {}).get("score", 0) * CATEGORIES[cat]["weight"]
-        for cat in CATEGORIES
-    )
-    overall = round(weighted_sum / total_weight, 1)
+    # Load existing results if this is a partial run (merge mode)
+    results_file = RESULTS_DIR / f"{week}.json"
+    existing_scores = {}
+    if results_file.exists() and len(cats_run) < len(CATEGORIES):
+        try:
+            existing = json.loads(results_file.read_text())
+            if existing.get("system_version") == "v2":
+                existing_scores = existing.get("scores", {})
+        except json.JSONDecodeError:
+            pass
+
+    # Merge: existing scores + new scores (new wins)
+    merged_scores = {}
+    for cat in CATEGORIES:
+        cat_key = cat.replace("-", "_")
+        if cat in scores:
+            merged_scores[cat_key] = scores[cat]
+        elif cat_key in existing_scores:
+            merged_scores[cat_key] = existing_scores[cat_key]
+        else:
+            merged_scores[cat_key] = {"score": 0}
+
+    # Calculate overall from categories that have real scores
+    scored_cats = {k: v for k, v in merged_scores.items()
+                   if v.get("prompt_id") or v.get("score", 0) > 0}
+    if scored_cats:
+        total_weight = sum(
+            CATEGORIES[k.replace("_", "-")]["weight"]
+            for k in scored_cats
+            if k.replace("_", "-") in CATEGORIES
+        )
+        weighted_sum = sum(
+            v.get("score", 0) * CATEGORIES[k.replace("_", "-")]["weight"]
+            for k, v in scored_cats.items()
+            if k.replace("_", "-") in CATEGORIES
+        )
+        overall = round(weighted_sum / total_weight, 1) if total_weight > 0 else 0
+    else:
+        overall = 0
 
     prev = load_previous_results(week)
     vs_previous = round(overall - prev["overall"], 1) if prev and "overall" in prev else None
+
+    # Merge prompt rotation
+    existing_rotation = {}
+    if results_file.exists():
+        try:
+            existing_rotation = json.loads(results_file.read_text()).get("prompt_rotation", {})
+        except json.JSONDecodeError:
+            pass
+    merged_rotation = {**existing_rotation, **prompt_rotation}
 
     results = {
         "week": week,
         "date": datetime.now().strftime("%Y-%m-%d"),
         "system_version": "v2",
-        "prompt_rotation": prompt_rotation,
+        "prompt_rotation": merged_rotation,
         "overall": overall,
         "vs_previous": vs_previous,
-        "scores": {
-            cat.replace("-", "_"): scores.get(cat, {"score": 0})
-            for cat in CATEGORIES
-        },
+        "categories_scored": len(scored_cats),
+        "categories_total": len(CATEGORIES),
+        "scores": merged_scores,
     }
 
-    results_file = RESULTS_DIR / f"{week}.json"
     results_file.write_text(json.dumps(results, indent=2))
-    log(f"Results: {results_file}")
+    log(f"Results: {results_file} ({len(scored_cats)}/{len(CATEGORIES)} categories scored)")
     return results
 
 def write_report(week: str, results: dict):
