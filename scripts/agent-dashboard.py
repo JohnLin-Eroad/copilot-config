@@ -1357,6 +1357,7 @@ function drawPipeline(agents, timeline) {
 
   // DAG takes priority — render even with empty agents array
   if (dagData && dagData.nodes && dagData.nodes.length > 0) {
+    updatePipelineSummary(dagData);
     const W = svg.clientWidth || 900;
     drawPipelineFromDag(svg, dagData, agents || [], W, 24, 100, 40);
     return;
