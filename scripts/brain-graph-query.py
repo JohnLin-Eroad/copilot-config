@@ -55,8 +55,8 @@ FTS_WINDOW_MULTIPLIER = 8
 _query_cache: dict[str, dict] = {}
 _CACHE_MAX = 64
 
-def _cache_key(vault: str, raw_query: str, max_results: int) -> str:
-    return f"{vault}|{raw_query}|{max_results}"
+def _cache_key(vault: str, raw_query: str, max_results: int, db_path: Path) -> str:
+    return f"{vault}|{raw_query}|{max_results}|{db_path}"
 
 def clear_cache():
     """Clear the query cache (call after sync or at session boundaries)."""
