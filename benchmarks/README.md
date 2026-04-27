@@ -46,25 +46,6 @@ benchmarks/
 
 ## Scoring (0-100 Scale)
 
-<<<<<<< HEAD
-| Category | Weight | Method | Scale |
-|---|---|---|---|
-| Code Generation | **20%** | Rubric: 6 dimensions, rotates weekly variant | 1–5 |
-| Context Retrieval | **20%** | Brain data used + accuracy + hallucination check | Pass/Fail + 1–5 |
-| Security Review | **20%** | Planted 3 OWASP vulns — recall + precision | 1–5 |
-| Planning Quality | **15%** | Rubric: 8 dimensions, rotates weekly variant | 1–5 |
-| Workflow Adherence | **15%** | 5 pipeline dimensions: STM, brain, skills, blast radius, consolidation | Pass/fail per dim |
-| Instruction Following | **5%** | 5 preference rules from learnings.md — pass/fail | Pass/fail per rule |
-| Learning Retention | **5%** | Experiment delta (2=WARN if no branch produced) | 1–5 |
-
-**Overall score** = weighted average across 7 categories
-
-### Why the weights changed (2026-W18)
-- Code Gen and Planning hit 5.0 ceiling — reduced weight so saturated categories don't dominate
-- Workflow Adherence added at 15% — most important real-world capability
-- Learning Retention reduced to 5% — until weekly-experimenter is reliably producing branches
-- Instruction Following added at 5% — new category, weight will increase as baseline establishes
-=======
 | Category | Weight | What It Tests |
 |---|---|---|
 | Code Generation | 20% | Can the developer agent produce correct, hexagonal, tested code? |
@@ -86,7 +67,6 @@ benchmarks/
 | Codex (gpt-5.x) | Claude Opus 4.6 |
 | Claude Sonnet/Opus | GPT-5.3-Codex |
 | Claude Haiku | Claude Opus 4.6 |
->>>>>>> weekly/2026-W17
 
 ## Interpreting Results
 
