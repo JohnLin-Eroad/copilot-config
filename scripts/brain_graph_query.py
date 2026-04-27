@@ -189,11 +189,28 @@ def dual_search(
     # ----- Pass 2: LIKE search (coverage guarantee) -----
     # This ensures we find everything grep would find
     like_search_terms = list(rewritten["like_terms"])
-    # For multi-word queries, also search individual words (≥4 chars)
+    # For multi-word queries, also search individual words — but only specific ones
+    STOP_WORDS = {
+        "service", "services", "the", "and", "for", "from", "with", "that",
+        "this", "are", "was", "were", "been", "being", "have", "has", "had",
+        "does", "did", "will", "would", "could", "should", "may", "might",
+        "shall", "can", "need", "must", "data", "type", "name", "file",
+        "code", "test", "tests", "testing", "used", "using", "uses",
+        "into", "over", "under", "between", "through", "about", "each",
+        "which", "their", "there", "when", "where", "what", "some", "more",
+        "other", "also", "than", "then", "them", "these", "those", "only",
+        "very", "just", "like", "make", "made", "many", "much", "most",
+        "such", "well", "back", "even", "still", "after", "before",
+        "mobile", "framework", "distributed", "mesh", "end", "based",
+        "management", "platform", "system", "process", "event", "events",
+        "pattern", "patterns", "application", "config", "configuration",
+        "deploy", "deployment", "build", "version", "update", "create",
+    }
     query_words = rewritten["original"].split()
     if len(query_words) >= 2:
         for w in query_words:
-            if len(w) >= 4 and w not in like_search_terms:
+            wl = w.lower()
+            if len(w) >= 5 and wl not in STOP_WORDS and w not in like_search_terms:
                 like_search_terms.append(w)
 
     for term in like_search_terms:
@@ -487,8 +504,21 @@ def tier1_query(
     """Full pipeline: dual-search + graph rerank + 1-hop expand + gap analysis."""
     rewritten = rewrite_query(raw_query)
 
+    # Adaptive max: for broad queries, return more results
+    # Count FTS hits to gauge query breadth
+    fts_count = conn.execute(
+        "SELECT COUNT(*) FROM nodes_fts WHERE nodes_fts MATCH ?",
+        (rewritten["fts_query"],)
+    ).fetchone()[0] if rewritten["fts_query"] else 0
+    
+    effective_max = max_results
+    if fts_count > 60:
+        effective_max = min(max_results + 20, 50)  # Up to 50 for broad queries
+    elif fts_count > 30:
+        effective_max = min(max_results + 10, 40)  # Up to 40 for medium queries
+
     # Dual search
-    hits = dual_search(conn, vault, rewritten, max_results)
+    hits = dual_search(conn, vault, rewritten, effective_max)
 
     # Graph rerank
     G = load_graph(conn)
@@ -498,7 +528,7 @@ def tier1_query(
         hits = graph_rerank(hits, G)
 
     # 1-hop expansion
-    expand_budget = max(max_results - len(hits), 5)
+    expand_budget = max(effective_max - len(hits), 5)
     expanded = expand_neighbors(hits, G, hub_threshold, expand_budget, conn, vault)
 
     # Merge
@@ -508,8 +538,8 @@ def tier1_query(
     if manifest:
         all_results = [r for r in all_results if r["id"] not in manifest]
 
-    # Trim to max
-    all_results = all_results[:max_results]
+    # Trim to effective max
+    all_results = all_results[:effective_max]
 
     # Low confidence check
     high_score_count = sum(1 for h in hits if h["bm25_score"] >= BM25_LOW_CONFIDENCE_THRESHOLD)
