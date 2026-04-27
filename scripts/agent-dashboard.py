@@ -1013,6 +1013,20 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .section-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;
   color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
+/* ── Pipeline summary banner ── */
+#pipeline-summary{display:none;margin-bottom:16px;padding:14px 18px;border-radius:12px;
+  background:#111827;border:1px solid var(--border);font-size:0.82rem;line-height:1.55}
+#pipeline-summary.visible{display:block}
+#pipeline-summary.done{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.06)}
+#pipeline-summary.running{border-color:rgba(108,142,247,0.4);background:rgba(108,142,247,0.06)}
+#pipeline-summary.failed{border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.06)}
+#pipeline-summary .ps-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#pipeline-summary .ps-title{color:#e2e8f0;font-weight:600;font-size:0.9rem}
+#pipeline-summary .ps-badge{font-size:0.7rem;padding:2px 10px;border-radius:99px;font-weight:500}
+#pipeline-summary .ps-stats{display:flex;gap:16px;flex-wrap:wrap}
+#pipeline-summary .ps-stat{color:#94a3b8;font-size:0.76rem}
+#pipeline-summary .ps-stat b{color:#cbd5e1;font-weight:600}
+
 /* ── Pipeline diagram ── */
 #pipeline-wrap{position:relative;overflow-x:auto;margin-bottom:24px}
 #pipeline-svg{display:block;min-height:240px}
