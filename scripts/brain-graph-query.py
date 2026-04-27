@@ -192,8 +192,8 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
     if hits and len(raw_lower) >= 3:
         # Compute the median BM25 score to use as a boost baseline
         fts_scores = sorted([h["bm25_score"] for h in hits if h["source"] == "fts"], reverse=True)
-        median_score = fts_scores[len(fts_scores) // 2] if fts_scores else 3.0
-        content_boost = max(median_score, 3.0)
+        p75_score = fts_scores[len(fts_scores) // 4] if fts_scores else 3.0
+        content_boost = max(p75_score, 3.0)
 
         # Check all hits (including LIKE) for exact substring in content
         hit_ids_list = [h["id"] for h in hits]
