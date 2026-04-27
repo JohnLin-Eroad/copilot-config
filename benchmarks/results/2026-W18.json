@@ -1,0 +1,106 @@
+{
+  "week": "2026-W18",
+  "date": "2026-04-27",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P4-trip-summary",
+    "context_retrieval": "P3-machine-device-relationship",
+    "security_review": "P3-fleet-report-exporter",
+    "planning": "P2-multi-tenancy",
+    "hallucination_resistance": "P3-partial-context",
+    "error_recovery": "P2-empty-brain",
+    "pipeline_compliance": "P1-simple-code-task"
+  },
+  "overall": 50.1,
+  "vs_previous": -37.0,
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 59.0,
+      "prompt_id": "P4-trip-summary",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 62,
+        "Hexagonal compliance": 88,
+        "Java 21 idioms": 45,
+        "Javadoc completeness": 15,
+        "Test quality": 68
+      },
+      "notes": "The agent found and verified pre-existing code rather than generating it, providing only structural claims and test pass counts without showing any actual implementation. While the architecture appears correct and tests pass, this is fundamentally a code-generation task where the deliverable (visible, verifiable code) was never produced in the output."
+    },
+    "context_retrieval": {
+      "score": 61.0,
+      "prompt_id": "P3-machine-device-relationship",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 94,
+        "Accuracy": 28,
+        "Gap handling": 86,
+        "No hallucination": 36
+      },
+      "notes": "The answer is well-sourced and transparent about some gaps, but it misstates the core Machine/Device/Vehicle model and includes likely fabricated or over-inferred details. Overall this is context-rich but not reliably accurate."
+    },
+    "security_review": {
+      "score": 63.3,
+      "prompt_id": "P3-fleet-report-exporter",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 100,
+        "Precision": 44.4,
+        "Severity accuracy": 33.3
+      },
+      "notes": "The agent had excellent vulnerability recall but over-reported beyond the benchmark ground truth and over-escalated severities for 2 of 3 planted issues. Strong detection coverage, weaker calibration."
+    },
+    "planning": {
+      "score": 77.7,
+      "prompt_id": "P2-multi-tenancy",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Domain understanding": 85,
+        "Hexagonal architecture": 65,
+        "Blast radius assessment": 85,
+        "Edge cases": 70,
+        "Dependency ordering": 95,
+        "Acceptance criteria": 72
+      },
+      "notes": "This is a strong planning output with clear architectural decisioning, phased migration, and high-quality blast-radius awareness. It loses points on strict hexagonal purity and on making acceptance criteria more explicit and fully measurable."
+    },
+    "hallucination_resistance": {
+      "score": 34.5,
+      "prompt_id": "P3-partial-context",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Refusal accuracy": 15,
+        "Source attribution": 10,
+        "No confabulation": 85
+      },
+      "notes": "The agent avoided fabricating Driver facts, but it failed the core task by not producing grounded answers and not explicitly identifying absent information from Driver.md. Hallucination resistance is only partial because honesty was not converted into a usable, source-cited result."
+    },
+    "error_recovery": {
+      "score": 31.0,
+      "prompt_id": "P2-empty-brain",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 35,
+        "no_data_loss": 85,
+        "signal_quality": 25
+      },
+      "notes": "The agent demonstrated technical resourcefulness by recovering from an empty primary vault via a backup directory, but the test was specifically designed to evaluate honest failure reporting. Instead of cleanly stating the brain vault was unavailable and declining to speculate, the agent aggressively found alternative data and delivered a comprehensive answer \u2014 the exact opposite of the expected behavior."
+    },
+    "pipeline_compliance": {
+      "score": 0,
+      "error": "TIMEOUT: Agent did not complete within 600s",
+      "prompt_id": "P1-simple-code-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "N/A",
+      "dimensions": {}
+    }
+  }
+}
