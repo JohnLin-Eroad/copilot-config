@@ -528,7 +528,7 @@ def tier1_query(
         hits = graph_rerank(hits, G)
 
     # 1-hop expansion
-    expand_budget = max(max_results - len(hits), 5)
+    expand_budget = max(effective_max - len(hits), 5)
     expanded = expand_neighbors(hits, G, hub_threshold, expand_budget, conn, vault)
 
     # Merge
@@ -538,8 +538,8 @@ def tier1_query(
     if manifest:
         all_results = [r for r in all_results if r["id"] not in manifest]
 
-    # Trim to max
-    all_results = all_results[:max_results]
+    # Trim to effective max
+    all_results = all_results[:effective_max]
 
     # Low confidence check
     high_score_count = sum(1 for h in hits if h["bm25_score"] >= BM25_LOW_CONFIDENCE_THRESHOLD)
