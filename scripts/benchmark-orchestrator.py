@@ -398,14 +398,13 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
                        rubric, ground_truth, cwd=None) -> dict:
     """Core execution + grading logic (separated for setup/teardown safety)."""
     executor_agent = config["executor_agent"]
-    executor_model = config.get("executor_model") or detect_executor_model(executor_agent)
+    executor_model = detect_executor_model(executor_agent)
 
     # Phase 2: Execute
     log(f"  Executing: agent={executor_agent}, model={executor_model}")
     raw_output, stderr, exit_code, exec_duration = run_copilot(
         prompt=prompt_text,
         agent=executor_agent,
-        model=config.get("executor_model"),  # pass override if set
         timeout=config.get("timeout", 600),
         cwd=cwd,
     )
