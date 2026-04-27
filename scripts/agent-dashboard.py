@@ -1699,9 +1699,13 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
         const preview = a.findings.length > 180 ? a.findings.slice(0,180) + '…' : a.findings;
         html += `<div class="tt-findings">${preview}</div>`;
       } else if (n.status === 'pending') {
-        html += `<div class="tt-findings" style="color:#475569">Waiting for dependencies…</div>`;
+        const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+        html += `<div class="tt-findings" style="color:#475569">${desc || 'Waiting for dependencies…'}</div>`;
       } else if (n.status === 'running') {
-        html += `<div class="tt-findings" style="color:#6c8ef7">Agent is working…</div>`;
+        const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+        html += `<div class="tt-findings" style="color:#6c8ef7">${desc || 'Agent is working…'}</div>`;
+      } else if (n.status === 'done' && !a) {
+        html += `<div class="tt-findings" style="color:#34d399">✅ Completed</div>`;
       }
       if (a && a.model) {
         html += `<div class="tt-meta">Model: ${a.model}</div>`;
