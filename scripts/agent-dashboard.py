@@ -2069,7 +2069,7 @@ async function fetchStatus() {
     // Always render tabs first — even if selected data is empty
     renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
 
-    if (!data || !data.agents || data.agents.length === 0) {
+    if (!data || (!data.agents?.length && !data.dag)) {
       // No data for selected workflow
       errorCount++;
       if (errorCount >= 5 || !lastGoodData) {
