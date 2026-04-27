@@ -9,9 +9,15 @@ description: >
 
 # Handoff Protocol — Targeted Context Passing
 
+## When to Use
+
+- Orchestrator is about to spawn a specialist agent in a pipeline
+- An agent needs to pass findings/output to the next agent in the chain
+- An agent needs more context than what it received and must escalate
+
 ## Core Principle
 
-**Agents receive only what they need.** The orchestrator constructs a targeted handoff for each agent transition — not a monolithic shared document. This keeps agent context lean and focused.
+**Agents receive only what they need.** The orchestrator constructs a targeted handoff for each agent transition — not a monolithic shared document.
 
 ---
 
