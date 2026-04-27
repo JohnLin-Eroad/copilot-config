@@ -176,9 +176,30 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                 hits.append({
                     "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
                     "domain": r[4], "subdomain": r[5],
-                    "bm25_score": 1.0,  # low synthetic score for LIKE hits
+                    "bm25_score": 1.0,
                     "graph_bonus": 0.0, "combined_score": 1.0,
                     "source": "like_fallback",
+                })
+
+    # Path-prefix search: for path-like queries, find nodes under that path
+    for prefix in rewritten.get("path_prefixes", []):
+        path_rows = conn.execute("""
+            SELECT id, rel_path, title, basename, domain, subdomain
+            FROM nodes
+            WHERE vault = ? AND tombstone = 0
+              AND rel_path LIKE ?
+            LIMIT ?
+        """, (vault, f"{prefix}%", max_results * 3)).fetchall()
+
+        for r in path_rows:
+            if r[0] not in seen_ids:
+                seen_ids.add(r[0])
+                hits.append({
+                    "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
+                    "domain": r[4], "subdomain": r[5],
+                    "bm25_score": 15.0,  # high score for path prefix matches
+                    "graph_bonus": 0.0, "combined_score": 15.0,
+                    "source": "path_prefix",
                 })
 
     # Basename exact match boost — push direct name matches to top
