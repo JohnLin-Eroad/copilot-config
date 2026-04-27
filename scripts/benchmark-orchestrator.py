@@ -24,6 +24,7 @@ from pathlib import Path
 
 HOME = Path.home()
 CONFIG = HOME / "copilot-config"
+SOVEREIGN = HOME / "sovereign"
 BENCHMARKS = CONFIG / "benchmarks"
 PROMPTS_DIR = BENCHMARKS / "prompts"
 RESULTS_DIR = BENCHMARKS / "results"
@@ -32,14 +33,15 @@ REPORTS_DIR = BENCHMARKS / "reports"
 COPILOT = "/opt/homebrew/bin/copilot"
 
 # 7 scored categories with locked weights
+# cwd = working directory for the copilot agent (most need the sovereign codebase)
 CATEGORIES = {
-    "code-generation":          {"pool_size": 4, "weight": 0.20, "executor_agent": "developer"},
-    "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval"},
-    "security-review":          {"pool_size": 4, "weight": 0.15, "executor_agent": "security"},
-    "planning":                 {"pool_size": 4, "weight": 0.15, "executor_agent": "architect"},
-    "hallucination-resistance": {"pool_size": 4, "weight": 0.10, "executor_agent": "brain-data-retrieval"},
-    "error-recovery":           {"pool_size": 3, "weight": 0.05, "executor_agent": "developer"},
-    "pipeline-compliance":      {"pool_size": 3, "weight": 0.15, "executor_agent": "orchestrator"},
+    "code-generation":          {"pool_size": 4, "weight": 0.20, "executor_agent": "developer",            "cwd": SOVEREIGN},
+    "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
+    "security-review":          {"pool_size": 4, "weight": 0.15, "executor_agent": "security",              "cwd": SOVEREIGN},
+    "planning":                 {"pool_size": 4, "weight": 0.15, "executor_agent": "architect",             "cwd": SOVEREIGN},
+    "hallucination-resistance": {"pool_size": 4, "weight": 0.10, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
+    "error-recovery":           {"pool_size": 3, "weight": 0.05, "executor_agent": "developer",             "cwd": SOVEREIGN},
+    "pipeline-compliance":      {"pool_size": 3, "weight": 0.15, "executor_agent": "orchestrator",          "cwd": SOVEREIGN},
 }
 
 # Cross-model grading: Claude executor → GPT grades, GPT executor → Claude grades
@@ -125,7 +127,7 @@ def extract_prompt_text(sections: dict) -> str:
 # ── Copilot CLI Execution ────────────────────────────────────────────────────
 
 def run_copilot(prompt: str, agent: str = None, model: str = None,
-                timeout: int = 300) -> tuple:
+                timeout: int = 300, cwd: Path = None) -> tuple:
     """Run copilot CLI, return (stdout, stderr, exit_code, duration_seconds)."""
     cmd = [COPILOT, "--allow-all"]
     if agent:
@@ -135,10 +137,12 @@ def run_copilot(prompt: str, agent: str = None, model: str = None,
     cmd.extend([
         "--add-dir", str(CONFIG),
         "--add-dir", str(HOME / ".copilot"),
+        "--add-dir", str(HOME / "eroad-brain"),
         "-p", prompt,
     ])
 
-    log_verbose(f"CMD: {' '.join(cmd[:8])}... (-p <{len(prompt)} chars>)")
+    work_dir = str(cwd) if cwd else str(HOME)
+    log_verbose(f"CMD: {' '.join(cmd[:8])}... (-p <{len(prompt)} chars>) cwd={work_dir}")
 
     start = time.time()
     try:
@@ -148,6 +152,7 @@ def run_copilot(prompt: str, agent: str = None, model: str = None,
             text=True,
             timeout=timeout,
             stdin=subprocess.DEVNULL,
+            cwd=work_dir,
         )
         duration = time.time() - start
         return result.stdout.strip(), result.stderr.strip(), result.returncode, duration
@@ -384,12 +389,12 @@ def run_category(week: str, category: str, config: dict) -> dict:
 
     try:
         return _execute_and_grade(week, category, config, prompt_id, prompt_text,
-                                   rubric, ground_truth)
+                                   rubric, ground_truth, config.get("cwd"))
     finally:
         run_special_teardown(prompt_key)
 
 def _execute_and_grade(week, category, config, prompt_id, prompt_text,
-                       rubric, ground_truth) -> dict:
+                       rubric, ground_truth, cwd=None) -> dict:
     """Core execution + grading logic (separated for setup/teardown safety)."""
     executor_agent = config["executor_agent"]
     executor_model = detect_executor_model(executor_agent)
@@ -400,6 +405,7 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
         prompt=prompt_text,
         agent=executor_agent,
         timeout=600,
+        cwd=cwd,
     )
 
     output_len = len(raw_output)
@@ -423,6 +429,7 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
         prompt=grading_prompt,
         model=grader_model,
         timeout=300,
+        cwd=cwd,
     )
 
     log(f"  Graded: {grade_duration:.0f}s, {len(grading_output)} chars")
