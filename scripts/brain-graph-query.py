@@ -240,6 +240,43 @@ def dual_search(
                     "source": "like",
                 })
 
+    # ----- Pass 2b: Multi-word intersection boost -----
+    # For multi-word queries, files containing ALL significant words score much higher
+    significant_words = [w for w in query_words if len(w) >= 3 and w.lower() not in STOP_WORDS]
+    if len(significant_words) >= 2:
+        # Build SQL to find files containing ALL significant words
+        conditions = " AND ".join(
+            [f"(content LIKE '%' || ? || '%' OR title LIKE '%' || ? || '%')" for _ in significant_words]
+        )
+        params = []
+        for w in significant_words:
+            params.extend([w, w])
+        sql = f"""
+            SELECT id, rel_path, title, basename, domain, subdomain
+            FROM nodes WHERE vault = ? AND tombstone = 0 AND {conditions}
+            LIMIT ?
+        """
+        intersection_rows = conn.execute(sql, (vault, *params, max_results * 3)).fetchall()
+        
+        for r in intersection_rows:
+            if r[0] not in seen_ids:
+                seen_ids.add(r[0])
+                hits.append({
+                    "id": r[0], "rel_path": r[1], "title": r[2], "basename": r[3],
+                    "domain": r[4], "subdomain": r[5],
+                    "bm25_score": 8.0,
+                    "graph_bonus": 0.0, "combined_score": 8.0,
+                    "source": "like_intersection",
+                })
+            else:
+                # Boost existing hits that match ALL words
+                for h in hits:
+                    if h["id"] == r[0] and h["combined_score"] < 8.0:
+                        h["bm25_score"] = 8.0
+                        h["combined_score"] = 8.0
+                        h["source"] = h["source"] + "+intersection"
+                        break
+
     # ----- Pass 3: Path prefix search -----
     if rewritten["path_prefix"]:
         prefix = rewritten["path_prefix"]
