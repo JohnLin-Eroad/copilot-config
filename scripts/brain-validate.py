@@ -246,11 +246,14 @@ def check_build_gradle(owner: str, repo: str) -> dict:
     facts = {'build_tool': 'Gradle'}
 
     # Java version
-    for pattern in [r'jvmToolchain\((\d+)\)', r'JavaVersion\.VERSION_(\d+)',
-                    r'sourceCompatibility\s*=\s*["\']?(\d+)', r'java\s*\{[^}]*languageVersion.*?(\d+)']:
+    for pattern in [r'jvmToolchain\((\d+)\)', r'JavaVersion\.VERSION_([\d_]+)',
+                    r'sourceCompatibility\s*=\s*["\']?([\d.]+)', r'java\s*\{[^}]*languageVersion.*?(\d+)']:
         m = re.search(pattern, content)
         if m:
-            facts['java_version'] = m.group(1)
+            ver = m.group(1).replace('_', '.')
+            if ver.startswith('1.'):
+                ver = ver[2:]
+            facts['java_version'] = ver
             break
 
     # Spring Boot
