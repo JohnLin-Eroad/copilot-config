@@ -1506,7 +1506,7 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
     html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1">${label}</text>`;
   });
 
-  // Edges based on ACTUAL dependencies
+  // Edges based on ACTUAL dependencies — progressive reveal
   nodes.forEach(node => {
     if (!node.deps) return;
     node.deps.forEach(depId => {
@@ -1515,22 +1515,42 @@ function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
       if (!fromPos || !toPos) return;
 
       const fromNode = nodes.find(n => n.id === depId);
-      const fromDone = fromNode && (fromNode.status === "done" || fromNode.status === "skipped");
-      const toActive = node.status === "running";
-      const toFailed = node.status === "failed";
+      const fromStatus = fromNode ? fromNode.status : "pending";
+      const toStatus   = node.status;
+
+      const fromDone   = fromStatus === "done" || fromStatus === "skipped";
+      const fromActive = fromStatus === "running";
+      const toActive   = toStatus === "running";
+      const toDone     = toStatus === "done" || toStatus === "skipped";
+      const toFailed   = toStatus === "failed";
+
+      // Progressive reveal: hide edge if BOTH endpoints are pending (untouched)
+      const fromTouched = fromDone || fromActive;
+      const toTouched   = toDone || toActive || toFailed;
+      if (!fromTouched && !toTouched) return;
+
+      const bothDone = fromDone && toDone;
       const active   = toActive;
 
-      const toDone   = node.status === "done" || node.status === "skipped";
-      const bothDone = fromDone && toDone;
-      const col    = toFailed ? "#f87171" : active ? agentColor(node.agent) : bothDone ? "#34d399" : fromDone ? "#6c8ef7" : "#334155";
-      const op     = active ? 0.95 : bothDone ? 0.7 : fromDone ? 0.6 : 0.3;
-      const sw     = active ? 2.5  : bothDone ? 2   : fromDone ? 1.8 : 1.2;
+      const col    = toFailed  ? "#f87171"
+                   : active    ? agentColor(node.agent)
+                   : bothDone  ? "#34d399"
+                   : fromDone  ? "#6c8ef7"
+                   :             "#475569";
+      const op     = active    ? 0.95
+                   : bothDone  ? 0.75
+                   : fromDone  ? 0.5
+                   :             0.3;
+      const sw     = active    ? 2.5
+                   : bothDone  ? 2
+                   : fromDone  ? 1.8
+                   :             1.2;
       const mid    = (fromPos.y + toPos.y) / 2;
       const marker = toFailed ? "arr-red" : active ? "arr-blue" : fromDone ? "arr-green" : "arr";
 
       html += `<path d="M${fromPos.x},${fromPos.y+R} C${fromPos.x},${mid} ${toPos.x},${mid} ${toPos.x},${toPos.y-R}"
         fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}"
-        marker-end="url(#${marker})" stroke-dasharray="${active ? '6 3' : fromDone ? '0' : '4 4'}">
+        marker-end="url(#${marker})" stroke-dasharray="${active ? '6 3' : bothDone ? '0' : fromDone ? '0' : '4 4'}">
         ${active ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
       </path>`;
     });
