@@ -1268,7 +1268,8 @@ function relTime(isoStr) {
 }
 
 // ── Pipeline diagram — multi-row stage layout ──────────────────────────────────
-// Each named pipeline stage gets its own row; parallel agents spread horizontally.
+// When a DAG is present, uses actual dependencies for layout and edges.
+// Falls back to hardcoded stages when no DAG exists.
 function pipelineStage(name) {
   if (name === "orchestrator")                    return 0;
   if (name === "brain-data-retrieval")            return 1;
@@ -1296,6 +1297,16 @@ function drawPipeline(agents, timeline) {
   const ROW_H   = 100;
   const TOP_PAD = 40;
 
+  // Check if DAG data is available (passed via window.__latestData)
+  const dagData = window.__latestData?.dag;
+
+  if (dagData && dagData.nodes && dagData.nodes.length > 0) {
+    // ── DAG-based layout ───────────────────────────────────────────────
+    drawPipelineFromDag(svg, dagData, agents, W, R, ROW_H, TOP_PAD);
+    return;
+  }
+
+  // ── Legacy hardcoded stage layout (fallback) ───────────────────────
   // Collect unique agent names in timeline order; always include orchestrator first
   const seen = new Set();
   const agentNames = [];
