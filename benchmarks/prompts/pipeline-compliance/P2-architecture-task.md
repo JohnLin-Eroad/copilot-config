@@ -3,8 +3,18 @@
 ## Prompt
 
 ```
-We need to add multi-tenancy support to the sovereign platform. Fleet organisations must be
-isolated at the database level. What is the recommended approach and what is the blast radius?
+Run the full orchestrator pipeline for this architecture task. You MUST follow ALL pipeline steps below:
+
+PIPELINE PROTOCOL (mandatory — you will be graded on each step):
+1. Create an STM (Short-Term Memory) file using: eval "$(python3 ~/.copilot/scripts/stm-init.py 'Multi-tenancy architecture planning')"
+2. Run brain-data-retrieval BEFORE any specialist work — fetch relevant domain context from ~/eroad-brain
+3. Route to the correct specialist agent: use the architect agent for architecture decisions
+4. Complete the task: We need to add multi-tenancy support to the sovereign platform. Fleet organisations must be isolated at the database level. What is the recommended approach and what is the blast radius?
+5. Invoke critical-thinker on the architect's proposal before presenting it
+6. Run brain-consolidation to persist any new knowledge back to the brain vault
+7. Write learnings to learnings.md via: bash ~/.copilot/scripts/add-learning.sh
+
+Show clear evidence of EACH pipeline step in your output.
 ```
 
 ## Expected Pipeline Steps
