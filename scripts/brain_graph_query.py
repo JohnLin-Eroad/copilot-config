@@ -696,7 +696,8 @@ def traverse(
             for nbr_id in next_layer:
                 meta = conn.execute("""
                     SELECT id, rel_path, title, basename, domain, subdomain,
-                           LENGTH(content) as content_len
+                           LENGTH(content) as content_len,
+                           SUBSTR(content, 1, 200) as content_preview
                     FROM nodes WHERE id = ? AND vault = ? AND tombstone = 0
                 """, (nbr_id, vault)).fetchone()
                 
