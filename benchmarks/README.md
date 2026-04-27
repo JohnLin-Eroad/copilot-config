@@ -14,18 +14,6 @@ Tracks the quality and capability of the Copilot agent system over time. Every M
 
 ```
 benchmarks/
-<<<<<<< HEAD
-├── README.md              ← This file
-├── baseline.json          ← Week 0 measurement (before weekly learnings)
-├── tasks/
-│   ├── code-generation.md       ← Task 1: rotating variants, 6-dimension rubric
-│   ├── context-retrieval.md     ← Task 2: brain retrieval + hallucination check
-│   ├── security-review.md       ← Task 3: planted OWASP vulns
-│   ├── planning.md              ← Task 4: rotating variants, 8-dimension rubric
-│   ├── learning-retention.md    ← Task 5: experiment delta (2=WARN if no branch)
-│   ├── workflow-adherence.md    ← Task 6 (NEW): STM, brain, skills, pipeline
-│   └── instruction-following.md ← Task 7 (NEW): IFEval-style preference checking
-=======
 ├── README.md                      ← This file
 ├── EXECUTOR-GRADER-SPLIT.md       ← Execution flow documentation
 ├── baseline.json                  ← Normalized to 0-100 scale
@@ -43,14 +31,13 @@ benchmarks/
 │   ├── context-retrieval.md
 │   ├── security-review.md
 │   ├── planning.md
-│   ├── hallucination-resistance.md  ← NEW adversarial
-│   ├── error-recovery.md            ← NEW adversarial
+│   ├── hallucination-resistance.md  ← Adversarial
+│   ├── error-recovery.md            ← Adversarial
 │   ├── pipeline-compliance.md       ← Replaces workflow-adherence
 │   └── config-health.md             ← Pass/fail checklist (NOT weighted)
 ├── traces/                        ← Mandatory execution traces
 │   ├── TRACE-FORMAT.md            ← Trace spec + validation rules
 │   └── YYYY-WXX/                  ← Per-week trace files
->>>>>>> weekly/2026-W17
 ├── results/
 │   └── YYYY-WXX.json             ← Weekly results (0-100 scale)
 └── reports/
