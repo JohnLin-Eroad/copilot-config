@@ -936,7 +936,14 @@ def query(
     mode: str = "full",
     db_path: Path = DEFAULT_DB,
 ) -> dict:
-    """Execute query with 4-tier fallback ladder."""
+    """Execute query with 4-tier fallback ladder. Results are LRU-cached."""
+    # Check cache (only for full/fts-only modes with no manifest)
+    ck = _cache_key(vault, raw_query, max_results)
+    if manifest is None and mode in ("full", "fts-only") and ck in _query_cache:
+        cached = _query_cache[ck]
+        cached["cached"] = True
+        return cached
+
     if mode == "grep":
         return tier3_query(vault, raw_query, max_results)
 
@@ -953,19 +960,26 @@ def query(
 
     try:
         if mode == "fts-only":
-            return tier2_query(conn, vault, raw_query, max_results, manifest)
+            result = tier2_query(conn, vault, raw_query, max_results, manifest)
+        else:
+            try:
+                result = tier1_query(conn, vault, raw_query, max_results, manifest)
+            except Exception as e:
+                print(f"  WARN: Tier 1 failed: {e}, falling to Tier 2", file=sys.stderr)
+                try:
+                    result = tier2_query(conn, vault, raw_query, max_results, manifest)
+                except Exception as e2:
+                    print(f"  WARN: Tier 2 failed: {e2}, falling to Tier 3", file=sys.stderr)
+                    result = tier3_query(vault, raw_query, max_results)
 
-        try:
-            return tier1_query(conn, vault, raw_query, max_results, manifest)
-        except Exception as e:
-            print(f"  WARN: Tier 1 failed: {e}, falling to Tier 2", file=sys.stderr)
+        # Store in cache (only for manifest-free queries)
+        if manifest is None:
+            if len(_query_cache) >= _CACHE_MAX:
+                # Evict oldest entry
+                _query_cache.pop(next(iter(_query_cache)))
+            _query_cache[ck] = result
 
-        try:
-            return tier2_query(conn, vault, raw_query, max_results, manifest)
-        except Exception as e:
-            print(f"  WARN: Tier 2 failed: {e}, falling to Tier 3", file=sys.stderr)
-
-        return tier3_query(vault, raw_query, max_results)
+        return result
     finally:
         conn.close()
 
