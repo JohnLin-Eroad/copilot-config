@@ -1432,6 +1432,160 @@ function drawPipeline(agents, timeline) {
   svg.innerHTML = html;
 }
 
+// ── DAG-based pipeline renderer ──────────────────────────────────────────────
+function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
+  const nodes = dag.nodes;
+
+  // Compute depth of each node (longest path from root)
+  const depthMap = {};
+  function getDepth(nodeId) {
+    if (depthMap[nodeId] !== undefined) return depthMap[nodeId];
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.deps || node.deps.length === 0) {
+      depthMap[nodeId] = 0;
+      return 0;
+    }
+    const maxParent = Math.max(...node.deps.map(d => getDepth(d)));
+    depthMap[nodeId] = maxParent + 1;
+    return depthMap[nodeId];
+  }
+  nodes.forEach(n => getDepth(n.id));
+
+  // Group by depth layer
+  const layers = {};
+  nodes.forEach(n => {
+    const d = depthMap[n.id];
+    if (!layers[d]) layers[d] = [];
+    layers[d].push(n);
+  });
+  const layerKeys = Object.keys(layers).map(Number).sort((a, b) => a - b);
+
+  // Compute (x, y) positions
+  const pos = {};
+  layerKeys.forEach((layer, rowIdx) => {
+    const nodesInLayer = layers[layer];
+    const rowY = TOP_PAD + rowIdx * ROW_H;
+    const maxGap = Math.min(130, (W - 120) / Math.max(nodesInLayer.length, 1));
+    const totalW = maxGap * (nodesInLayer.length - 1);
+    const startX = W / 2 - totalW / 2;
+    nodesInLayer.forEach((n, i) => {
+      pos[n.id] = { x: startX + i * maxGap, y: rowY };
+    });
+  });
+
+  const maxY = Math.max(...Object.values(pos).map(p => p.y));
+  const H = maxY + R + 38;
+  svg.setAttribute("height", H);
+
+  // DAG status → dashboard status mapping
+  function dagStatus(node) {
+    if (node.status === "done")    return "complete";
+    if (node.status === "running") return "in_progress";
+    if (node.status === "failed")  return "failed";
+    if (node.status === "skipped") return "complete";
+    return "idle";
+  }
+
+  let html = `<defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr"       viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#1e2d45"/></marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#34d399"/></marker>
+    <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6c8ef7"/></marker>
+    <marker id="arr-red"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f87171"/></marker>
+  </defs>`;
+
+  // Layer separator lines with labels
+  layerKeys.forEach(layer => {
+    const nodesInLayer = layers[layer];
+    const rowY = pos[nodesInLayer[0].id].y;
+    const label = nodesInLayer.length === 1 ? nodesInLayer[0].label.toUpperCase() : `LAYER ${layer}`;
+    html += `<line x1="0" y1="${rowY}" x2="${W}" y2="${rowY}" stroke="#1e2d45" stroke-width="1" opacity="0.35" stroke-dasharray="3 4"/>`;
+    html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1">${label}</text>`;
+  });
+
+  // Edges based on ACTUAL dependencies
+  nodes.forEach(node => {
+    if (!node.deps) return;
+    node.deps.forEach(depId => {
+      const fromPos = pos[depId];
+      const toPos   = pos[node.id];
+      if (!fromPos || !toPos) return;
+
+      const fromNode = nodes.find(n => n.id === depId);
+      const fromDone = fromNode && (fromNode.status === "done" || fromNode.status === "skipped");
+      const toActive = node.status === "running";
+      const toFailed = node.status === "failed";
+      const active   = toActive;
+
+      const col    = toFailed ? "#f87171" : active ? agentColor(node.agent) : fromDone ? "#34d399" : "#1e2d45";
+      const op     = active ? 0.9 : fromDone ? 0.5 : 0.2;
+      const sw     = active ? 2   : fromDone ? 1.5 : 1;
+      const mid    = (fromPos.y + toPos.y) / 2;
+      const marker = toFailed ? "arr-red" : active ? "arr-blue" : fromDone ? "arr-green" : "arr";
+
+      html += `<path d="M${fromPos.x},${fromPos.y+R} C${fromPos.x},${mid} ${toPos.x},${mid} ${toPos.x},${toPos.y-R}"
+        fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}"
+        marker-end="url(#${marker})" stroke-dasharray="${active ? '6 3' : fromDone ? '0' : '4 4'}">
+        ${active ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
+      </path>`;
+    });
+  });
+
+  // Node renderer
+  function dagNodeHtml(node, x, y) {
+    const name    = node.agent;
+    const status  = dagStatus(node);
+    const entry   = agents.find(a => a.agent === name);
+    const col     = agentColor(name);
+    const sm      = statusMeta(status);
+    const isActive  = status === "in_progress" || status === "starting";
+    const isDone    = status === "complete";
+    const isSkipped = node.status === "skipped";
+    const isFailed  = status === "failed";
+    const fill    = isActive  ? `rgba(${hexToRgb(col)},0.18)` :
+                    isDone    ? `rgba(52,211,153,0.1)` :
+                    isFailed  ? `rgba(248,113,113,0.1)` : "#111827";
+    const stroke  = isActive  ? col : isDone ? "#34d399" : isFailed ? "#f87171" : "#1e2d45";
+    const label   = (node.label || name).replace(/-/g, " ");
+    const opacity = isSkipped ? "0.4" : "1";
+
+    let g = `<g opacity="${opacity}">`;
+    if (isActive) {
+      g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3">
+        <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
+      </circle>`;
+    }
+    g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}"
+      stroke-width="${isActive ? 2.5 : 1.5}" ${isActive ? 'filter="url(#glow)"' : ''}
+      ${isSkipped ? 'stroke-dasharray="4 3"' : ''}/>`;
+    g += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="13">${agentEmoji(name)}</text>`;
+    g += `<text x="${x}" y="${y+R+14}" text-anchor="middle" font-size="9"
+      fill="${isActive ? col : isDone ? '#34d399' : isFailed ? '#f87171' : '#64748b'}"
+      font-family="system-ui,sans-serif">${label}</text>`;
+    // Status indicator dot
+    const dotColor = sm.color;
+    g += `<circle cx="${x+R-5}" cy="${y-R+5}" r="5" fill="${dotColor}" stroke="#0a0d14" stroke-width="1.5">
+      ${isActive ? `<animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
+    </circle>`;
+    g += `</g>`;
+    return g;
+  }
+
+  // Draw nodes (reverse order so first layers render on top of edges)
+  for (let i = layerKeys.length - 1; i >= 0; i--) {
+    for (const node of layers[layerKeys[i]]) {
+      const p = pos[node.id];
+      html += dagNodeHtml(node, p.x, p.y);
+    }
+  }
+
+  svg.innerHTML = html;
+}
+
 function hexToRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   return r ? `${parseInt(r[1],16)},${parseInt(r[2],16)},${parseInt(r[3],16)}` : "108,142,247";
