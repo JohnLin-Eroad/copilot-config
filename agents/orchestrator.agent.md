@@ -372,11 +372,12 @@ If an agent outputs `PIPELINE_SIGNAL: NEED_DATA` or writes a request to `## [STM
 ADDITIONAL_DATA_NEEDED:
 - Topic: "<what the agent needs>"
 STM: <stm-path>
+MANIFEST: <manifest-path>
 ```
 
-After retrieval completes, resume the requesting agent with the updated STM.
+The manifest ensures the agent instantly knows what was already fetched — no need to re-parse the full STM. The agent reads `brain-manifest.sh stats` first, then only searches for new topics.
 
-**Deduplication:** `brain-data-retrieval` maintains the fetch manifest — never worry about duplicates; the agent handles it.
+After retrieval completes, resume the requesting agent with the updated STM.
 
 ---
 
