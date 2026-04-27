@@ -1043,6 +1043,7 @@ def main():
     trav_p.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS)
     trav_p.add_argument("--max-depth", type=int, default=1)
     trav_p.add_argument("--domain", help="Filter results to this domain")
+    trav_p.add_argument("--edge-type", help="Only follow this edge type (wiki_link, folder_sibling)")
     trav_p.add_argument("--exclude", help="Comma-separated node IDs to exclude")
     trav_p.add_argument("--db-path", type=Path, default=DEFAULT_DB)
     trav_p.add_argument("--fetch-content", action="store_true")
