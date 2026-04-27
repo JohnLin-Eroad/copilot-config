@@ -1067,8 +1067,8 @@ def main():
         result = traverse(
             start_node=args.start, vault=args.vault,
             max_depth=args.max_depth, max_results=args.max_results,
-            filter_domain=args.domain, exclude_visited=exclude,
-            db_path=args.db_path,
+            filter_domain=args.domain, filter_edge_type=args.edge_type,
+            exclude_visited=exclude, db_path=args.db_path,
         )
         result["elapsed_ms"] = round((time.monotonic() - t0) * 1000, 1)
         if args.fetch_content and result["results"]:
