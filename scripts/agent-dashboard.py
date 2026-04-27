@@ -913,6 +913,15 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
     for e in timeline_raw:
         e["is_latest"] = (e["timestamp"] == latest_ts_per_agent.get(e["agent"]))
 
+    # Read pipeline DAG if present (lives alongside STM)
+    dag = None
+    dag_path = stm_path.parent / "pipeline-dag.json"
+    if dag_path.exists():
+        try:
+            dag = json.loads(dag_path.read_text(encoding="utf-8"))
+        except Exception:
+            dag = None
+
     return {
         "stm_path":    str(stm_path),
         "stm_name":    re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "", stm_path.parent.name.replace("-", " ")).title(),
@@ -921,6 +930,7 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
         "timeline":    timeline_raw,
         "entry_count": len(entries),
         "updated_at":  datetime.now(timezone.utc).isoformat(),
+        "dag":         dag,
     }
 
 
