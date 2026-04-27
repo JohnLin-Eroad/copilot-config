@@ -2442,6 +2442,19 @@ async function fetchStatus() {
 fetchStatus();
 setInterval(fetchStatus, 1000);
 
+// On first load, auto-select the active workflow (most recent)
+(async function autoSelectActive() {
+  try {
+    const r = await fetch("/api/v2/status");
+    if (!r.ok) return;
+    const v2 = await r.json();
+    if (v2.active_workflow_id && v2.active_workflow_id !== v2.selected_workflow_id) {
+      await fetch("/api/v2/select/" + v2.active_workflow_id);
+      fetchStatus();
+    }
+  } catch(e) {}
+})();
+
 // Close modal on Escape
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
