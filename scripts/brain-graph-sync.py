@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 """
-brain-graph-sync.py — Sync Obsidian vault → SQLite graph index.
-
-Modes:
-  full        — Rebuild entire DB from vault
-  incremental — Sync only changed/new/deleted files
-  touched     — Sync only files listed in touched-paths file
+Brain Graph Sync Engine
+Indexes Obsidian vault .md files into a SQLite graph database.
 
 Usage:
-  python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode full
-  python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode incremental
-  python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode touched
+    python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode full
+    python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode incremental
+    python3 brain-graph-sync.py --vault-path ~/eroad-brain --vault-name eroad --mode touched
 """
 
 from __future__ import annotations
@@ -25,8 +21,9 @@ import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
-# Import edge parser (sibling module)
+# Sibling module: edge extraction + wiki-link resolution
 sys.path.insert(0, str(Path(__file__).parent))
 from brain_edge_parser import (
     extract_wiki_links,
@@ -36,11 +33,11 @@ from brain_edge_parser import (
     EDGE_WEIGHTS,
 )
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 # Domain classification
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-DOMAIN_MAP = {
+DOMAIN_MAP: dict[str, str] = {
     "01 - Services": "service",
     "02 - Domain Models": "domain_model",
     "03 - Architecture": "architecture",
@@ -52,12 +49,16 @@ DOMAIN_MAP = {
 
 _SUBDOMAIN_RE = re.compile(r"Brain/Departments/.+?/Domains/([^/]+)")
 
+_SCHEMA_PATH = Path(__file__).parent / "brain-graph-schema.sql"
+_DEFAULT_DB = Path("~/.copilot/brain-graph.db").expanduser()
+_TOUCHED_FILE = Path("~/.copilot/brain-graph-touched.txt").expanduser()
 
-def classify_domain(rel_path: str) -> tuple[str, str | None]:
-    """Return (domain, subdomain) from relative path."""
+
+def classify_domain(rel_path: str) -> tuple[str, Optional[str]]:
+    """Return (domain, subdomain) from relative vault path."""
     for prefix, domain in DOMAIN_MAP.items():
-        if rel_path.startswith(prefix):
-            subdomain = None
+        if rel_path.startswith(prefix + "/") or rel_path == prefix:
+            subdomain: Optional[str] = None
             m = _SUBDOMAIN_RE.search(rel_path)
             if m:
                 subdomain = m.group(1)
@@ -65,16 +66,16 @@ def classify_domain(rel_path: str) -> tuple[str, str | None]:
     return "unclassified", None
 
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 # File utilities
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-def content_hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+def sha256_content(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()
 
 
 def extract_title(content: str, basename: str) -> str:
-    """First H1 heading, or basename."""
+    """First H1 heading, or basename if none found."""
     m = re.search(r"^#\s+(.+)$", content, re.MULTILINE)
     return m.group(1).strip() if m else basename
 
@@ -87,572 +88,820 @@ def iso_mtime(path: Path) -> str:
     return datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat()
 
 
-# ---------------------------------------------------------------------------
-# Vault walker
-# ---------------------------------------------------------------------------
-
-def walk_vault(vault_path: Path) -> list[dict]:
-    """Walk vault, return list of file info dicts for all .md files."""
-    files = []
-    for root, _dirs, filenames in os.walk(vault_path):
-        for fn in filenames:
-            if not fn.endswith(".md") or fn.endswith(".bak.md") or fn.endswith(".bak"):
-                continue
-            fp = Path(root) / fn
-            rel = str(fp.relative_to(vault_path))
-            try:
-                text = fp.read_text(encoding="utf-8", errors="replace")
-            except (OSError, PermissionError) as e:
-                print(f"  WARN: skip unreadable {rel}: {e}", file=sys.stderr)
-                continue
-            bn = fn[:-3]  # strip .md
-            files.append({
-                "path": fp,
-                "rel_path": rel,
-                "basename": bn,
-                "content": text,
-                "content_hash": content_hash(text),
-                "size_bytes": len(text.encode("utf-8")),
-                "mtime": iso_mtime(fp),
-            })
-    return files
+def folder_of(rel_path: str) -> str:
+    """Parent directory component. Root-level files return '.'."""
+    return str(Path(rel_path).parent)
 
 
-# ---------------------------------------------------------------------------
-# Database setup
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Database bootstrap
+# ────────────────────────────────────────────────────────────────────────────
 
-SCHEMA_PATH = Path(__file__).parent / "brain-graph-schema.sql"
+def open_db(db_path: Path) -> sqlite3.Connection:
+    """Open or create the SQLite database, applying schema DDL if new."""
+    needs_init = not db_path.exists()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
 
+    con = sqlite3.connect(str(db_path), check_same_thread=False)
+    con.row_factory = sqlite3.Row
+    con.execute("PRAGMA journal_mode = WAL")
+    con.execute("PRAGMA foreign_keys = ON")
+    con.execute("PRAGMA synchronous = NORMAL")
+    con.execute("PRAGMA cache_size = -65536")   # 64 MB
+    con.execute("PRAGMA temp_store = MEMORY")
+    con.commit()
 
-def ensure_db(db_path: Path) -> sqlite3.Connection:
-    """Open DB, apply schema if tables don't exist."""
-    existed = db_path.exists()
-    conn = sqlite3.connect(str(db_path))
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA foreign_keys = ON")
-    if not existed:
-        schema_sql = SCHEMA_PATH.read_text()
-        conn.executescript(schema_sql)
-        print(f"  Created new database at {db_path}")
-    return conn
+    if needs_init:
+        if not _SCHEMA_PATH.exists():
+            sys.exit(f"ERROR: Schema file not found: {_SCHEMA_PATH}")
+        con.executescript(_SCHEMA_PATH.read_text())
+        con.commit()
+        print(f"Initialised database: {db_path}")
 
-
-# ---------------------------------------------------------------------------
-# Build basename lookup for edge resolution
-# ---------------------------------------------------------------------------
-
-def build_basename_lookup(conn: sqlite3.Connection) -> dict[str, list[str]]:
-    """Return {basename_lower: [node_id, ...]}."""
-    lookup: dict[str, list[str]] = defaultdict(list)
-    for row in conn.execute("SELECT id, basename FROM nodes WHERE tombstone = 0"):
-        lookup[row[1].lower()].append(row[0])
-    return lookup
+    return con
 
 
-# ---------------------------------------------------------------------------
-# Edge rebuilding
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Vault walking
+# ────────────────────────────────────────────────────────────────────────────
 
-def rebuild_all_edges(conn: sqlite3.Connection, vault_name: str) -> int:
-    """Delete and rebuild ALL edges for vault. Returns edge count."""
-    # Clear edges for this vault's nodes
-    conn.execute("""
-        DELETE FROM edges WHERE source_id IN (
-            SELECT id FROM nodes WHERE vault = ? AND tombstone = 0
+def walk_vault(vault_path: Path) -> list[Path]:
+    """Return all .md files in vault, skipping hidden dirs and .bak files."""
+    result: list[Path] = []
+    for root, dirs, files in os.walk(vault_path):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for fname in files:
+            if fname.endswith(".md") and not fname.endswith(".bak"):
+                result.append(Path(root) / fname)
+    return result
+
+
+def nid(vault_name: str, rel_path: str) -> str:
+    """Canonical node ID: vault/path/without/extension"""
+    stem = rel_path[:-3] if rel_path.endswith(".md") else rel_path
+    return f"{vault_name}/{stem}"
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Placeholder nodes for unresolved wiki-links
+# ────────────────────────────────────────────────────────────────────────────
+
+def ensure_placeholder_nodes(
+    con: sqlite3.Connection,
+    vault_name: str,
+    placeholder_ids: set[str],
+    now: str,
+) -> None:
+    """Insert stub nodes for unresolved wiki-link targets (gap analysis)."""
+    for pid in placeholder_ids:
+        link_text = pid[len("_unresolved/"):]
+        bname = link_text.split("/")[-1]
+        con.execute(
+            """INSERT OR IGNORE INTO nodes
+               (id, vault, rel_path, basename, title, content, content_hash,
+                size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
+               VALUES (?,?,?,?,?,'','placeholder',0,?,'unclassified',NULL,?,0)""",
+            (pid, vault_name, f"_unresolved/{link_text}.md", bname, link_text, now, now),
         )
-    """, (vault_name,))
-
-    lookup = build_basename_lookup(conn)
-
-    # Fetch all non-tombstone nodes for this vault
-    rows = conn.execute(
-        "SELECT id, rel_path, content FROM nodes WHERE vault = ? AND tombstone = 0",
-        (vault_name,)
-    ).fetchall()
-
-    edge_count = 0
-    unresolved_count = 0
-
-    # Build set of valid node IDs for FK safety
-    valid_ids = set(r[0] for r in rows)
-
-    # Wiki-link + yaml_dep edges
-    for node_id, rel_path, node_content in rows:
-        links = extract_wiki_links(node_content)
-        seen = set()
-        for raw_target, _bn in links:
-            resolved = resolve_wiki_link(raw_target, lookup)
-            if resolved.startswith("_unresolved/"):
-                unresolved_count += 1
-                continue
-            key = ("wiki_link", resolved)
-            if resolved != node_id and key not in seen and resolved in valid_ids:
-                seen.add(key)
-                conn.execute(
-                    "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-                    (node_id, resolved, "wiki_link", EDGE_WEIGHTS["wiki_link"])
-                )
-                edge_count += 1
-
-        for dep in extract_yaml_deps(node_content):
-            resolved = resolve_wiki_link(dep, lookup)
-            if resolved.startswith("_unresolved/"):
-                unresolved_count += 1
-                continue
-            key = ("yaml_dep", resolved)
-            if resolved != node_id and key not in seen and resolved in valid_ids:
-                seen.add(key)
-                conn.execute(
-                    "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-                    (node_id, resolved, "yaml_dep", EDGE_WEIGHTS["yaml_dep"])
-                )
-                edge_count += 1
-
-    if unresolved_count:
-        print(f"  Skipped {unresolved_count} unresolved link targets")
-
-    # Folder sibling edges
-    all_nodes = [(r[0], r[1]) for r in rows]
-    siblings = compute_folder_siblings(all_nodes, max_dir_size=20)
-    for a, b in siblings:
-        conn.execute(
-            "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-            (a, b, "folder_sibling", EDGE_WEIGHTS["folder_sibling"])
-        )
-        conn.execute(
-            "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-            (b, a, "folder_sibling", EDGE_WEIGHTS["folder_sibling"])
-        )
-        edge_count += 2
-
-    return edge_count
 
 
-def rebuild_node_edges(conn: sqlite3.Connection, node_id: str, node_content: str) -> int:
-    """Rebuild edges for a single node. Returns edge count."""
-    conn.execute("DELETE FROM edges WHERE source_id = ?", (node_id,))
+# ────────────────────────────────────────────────────────────────────────────
+# Edge rebuilding (per-node)
+# ────────────────────────────────────────────────────────────────────────────
 
-    lookup = build_basename_lookup(conn)
-    valid_ids = set(r[0] for r in conn.execute("SELECT id FROM nodes WHERE tombstone = 0").fetchall())
-    edge_count = 0
-    seen = set()
+def rebuild_node_edges(
+    con: sqlite3.Connection,
+    node_id: str,
+    content: str,
+    vault_name: str,
+    basename_lookup: dict[str, list[str]],
+    sibling_ids: list[str],
+    now: str,
+) -> int:
+    """Delete and rebuild all outgoing edges for one node. Returns edge count."""
+    con.execute("DELETE FROM edges WHERE source_id=?", (node_id,))
 
-    for raw_target, _bn in extract_wiki_links(node_content):
-        resolved = resolve_wiki_link(raw_target, lookup)
-        if resolved.startswith("_unresolved/") or resolved not in valid_ids:
-            continue
+    edges: list[tuple[str, str, str, float]] = []
+    seen: set[tuple[str, str]] = set()
+    placeholders: set[str] = set()
+
+    # Wiki-link edges
+    for raw_target, _bn in extract_wiki_links(content):
+        resolved = resolve_wiki_link(raw_target, basename_lookup)
         key = ("wiki_link", resolved)
         if resolved != node_id and key not in seen:
             seen.add(key)
-            conn.execute(
-                "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-                (node_id, resolved, "wiki_link", EDGE_WEIGHTS["wiki_link"])
-            )
-            edge_count += 1
+            if resolved.startswith("_unresolved/"):
+                placeholders.add(resolved)
+            edges.append((node_id, resolved, "wiki_link", EDGE_WEIGHTS["wiki_link"]))
 
-    for dep in extract_yaml_deps(node_content):
-        resolved = resolve_wiki_link(dep, lookup)
-        if resolved.startswith("_unresolved/") or resolved not in valid_ids:
-            continue
+    # YAML dependency edges
+    for dep in extract_yaml_deps(content):
+        resolved = resolve_wiki_link(dep, basename_lookup)
         key = ("yaml_dep", resolved)
         if resolved != node_id and key not in seen:
             seen.add(key)
-            conn.execute(
-                "INSERT OR IGNORE INTO edges (source_id, target_id, edge_type, weight) VALUES (?, ?, ?, ?)",
-                (node_id, resolved, "yaml_dep", EDGE_WEIGHTS["yaml_dep"])
-            )
-            edge_count += 1
+            if resolved.startswith("_unresolved/"):
+                placeholders.add(resolved)
+            edges.append((node_id, resolved, "yaml_dep", EDGE_WEIGHTS["yaml_dep"]))
 
-    return edge_count
+    # Folder sibling edges
+    for sib in sibling_ids:
+        if sib != node_id:
+            key = ("folder_sibling", sib)
+            if key not in seen:
+                seen.add(key)
+                edges.append((node_id, sib, "folder_sibling", EDGE_WEIGHTS["folder_sibling"]))
+
+    if placeholders:
+        ensure_placeholder_nodes(con, vault_name, placeholders, now)
+
+    if edges:
+        con.executemany(
+            "INSERT OR REPLACE INTO edges (source_id,target_id,edge_type,weight) VALUES (?,?,?,?)",
+            edges,
+        )
+
+    return len(edges)
 
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Bulk edge rebuild (full sync)
+# ────────────────────────────────────────────────────────────────────────────
+
+def rebuild_all_edges(
+    con: sqlite3.Connection,
+    vault_name: str,
+    file_records: list[tuple[str, str, str]],   # (node_id, rel_path, content)
+    basename_lookup: dict[str, list[str]],
+    now: str,
+) -> int:
+    """Delete and rebuild ALL edges for vault nodes. Returns total edge count."""
+    # Clear all edges originating from this vault's live nodes
+    con.execute(
+        """DELETE FROM edges WHERE source_id IN
+           (SELECT id FROM nodes WHERE vault=? AND tombstone=0)""",
+        (vault_name,),
+    )
+
+    # Build folder → [node_id] map for sibling computation
+    folder_map: dict[str, list[str]] = defaultdict(list)
+    for node_id, rel_path, _ in file_records:
+        folder_map[folder_of(rel_path)].append(node_id)
+
+    total = 0
+    # max_dir_size=50 allows larger dirs; very large dirs (e.g. 100+ files) are
+    # skipped to avoid O(n²) edge explosion in flat vaults.
+    sibling_pairs = compute_folder_siblings(
+        [(nid, rp) for nid, rp, _ in file_records], max_dir_size=50
+    )
+    # Pre-build bidirectional sibling map
+    sib_map: dict[str, list[str]] = defaultdict(list)
+    for a, b in sibling_pairs:
+        sib_map[a].append(b)
+        sib_map[b].append(a)
+
+    for node_id, rel_path, content in file_records:
+        total += rebuild_node_edges(
+            con, node_id, content, vault_name,
+            basename_lookup, sib_map.get(node_id, []), now,
+        )
+
+    return total
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # Hub threshold computation
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-def compute_hub_threshold(conn: sqlite3.Connection) -> int:
-    """98th percentile of in-degree, floor of 10."""
-    degrees = [r[0] for r in conn.execute(
-        "SELECT COUNT(*) FROM edges GROUP BY target_id ORDER BY COUNT(*)"
-    ).fetchall()]
-    if not degrees:
+def compute_hub_threshold(con: sqlite3.Connection) -> int:
+    """98th percentile of wiki_link in-degree, floor 10."""
+    rows = con.execute(
+        "SELECT COUNT(*) AS deg FROM edges WHERE edge_type='wiki_link' GROUP BY target_id ORDER BY deg"
+    ).fetchall()
+    if not rows:
         return 10
-    idx = int(len(degrees) * 0.98)
-    p98 = degrees[min(idx, len(degrees) - 1)]
-    return max(p98, 10)
+    p98_idx = min(int(len(rows) * 0.98), len(rows) - 1)
+    return max(10, rows[p98_idx]["deg"])
 
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# Sync log helpers
+# ────────────────────────────────────────────────────────────────────────────
+
+def log_start(con: sqlite3.Connection, vault_name: str, sync_type: str) -> int:
+    cur = con.execute(
+        "INSERT INTO sync_log (vault,sync_type,started_at,status) VALUES (?,?,?,'running')",
+        (vault_name, sync_type, iso_now()),
+    )
+    con.commit()
+    return cur.lastrowid  # type: ignore[return-value]
+
+
+def log_finish(
+    con: sqlite3.Connection,
+    log_id: int,
+    stats: dict,
+    status: str = "completed",
+) -> None:
+    con.execute(
+        """UPDATE sync_log
+           SET completed_at=?, status=?,
+               files_added=?, files_updated=?, files_deleted=?,
+               files_moved=?, edges_rebuilt=?
+           WHERE id=?""",
+        (
+            iso_now(), status,
+            stats["added"], stats["updated"], stats["deleted"],
+            stats["moved"], stats["edges"],
+            log_id,
+        ),
+    )
+    con.commit()
+
+
+# ────────────────────────────────────────────────────────────────────────────
 # Full sync
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-def full_sync(conn: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
-    """Full sync: rebuild all nodes and edges."""
+def full_sync(con: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
+    """Rebuild entire DB from vault. Walk all .md files, upsert nodes, rebuild edges."""
     stats = {"added": 0, "updated": 0, "deleted": 0, "moved": 0, "edges": 0}
     now = iso_now()
+    log_id = log_start(con, vault_name, "full")
 
-    log_id = conn.execute(
-        "INSERT INTO sync_log (vault, sync_type, started_at) VALUES (?, 'full', ?)",
-        (vault_name, now)
-    ).lastrowid
+    print(f"  Walking {vault_path} …")
+    md_files = walk_vault(vault_path)
+    print(f"  {len(md_files)} .md files found")
 
-    print(f"  Walking vault {vault_path}...")
-    files = walk_vault(vault_path)
-    print(f"  Found {len(files)} .md files")
+    # Snapshot existing live node hashes for add/update counting
+    existing_hashes: dict[str, str] = {
+        row["id"]: row["content_hash"]
+        for row in con.execute(
+            "SELECT id, content_hash FROM nodes WHERE vault=? AND tombstone=0",
+            (vault_name,),
+        )
+    }
 
-    # Get existing node IDs for this vault
-    existing = {r[0]: r[1] for r in conn.execute(
-        "SELECT id, content_hash FROM nodes WHERE vault = ?", (vault_name,)
-    ).fetchall()}
+    # ── Pass 1: read files, batch-upsert nodes ────────────────────────────
+    print("  Pass 1: upserting nodes …")
+    node_batch: list[tuple] = []
+    file_records: list[tuple[str, str, str]] = []   # (node_id, rel_path, content)
+    seen_ids: set[str] = set()
 
-    seen_ids = set()
+    for abs_path in md_files:
+        try:
+            content = abs_path.read_text(encoding="utf-8", errors="replace")
+        except Exception as exc:
+            print(f"  WARN: skip unreadable {abs_path}: {exc}", file=sys.stderr)
+            continue
 
-    for f in files:
-        node_id = f"{vault_name}/{f['rel_path'][:-3]}"  # strip .md
+        rel_path = str(abs_path.relative_to(vault_path))
+        node_id = nid(vault_name, rel_path)
         seen_ids.add(node_id)
-        domain, subdomain = classify_domain(f["rel_path"])
-        title = extract_title(f["content"], f["basename"])
 
-        if node_id in existing:
-            if existing[node_id] != f["content_hash"]:
-                stats["updated"] += 1
-            # Always upsert to ensure data consistency
+        try:
+            stat = abs_path.stat()
+            mtime = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+            size = stat.st_size
+        except OSError as exc:
+            print(f"  WARN: stat failed {abs_path}: {exc}", file=sys.stderr)
+            continue
+
+        domain, subdomain = classify_domain(rel_path)
+        node_batch.append((
+            node_id, vault_name, rel_path, abs_path.stem,
+            extract_title(content, abs_path.stem),
+            content, sha256_content(content), size, mtime,
+            domain, subdomain, now,
+        ))
+        file_records.append((node_id, rel_path, content))
+
+        if node_id in existing_hashes:
+            stats["updated"] += 1
         else:
             stats["added"] += 1
 
-        conn.execute("""
-            INSERT INTO nodes (id, vault, rel_path, basename, title, content, content_hash,
-                             size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            ON CONFLICT(id) DO UPDATE SET
-                rel_path = excluded.rel_path,
-                basename = excluded.basename,
-                title = excluded.title,
-                content = excluded.content,
-                content_hash = excluded.content_hash,
-                size_bytes = excluded.size_bytes,
-                modified_at = excluded.modified_at,
-                domain = excluded.domain,
-                subdomain = excluded.subdomain,
-                indexed_at = excluded.indexed_at,
-                tombstone = 0
-        """, (node_id, vault_name, f["rel_path"], f["basename"], title,
-              f["content"], f["content_hash"], f["size_bytes"], f["mtime"],
-              domain, subdomain, now))
+    with con:
+        con.executemany(
+            """INSERT INTO nodes
+               (id, vault, rel_path, basename, title, content, content_hash,
+                size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)
+               ON CONFLICT(id) DO UPDATE SET
+                   rel_path=excluded.rel_path, basename=excluded.basename,
+                   title=excluded.title, content=excluded.content,
+                   content_hash=excluded.content_hash, size_bytes=excluded.size_bytes,
+                   modified_at=excluded.modified_at, domain=excluded.domain,
+                   subdomain=excluded.subdomain, indexed_at=excluded.indexed_at,
+                   tombstone=0""",
+            node_batch,
+        )
 
-    # Tombstone nodes not seen
-    for old_id in existing:
-        if old_id not in seen_ids:
-            conn.execute("UPDATE nodes SET tombstone = 1 WHERE id = ?", (old_id,))
-            # Add alias for the tombstoned node
-            row = conn.execute("SELECT rel_path, basename, content_hash FROM nodes WHERE id = ?", (old_id,)).fetchone()
-            if row:
-                conn.execute("""
-                    INSERT OR IGNORE INTO aliases (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (vault_name, row[0], row[2], old_id, row[1], now))
-            stats["deleted"] += 1
+    # ── Pass 2: rebuild all edges ─────────────────────────────────────────
+    print("  Pass 2: rebuilding edges …")
+    basename_lookup: dict[str, list[str]] = defaultdict(list)
+    for row in con.execute(
+        "SELECT id, basename FROM nodes WHERE vault=? AND tombstone=0", (vault_name,)
+    ):
+        basename_lookup[row["basename"].lower()].append(row["id"])
 
-    conn.commit()
+    with con:
+        stats["edges"] = rebuild_all_edges(con, vault_name, file_records, basename_lookup, now)
 
-    # Rebuild all edges
-    print("  Rebuilding edges...")
-    stats["edges"] = rebuild_all_edges(conn, vault_name)
-    conn.commit()
+    # ── Pass 3: tombstone absent nodes ────────────────────────────────────
+    print("  Pass 3: tombstoning deleted nodes …")
+    with con:
+        for row in con.execute(
+            "SELECT id, rel_path, content_hash, basename FROM nodes WHERE vault=? AND tombstone=0",
+            (vault_name,),
+        ).fetchall():
+            if row["id"] not in seen_ids and not row["id"].startswith("_unresolved/"):
+                con.execute("UPDATE nodes SET tombstone=1 WHERE id=?", (row["id"],))
+                con.execute(
+                    """INSERT OR REPLACE INTO aliases
+                       (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
+                       VALUES (?,?,?,?,?,?)""",
+                    (vault_name, row["rel_path"], row["content_hash"],
+                     row["id"], row["basename"], now),
+                )
+                stats["deleted"] += 1
 
-    # Compute hub threshold
-    hub_threshold = compute_hub_threshold(conn)
-    conn.execute(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('hub_threshold', ?)",
-        (str(hub_threshold),)
-    )
-    conn.execute(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('last_full_sync', ?)",
-        (now,)
-    )
+    # ── Metadata ──────────────────────────────────────────────────────────
+    threshold = compute_hub_threshold(con)
+    with con:
+        for k, v in [
+            (f"{vault_name}.hub_threshold", str(threshold)),
+            (f"{vault_name}.last_full_sync", now),
+        ]:
+            con.execute("INSERT OR REPLACE INTO sync_meta (key,value) VALUES (?,?)", (k, v))
 
-    # Update sync log
-    conn.execute("""
-        UPDATE sync_log SET completed_at = ?, files_added = ?, files_updated = ?,
-               files_deleted = ?, files_moved = ?, edges_rebuilt = ?, status = 'completed'
-        WHERE id = ?
-    """, (iso_now(), stats["added"], stats["updated"], stats["deleted"],
-          stats["moved"], stats["edges"], log_id))
+    log_finish(con, log_id, stats)
 
-    conn.commit()
-    conn.execute("ANALYZE")
+    print("  Running VACUUM and ANALYZE …")
+    con.execute("VACUUM")
+    con.execute("ANALYZE")
+    con.commit()
 
     return stats
 
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 # Incremental sync
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-def incremental_sync(conn: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
-    """Incremental sync: only changed/new/deleted files."""
+def incremental_sync(con: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
+    """Sync only changed/new/deleted files. Auto-escalates to full if ≥20 changes."""
     stats = {"added": 0, "updated": 0, "deleted": 0, "moved": 0, "edges": 0}
     now = iso_now()
+    log_id = log_start(con, vault_name, "incremental")
 
-    log_id = conn.execute(
-        "INSERT INTO sync_log (vault, sync_type, started_at) VALUES (?, 'incremental', ?)",
-        (vault_name, now)
-    ).lastrowid
+    # Load DB state (live nodes only)
+    db_state: dict[str, sqlite3.Row] = {
+        row["rel_path"]: row
+        for row in con.execute(
+            """SELECT id, rel_path, content_hash, modified_at, basename, size_bytes
+               FROM nodes WHERE vault=? AND tombstone=0""",
+            (vault_name,),
+        )
+    }
 
-    files = walk_vault(vault_path)
-    file_by_id: dict[str, dict] = {}
-    for f in files:
-        node_id = f"{vault_name}/{f['rel_path'][:-3]}"
-        file_by_id[node_id] = f
+    md_files = walk_vault(vault_path)
+    disk_paths: set[str] = set()
 
-    # Get existing nodes
-    existing = {}
-    for row in conn.execute(
-        "SELECT id, content_hash, tombstone FROM nodes WHERE vault = ?", (vault_name,)
-    ).fetchall():
-        existing[row[0]] = {"hash": row[1], "tombstone": row[2]}
+    # First pass: identify changes using mtime shortcut (avoid reading unchanged files)
+    changed_files: list[tuple[Path, str]] = []   # (abs_path, rel_path)
+    new_file_hashes: dict[str, tuple[Path, str]] = {}   # hash → (path, rel_path) for new files only
 
-    changes = 0
+    for abs_path in md_files:
+        rel_path = str(abs_path.relative_to(vault_path))
+        disk_paths.add(rel_path)
 
-    # New + updated files
-    changed_ids = []
-    for node_id, f in file_by_id.items():
-        domain, subdomain = classify_domain(f["rel_path"])
-        title = extract_title(f["content"], f["basename"])
+        existing = db_state.get(rel_path)
+        if existing is None:
+            # Brand-new file: read now for hash-based move detection
+            try:
+                content = abs_path.read_text(encoding="utf-8", errors="replace")
+                h = sha256_content(content)
+                new_file_hashes[h] = (abs_path, rel_path)
+                changed_files.append((abs_path, rel_path))
+            except Exception as exc:
+                print(f"  WARN: skip unreadable {abs_path}: {exc}", file=sys.stderr)
+            continue
 
-        if node_id not in existing:
-            stats["added"] += 1
-            changes += 1
-            conn.execute("""
-                INSERT INTO nodes (id, vault, rel_path, basename, title, content, content_hash,
-                                 size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-            """, (node_id, vault_name, f["rel_path"], f["basename"], title,
-                  f["content"], f["content_hash"], f["size_bytes"], f["mtime"],
-                  domain, subdomain, now))
-            changed_ids.append(node_id)
+        # mtime shortcut: skip if filesystem mtime matches DB
+        try:
+            mtime = datetime.fromtimestamp(abs_path.stat().st_mtime, timezone.utc).isoformat()
+            if mtime == existing["modified_at"]:
+                continue
+        except OSError:
+            pass
 
-        elif existing[node_id]["hash"] != f["content_hash"]:
-            stats["updated"] += 1
-            changes += 1
-            conn.execute("""
-                UPDATE nodes SET rel_path = ?, basename = ?, title = ?, content = ?,
-                    content_hash = ?, size_bytes = ?, modified_at = ?, domain = ?,
-                    subdomain = ?, indexed_at = ?, tombstone = 0
-                WHERE id = ?
-            """, (f["rel_path"], f["basename"], title, f["content"],
-                  f["content_hash"], f["size_bytes"], f["mtime"],
-                  domain, subdomain, now, node_id))
-            changed_ids.append(node_id)
+        # mtime changed — verify with content hash
+        try:
+            content = abs_path.read_text(encoding="utf-8", errors="replace")
+            if sha256_content(content) != existing["content_hash"]:
+                changed_files.append((abs_path, rel_path))
+        except Exception as exc:
+            print(f"  WARN: skip unreadable {abs_path}: {exc}", file=sys.stderr)
 
-        elif existing[node_id]["tombstone"]:
-            # Was tombstoned but file is back
-            conn.execute("UPDATE nodes SET tombstone = 0, indexed_at = ? WHERE id = ?", (now, node_id))
+    deleted_rels = set(db_state) - disk_paths
+    total_changes = len(changed_files) + len(deleted_rels)
 
-    # Deleted files — check for moves first
-    new_hashes = {f["content_hash"]: nid for nid, f in file_by_id.items()}
-    for old_id, info in existing.items():
-        if old_id not in file_by_id and not info["tombstone"]:
-            # Check move detection: same content hash in a new file?
-            if info["hash"] in new_hashes:
-                new_id = new_hashes[info["hash"]]
-                if new_id != old_id:
-                    # This is a move/rename
-                    old_row = conn.execute(
-                        "SELECT rel_path, basename FROM nodes WHERE id = ?", (old_id,)
-                    ).fetchone()
-                    if old_row:
-                        conn.execute("""
-                            INSERT OR IGNORE INTO aliases (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (vault_name, old_row[0], info["hash"], new_id, old_row[1], now))
-                    conn.execute("UPDATE nodes SET tombstone = 1 WHERE id = ?", (old_id,))
-                    stats["moved"] += 1
-                    changes += 1
-                    continue
+    print(f"  {len(changed_files)} changed/new, {len(deleted_rels)} deleted")
 
-            # Truly deleted
-            conn.execute("UPDATE nodes SET tombstone = 1 WHERE id = ?", (old_id,))
-            old_row = conn.execute(
-                "SELECT rel_path, basename, content_hash FROM nodes WHERE id = ?", (old_id,)
-            ).fetchone()
-            if old_row:
-                conn.execute("""
-                    INSERT OR IGNORE INTO aliases (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                """, (vault_name, old_row[0], old_row[2], old_id, old_row[1], now))
+    if total_changes >= 20:
+        print(f"  ≥20 changes ({total_changes}) — escalating to full sync")
+        log_finish(con, log_id, stats, "escalated")
+        return full_sync(con, vault_path, vault_name)
+
+    if total_changes == 0:
+        print("  No changes detected")
+        log_finish(con, log_id, stats)
+        return stats
+
+    # ── Move detection ─────────────────────────────────────────────────────
+    # Primary: exact content_hash match
+    deleted_by_hash: dict[str, str] = {
+        db_state[r]["content_hash"]: r
+        for r in deleted_rels
+        if db_state[r]["content_hash"]
+    }
+
+    moves: dict[str, str] = {}   # old_rel → new_rel
+    for h, (_, new_rel) in new_file_hashes.items():
+        if h in deleted_by_hash:
+            moves[deleted_by_hash[h]] = new_rel
+
+    # Secondary: same basename + file size within ±10%
+    matched_new_rels = set(moves.values())
+    for old_rel in list(deleted_rels - set(moves)):
+        old_row = db_state[old_rel]
+        old_size = old_row["size_bytes"] or 0
+        old_basename = old_row["basename"] or ""
+        if not old_basename or old_size == 0:
+            continue
+        for h, (new_abs, new_rel) in new_file_hashes.items():
+            if new_rel in matched_new_rels:
+                continue
+            if new_abs.stem != old_basename:
+                continue
+            try:
+                new_size = new_abs.stat().st_size
+            except OSError:
+                continue
+            if abs(new_size - old_size) / old_size <= 0.10:
+                moves[old_rel] = new_rel
+                matched_new_rels.add(new_rel)
+                break
+
+    # Apply moves: update node ID + path, add alias, update edge refs
+    with con:
+        for old_rel, new_rel in moves.items():
+            old_row = db_state[old_rel]
+            old_nid = old_row["id"]
+            new_nid = nid(vault_name, new_rel)
+            con.execute(
+                "UPDATE nodes SET id=?,rel_path=?,basename=?,indexed_at=?,tombstone=0 WHERE id=?",
+                (new_nid, new_rel, Path(new_rel).stem, now, old_nid),
+            )
+            con.execute("UPDATE edges SET source_id=? WHERE source_id=?", (new_nid, old_nid))
+            con.execute("UPDATE edges SET target_id=? WHERE target_id=?", (new_nid, old_nid))
+            con.execute(
+                """INSERT OR REPLACE INTO aliases
+                   (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
+                   VALUES (?,?,?,?,?,?)""",
+                (vault_name, old_rel, old_row["content_hash"], new_nid, old_row["basename"], now),
+            )
+            deleted_rels.discard(old_rel)
+            stats["moved"] += 1
+
+    moved_new_rels = set(moves.values())
+
+    # ── Upsert changed/new nodes ───────────────────────────────────────────
+    files_to_process: list[tuple[Path, str, str, str]] = []   # path, rel, content, hash
+
+    with con:
+        for abs_path, rel_path in changed_files:
+            if rel_path in moved_new_rels:
+                continue
+            try:
+                content = abs_path.read_text(encoding="utf-8", errors="replace")
+            except Exception as exc:
+                print(f"  WARN: skip unreadable {abs_path}: {exc}", file=sys.stderr)
+                continue
+
+            h = sha256_content(content)
+            node_id = nid(vault_name, rel_path)
+            is_new = db_state.get(rel_path) is None
+            domain, subdomain = classify_domain(rel_path)
+
+            try:
+                stat = abs_path.stat()
+                mtime = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+                size = stat.st_size
+            except OSError as exc:
+                print(f"  WARN: stat failed {abs_path}: {exc}", file=sys.stderr)
+                continue
+
+            con.execute(
+                """INSERT INTO nodes
+                   (id, vault, rel_path, basename, title, content, content_hash,
+                    size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)
+                   ON CONFLICT(id) DO UPDATE SET
+                       rel_path=excluded.rel_path, basename=excluded.basename,
+                       title=excluded.title, content=excluded.content,
+                       content_hash=excluded.content_hash, size_bytes=excluded.size_bytes,
+                       modified_at=excluded.modified_at, domain=excluded.domain,
+                       subdomain=excluded.subdomain, indexed_at=excluded.indexed_at,
+                       tombstone=0""",
+                (node_id, vault_name, rel_path, abs_path.stem,
+                 extract_title(content, abs_path.stem),
+                 content, h, size, mtime, domain, subdomain, now),
+            )
+            if is_new:
+                stats["added"] += 1
+            else:
+                stats["updated"] += 1
+
+            files_to_process.append((abs_path, rel_path, content, h))
+
+    # Rebuild basename lookup after all upserts (new nodes now in DB)
+    basename_lookup: dict[str, list[str]] = defaultdict(list)
+    for row in con.execute(
+        "SELECT id, basename FROM nodes WHERE vault=? AND tombstone=0", (vault_name,)
+    ):
+        basename_lookup[row["basename"].lower()].append(row["id"])
+
+    # Build folder-peer map from DB for sibling edges
+    folder_map: dict[str, list[str]] = defaultdict(list)
+    for row in con.execute(
+        "SELECT id, rel_path FROM nodes WHERE vault=? AND tombstone=0", (vault_name,)
+    ):
+        folder_map[folder_of(row["rel_path"])].append(row["id"])
+
+    # Rebuild edges for changed/new nodes
+    with con:
+        for abs_path, rel_path, content, _ in files_to_process:
+            node_id = nid(vault_name, rel_path)
+            siblings = folder_map.get(folder_of(rel_path), [])
+            stats["edges"] += rebuild_node_edges(
+                con, node_id, content, vault_name, basename_lookup, siblings, now
+            )
+
+    # Tombstone truly deleted nodes
+    with con:
+        for rel_path in deleted_rels:
+            row = db_state[rel_path]
+            con.execute("UPDATE nodes SET tombstone=1 WHERE id=?", (row["id"],))
+            con.execute(
+                """INSERT OR REPLACE INTO aliases
+                   (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
+                   VALUES (?,?,?,?,?,?)""",
+                (vault_name, rel_path, row["content_hash"], row["id"], row["basename"], now),
+            )
             stats["deleted"] += 1
-            changes += 1
-
-    conn.commit()
-
-    # Auto-escalate to full sync if ≥20 changes
-    if changes >= 20:
-        print(f"  {changes} changes detected — escalating to full sync")
-        conn.execute("UPDATE sync_log SET status = 'escalated' WHERE id = ?", (log_id,))
-        conn.commit()
-        return full_sync(conn, vault_path, vault_name)
-
-    # Rebuild edges for changed nodes only
-    for node_id in changed_ids:
-        row = conn.execute("SELECT content FROM nodes WHERE id = ?", (node_id,)).fetchone()
-        if row:
-            stats["edges"] += rebuild_node_edges(conn, node_id, row[0])
 
     # Update hub threshold
-    hub_threshold = compute_hub_threshold(conn)
-    conn.execute(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('hub_threshold', ?)",
-        (str(hub_threshold),)
-    )
-    conn.execute(
-        "INSERT OR REPLACE INTO sync_meta (key, value) VALUES ('last_incremental_sync', ?)",
-        (now,)
-    )
+    threshold = compute_hub_threshold(con)
+    with con:
+        con.execute(
+            "INSERT OR REPLACE INTO sync_meta (key,value) VALUES (?,?)",
+            (f"{vault_name}.hub_threshold", str(threshold)),
+        )
 
-    conn.execute("""
-        UPDATE sync_log SET completed_at = ?, files_added = ?, files_updated = ?,
-               files_deleted = ?, files_moved = ?, edges_rebuilt = ?, status = 'completed'
-        WHERE id = ?
-    """, (iso_now(), stats["added"], stats["updated"], stats["deleted"],
-          stats["moved"], stats["edges"], log_id))
+    log_finish(con, log_id, stats)
+    con.execute("ANALYZE")
+    con.commit()
 
-    conn.commit()
     return stats
 
 
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 # Touched-path sync
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
 
-TOUCHED_PATH = Path.home() / ".copilot" / "brain-graph-touched.txt"
-
-
-def touched_sync(conn: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
-    """Sync only files listed in touched-paths file."""
+def touched_sync(con: sqlite3.Connection, vault_path: Path, vault_name: str) -> dict:
+    """Sync only files listed in the touched-paths file (absolute paths, one per line)."""
     stats = {"added": 0, "updated": 0, "deleted": 0, "moved": 0, "edges": 0}
 
-    if not TOUCHED_PATH.exists():
+    if not _TOUCHED_FILE.exists():
         print("  No touched-paths file found — nothing to sync")
         return stats
 
-    # Atomic read + delete
-    paths = [p.strip() for p in TOUCHED_PATH.read_text().splitlines() if p.strip()]
-    TOUCHED_PATH.unlink()
+    # Atomic read-then-delete
+    try:
+        raw = _TOUCHED_FILE.read_text()
+        _TOUCHED_FILE.unlink()
+    except Exception as exc:
+        print(f"  WARN: Cannot process touched file: {exc}", file=sys.stderr)
+        return stats
 
-    if not paths:
+    raw_paths = [p.strip() for p in raw.splitlines() if p.strip()]
+    if not raw_paths:
         print("  Touched-paths file was empty")
         return stats
 
+    print(f"  Processing {len(raw_paths)} touched paths …")
     now = iso_now()
-    print(f"  Processing {len(paths)} touched paths...")
+    log_id = log_start(con, vault_name, "touched")
 
-    for rel_path in paths:
-        fp = vault_path / rel_path
-        node_id = f"{vault_name}/{rel_path[:-3]}" if rel_path.endswith(".md") else f"{vault_name}/{rel_path}"
+    valid_files: list[tuple[Path, str]] = []   # (abs_path, rel_path) for existing .md files
 
-        if fp.exists() and fp.suffix == ".md":
-            try:
-                text = fp.read_text(encoding="utf-8", errors="replace")
-            except (OSError, PermissionError) as e:
-                print(f"  WARN: skip {rel_path}: {e}", file=sys.stderr)
-                continue
+    for path_str in raw_paths:
+        abs_path = Path(path_str).expanduser().resolve()
+        if abs_path.suffix != ".md":
+            continue
 
-            bn = fp.stem
-            domain, subdomain = classify_domain(rel_path)
-            title = extract_title(text, bn)
-            h = content_hash(text)
+        # Paths in the touched file are absolute; derive rel_path from vault root
+        try:
+            rel_path = str(abs_path.relative_to(vault_path))
+        except ValueError:
+            print(f"  WARN: {abs_path} is not inside vault {vault_path}", file=sys.stderr)
+            continue
 
-            existing = conn.execute("SELECT content_hash FROM nodes WHERE id = ?", (node_id,)).fetchone()
-            if existing:
-                if existing[0] != h:
-                    conn.execute("""
-                        UPDATE nodes SET rel_path = ?, basename = ?, title = ?, content = ?,
-                            content_hash = ?, size_bytes = ?, modified_at = ?, domain = ?,
-                            subdomain = ?, indexed_at = ?, tombstone = 0
-                        WHERE id = ?
-                    """, (rel_path, bn, title, text, h, len(text.encode("utf-8")),
-                          iso_mtime(fp), domain, subdomain, now, node_id))
-                    stats["updated"] += 1
-            else:
-                conn.execute("""
-                    INSERT INTO nodes (id, vault, rel_path, basename, title, content, content_hash,
-                                     size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-                """, (node_id, vault_name, rel_path, bn, title, text, h,
-                      len(text.encode("utf-8")), iso_mtime(fp), domain, subdomain, now))
-                stats["added"] += 1
-
-            stats["edges"] += rebuild_node_edges(conn, node_id, text)
+        if abs_path.exists():
+            valid_files.append((abs_path, rel_path))
         else:
-            # File deleted — tombstone
-            existing = conn.execute("SELECT id FROM nodes WHERE id = ? AND tombstone = 0", (node_id,)).fetchone()
+            # File deleted — tombstone it
+            existing = con.execute(
+                "SELECT id, content_hash, basename FROM nodes WHERE vault=? AND rel_path=? AND tombstone=0",
+                (vault_name, rel_path),
+            ).fetchone()
             if existing:
-                conn.execute("UPDATE nodes SET tombstone = 1 WHERE id = ?", (node_id,))
+                with con:
+                    con.execute("UPDATE nodes SET tombstone=1 WHERE id=?", (existing["id"],))
+                    con.execute(
+                        """INSERT OR REPLACE INTO aliases
+                           (vault, rel_path, content_hash, canonical_id, alias_basename, created_at)
+                           VALUES (?,?,?,?,?,?)""",
+                        (vault_name, rel_path, existing["content_hash"],
+                         existing["id"], existing["basename"], now),
+                    )
                 stats["deleted"] += 1
 
-    conn.commit()
+    # Upsert existing touched files
+    with con:
+        for abs_path, rel_path in valid_files:
+            try:
+                content = abs_path.read_text(encoding="utf-8", errors="replace")
+            except Exception as exc:
+                print(f"  WARN: skip unreadable {abs_path}: {exc}", file=sys.stderr)
+                continue
+
+            h = sha256_content(content)
+            node_id = nid(vault_name, rel_path)
+            is_new = con.execute(
+                "SELECT id FROM nodes WHERE id=?", (node_id,)
+            ).fetchone() is None
+            domain, subdomain = classify_domain(rel_path)
+
+            try:
+                stat = abs_path.stat()
+                mtime = datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat()
+                size = stat.st_size
+            except OSError as exc:
+                print(f"  WARN: stat failed {abs_path}: {exc}", file=sys.stderr)
+                continue
+
+            con.execute(
+                """INSERT INTO nodes
+                   (id, vault, rel_path, basename, title, content, content_hash,
+                    size_bytes, modified_at, domain, subdomain, indexed_at, tombstone)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0)
+                   ON CONFLICT(id) DO UPDATE SET
+                       rel_path=excluded.rel_path, basename=excluded.basename,
+                       title=excluded.title, content=excluded.content,
+                       content_hash=excluded.content_hash, size_bytes=excluded.size_bytes,
+                       modified_at=excluded.modified_at, domain=excluded.domain,
+                       subdomain=excluded.subdomain, indexed_at=excluded.indexed_at,
+                       tombstone=0""",
+                (node_id, vault_name, rel_path, abs_path.stem,
+                 extract_title(content, abs_path.stem),
+                 content, h, size, mtime, domain, subdomain, now),
+            )
+            if is_new:
+                stats["added"] += 1
+            else:
+                stats["updated"] += 1
+
+    # Rebuild basename lookup and folder map after all upserts
+    basename_lookup: dict[str, list[str]] = defaultdict(list)
+    for row in con.execute(
+        "SELECT id, basename FROM nodes WHERE vault=? AND tombstone=0", (vault_name,)
+    ):
+        basename_lookup[row["basename"].lower()].append(row["id"])
+
+    folder_map: dict[str, list[str]] = defaultdict(list)
+    for row in con.execute(
+        "SELECT id, rel_path FROM nodes WHERE vault=? AND tombstone=0", (vault_name,)
+    ):
+        folder_map[folder_of(row["rel_path"])].append(row["id"])
+
+    with con:
+        for abs_path, rel_path in valid_files:
+            try:
+                content = abs_path.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+            node_id = nid(vault_name, rel_path)
+            siblings = folder_map.get(folder_of(rel_path), [])
+            stats["edges"] += rebuild_node_edges(
+                con, node_id, content, vault_name, basename_lookup, siblings, now
+            )
+
+    log_finish(con, log_id, stats)
+    con.execute("ANALYZE")
+    con.commit()
+
     return stats
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
+# ────────────────────────────────────────────────────────────────────────────
+# CLI
+# ────────────────────────────────────────────────────────────────────────────
 
-def main():
-    parser = argparse.ArgumentParser(description="Sync Obsidian vault to SQLite graph index")
-    parser.add_argument("--vault-path", required=True, type=Path, help="Path to Obsidian vault")
-    parser.add_argument("--vault-name", required=True, help="Vault name (eroad or john)")
-    parser.add_argument("--mode", choices=["full", "incremental", "touched"], default="full")
-    parser.add_argument("--db-path", type=Path, default=Path.home() / ".copilot" / "brain-graph.db")
-    parser.add_argument("--force-full", action="store_true", help="Force full sync regardless of mode")
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Brain Graph Sync — indexes Obsidian vaults into SQLite",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--vault-path", required=True, type=Path,
+                        help="Path to Obsidian vault root")
+    parser.add_argument("--vault-name", required=True,
+                        help="Short vault identifier (e.g. eroad, john)")
+    parser.add_argument("--mode", required=True,
+                        choices=["full", "incremental", "touched"],
+                        help="Sync mode")
+    parser.add_argument("--db-path", type=Path, default=_DEFAULT_DB,
+                        help=f"SQLite database path (default: {_DEFAULT_DB})")
+    parser.add_argument("--force-full", action="store_true",
+                        help="Force full sync regardless of --mode")
     args = parser.parse_args()
 
-    if not args.vault_path.is_dir():
-        print(f"ERROR: Vault path does not exist: {args.vault_path}", file=sys.stderr)
-        sys.exit(1)
+    vault_path = args.vault_path.expanduser().resolve()
+    if not vault_path.is_dir():
+        sys.exit(f"ERROR: Vault path does not exist: {vault_path}")
+
+    db_path = args.db_path.expanduser()
+    con = open_db(db_path)
 
     mode = "full" if args.force_full else args.mode
     print(f"Brain Graph Sync — {mode} mode")
-    print(f"  Vault: {args.vault_path} ({args.vault_name})")
-    print(f"  DB:    {args.db_path}")
+    print(f"  Vault : {vault_path} ({args.vault_name})")
+    print(f"  DB    : {db_path}")
+    print()
 
     t0 = time.monotonic()
-    conn = ensure_db(args.db_path)
 
     try:
         if mode == "full":
-            stats = full_sync(conn, args.vault_path, args.vault_name)
+            stats = full_sync(con, vault_path, args.vault_name)
         elif mode == "incremental":
-            stats = incremental_sync(conn, args.vault_path, args.vault_name)
+            stats = incremental_sync(con, vault_path, args.vault_name)
         elif mode == "touched":
-            stats = touched_sync(conn, args.vault_path, args.vault_name)
+            stats = touched_sync(con, vault_path, args.vault_name)
         else:
-            print(f"Unknown mode: {mode}", file=sys.stderr)
-            sys.exit(1)
-
-        elapsed = time.monotonic() - t0
-        print(f"\n  Summary:")
-        print(f"    Added:   {stats['added']}")
-        print(f"    Updated: {stats['updated']}")
-        print(f"    Deleted: {stats['deleted']}")
-        print(f"    Moved:   {stats['moved']}")
-        print(f"    Edges:   {stats['edges']}")
-        print(f"    Time:    {elapsed:.2f}s")
-
-        # Print DB stats
-        node_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE tombstone = 0").fetchone()[0]
-        edge_count = conn.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
-        print(f"\n  Database: {node_count} nodes, {edge_count} edges")
-
-    except Exception as e:
-        print(f"ERROR: {e}", file=sys.stderr)
+            sys.exit(f"Unknown mode: {mode}")
+    except KeyboardInterrupt:
+        print("\nInterrupted.", file=sys.stderr)
+        sys.exit(130)
+    except Exception as exc:
         import traceback
+        print(f"\nFATAL: {exc}", file=sys.stderr)
         traceback.print_exc()
         sys.exit(1)
     finally:
-        conn.close()
+        con.close()
+
+    elapsed = time.monotonic() - t0
+
+    node_count = 0
+    edge_count = 0
+    try:
+        tmp = open_db(db_path)
+        node_count = tmp.execute(
+            "SELECT COUNT(*) FROM nodes WHERE tombstone=0"
+        ).fetchone()[0]
+        edge_count = tmp.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+        tmp.close()
+    except Exception:
+        pass
+
+    print(
+        f"\n  ┌─ Sync summary ──────────────────────────────┐\n"
+        f"  │  Added:          {stats['added']:>6}\n"
+        f"  │  Updated:        {stats['updated']:>6}\n"
+        f"  │  Deleted:        {stats['deleted']:>6}\n"
+        f"  │  Moved:          {stats['moved']:>6}\n"
+        f"  │  Edges rebuilt:  {stats['edges']:>6}\n"
+        f"  │  Time:           {elapsed:>5.1f}s\n"
+        f"  ├─────────────────────────────────────────────┤\n"
+        f"  │  DB nodes (live): {node_count:>5}\n"
+        f"  │  DB edges:        {edge_count:>5}\n"
+        f"  └─────────────────────────────────────────────┘"
+    )
 
 
 if __name__ == "__main__":
