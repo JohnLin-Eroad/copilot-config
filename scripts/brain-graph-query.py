@@ -185,10 +185,36 @@ def fts_search(conn: sqlite3.Connection, vault: str, rewritten: dict, max_result
                         h["source"] = "basename_match"
                         break
 
+    # Content-match boost: FTS BM25 penalizes large documents.
+    # Re-check if the *exact* query substring appears in content/title/basename
+    # and boost those hits to ensure they aren't buried by BM25 ranking.
+    raw_lower = rewritten["original"].lower()
+    if hits and len(raw_lower) >= 3:
+        # Compute the median BM25 score to use as a boost baseline
+        fts_scores = sorted([h["bm25_score"] for h in hits if h["source"] == "fts"], reverse=True)
+        median_score = fts_scores[len(fts_scores) // 2] if fts_scores else 3.0
+        content_boost = max(median_score, 3.0)
+
+        # Check all hits (including LIKE) for exact substring in content
+        hit_ids_list = [h["id"] for h in hits]
+        if hit_ids_list:
+            placeholders = ",".join("?" for _ in hit_ids_list)
+            content_matches = set()
+            for row in conn.execute(f"""
+                SELECT id FROM nodes
+                WHERE id IN ({placeholders})
+                  AND (LOWER(content) LIKE ? OR LOWER(title) LIKE ? OR LOWER(basename) LIKE ?)
+            """, hit_ids_list + [f"%{raw_lower}%", f"%{raw_lower}%", f"%{raw_lower}%"]):
+                content_matches.add(row[0])
+
+            for h in hits:
+                if h["id"] in content_matches and h["bm25_score"] < content_boost:
+                    h["bm25_score"] = content_boost
+                    h["combined_score"] = content_boost
+                    if h["source"] == "fts":
+                        h["source"] = "fts+content_boost"
+
     return hits
-
-
-def graph_rerank(hits: list[dict], G: nx.DiGraph) -> list[dict]:
     """Jaccard-normalized graph reranking, bonus capped at 0.5."""
     if not G or not hits:
         return hits
