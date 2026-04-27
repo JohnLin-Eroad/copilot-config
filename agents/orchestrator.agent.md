@@ -507,9 +507,10 @@ Use **targeted handoffs** — each agent receives only the context it needs, not
 
 When invoking a specialist agent, construct its prompt with:
 1. **Task scope** — what this agent must do (extracted from the task brief)
-2. **Relevant prior output** — only the sections from earlier agents that this agent needs
-3. **STM path** — so the agent can check STM for additional context if needed
-4. **Constraints** — blast radius, deadlines, negative constraints
+2. **Expected output** — define what "done" looks like: output format, files to produce, acceptance criteria, verification command. Agents with a clear target finish faster and produce better results.
+3. **Relevant prior output** — only the sections from earlier agents that this agent needs
+4. **STM path** — so the agent can check STM for additional context if needed
+5. **Constraints** — blast radius, deadlines, negative constraints
 
 ---
 
