@@ -4,8 +4,8 @@
 - Prompt ID: P2-multi-tenancy
 - Executor model: claude-opus-4.7
 - Grader model: gpt-5.3-codex
-- Timestamp: 2026-04-27T22:15:03Z
-- Duration: 400.2s
+- Timestamp: 2026-04-28T00:00:53Z
+- Duration: 820.5s
 
 ## Prompt Sent
 Design multi-tenancy support for the sovereign platform. Fleet organisations must be
@@ -22,194 +22,173 @@ Produce a detailed implementation plan with architecture decisions, blast radius
 and migration strategy.
 
 ## Raw Output
-Now let me search for organization/tenant/account/fleet patterns and find migration files:Now I have enough information. Let me compile the comprehensive report:
+I'll explore the codebase systematically, starting with the structure and then drilling into each area. Let me make efficient use of targeted searches.Now let me check for key domain entities and look at auth, database, and controller structures:Let me continue checking the database schema and look for auth configuration and controllers:Let me look at the API structure more systematically and check for security config and controllers:Now let me examine key files - look at a repository, a controller, and check for Spring Security config:Let me check web app config and look for pom.xml to see dependencies:Let me check the application.yml and look for any User/Auth entities in the domain:Let me check for a base entity class and look at the frontend:Let me look at a domain entity and check the web frontend app structure:Let me see the rest of the database schema migrations and check for any context/scope beans:Let me check one more controller to see how context is handled and check the JPA configuration:Let me check the web module's pom and see if there's any Spring Security or auth config:Perfect! I now have enough information to provide a comprehensive report. Let me compile the findings:
 
 ---
 
-## **MULTI-TENANCY CURRENT STATE ANALYSIS**
+## **Multi-Tenancy Readiness Report: Sovereign Codebase**
 
-### **1. Organization/Tenant Concepts**
-**Status: NONE EXIST** (single-tenant only)
-
-- ✗ No `organisation`, `organization`, `tenant`, `fleet`, or `account` references found in Java code across `api/domain`, `api/application`, `api/infrastructure`, `api/web`
-- ✗ No `org_id`, `tenant_id`, `fleet_id`, or `account_id` columns in any tables
-- **Source:** `/Users/johnlin/sovereign/api/infrastructure/src/main/resources/db/migration/` (all 4 migrations are tenant-unaware)
-- **Note:** ADR-0001-multi-tenancy.md confirms baseline audit: "there is no notion of an organisation, tenant, or fleet anywhere in the data model"
-
----
-
-### **2. Database Migrations**
-
-**Location:** `/Users/johnlin/sovereign/api/infrastructure/src/main/resources/db/migration/`
-
-**Migration Files (Flyway 10.10.0):**
-- **V1__initial_schema.sql** — 12 core execution/workflow/analytics tables
-- **V2__eroad_catalog.sql** — Reference data: tribes, squads, domains, repos (no tenant scope)
-- **V3__local_repos.sql** — Local repo clone tracking
-- **V4__agent_job_log.sql** — Agent idempotency & audit (latest/HEAD)
+### **1. DOMAIN MODEL** 
+**Current state:** No multi-tenancy concepts exist.
+- **Key entities found (api/domain/src/main/java/com/sovereign/domain/entities/):**
+  - `TransformationExecutionRun` – Execution workflow runs (execution/TransformationExecutionRun.java)
+  - `WorkflowItem` – Individual workflow steps (execution/WorkflowItem.java)
+  - `StudioConversation` – AI conversation sessions (studio/StudioConversation.java:14)
+  - `StudioMessage` – Chat messages (studio/StudioMessage.java)
+  - `LlmUsageRecord` – LLM token tracking (execution/LlmUsageRecord.java)
+  - `AgentAuditLog` – Audit trail (audit/AgentAuditLog.java)
+  - `GovernanceRule` – Policy rules (governance/GovernanceRule.java)
+  - `EroadRepo`, `EroadDomain`, `EroadSquad`, `EroadTribe` – Catalog entities (catalog/*)
+- **Missing:** No `Organisation`, `Tenant`, `Fleet`, or `Account` aggregate roots
 
 ---
 
-### **3. JPA Entities & Tables**
-
-**Entity Files Found:**
-- `/Users/johnlin/sovereign/api/infrastructure/src/main/java/com/sovereign/infrastructure/repository/AgentJobLogEntity.java` (@Entity, @Table(name = "agent_job_log"))
-
-**20 Tables Created (from migrations, **none tenant-scoped**):**
-
-| Category | Tables |
-|----------|--------|
-| **Execution/Workflow** | `execution_runs`, `workflow_items`, `execution_decisions`, `improvement_workflow_entries` |
-| **Analytics/Usage** | `llm_usage_records`, `cost_attributions`, `fact_studio_usage`, `engine_health_snapshots` |
-| **Audit/Operations** | `agent_audit_log`, `agent_job_log`, `operation_records` |
-| **Studio/Chat** | `studio_conversations`, `studio_messages` |
-| **Reference/Catalog** | `eroad_tribes`, `eroad_squads`, `eroad_domains`, `eroad_domain_squads`, `eroad_repos` |
-| **Local Repos** | `local_repos` |
-
-**All 20 tables lack `organisation_id` or `tenant_id` column** — will need multi-tenancy retrofit.
+### **2. DATABASE**
+**PostgreSQL 16** (docker-compose.yml:3)
+- **Schema tables:** 12 core tables in V1__initial_schema.sql (188 lines)
+  - execution_runs, workflow_items, llm_usage_records, improvement_workflow_entries, execution_decisions, engine_health_snapshots, operation_records, studio_conversations, studio_messages, fact_studio_usage, agent_audit_log, cost_attributions
+- **Multi-tenancy columns:** NONE found
+  - ❌ No `organisation_id`, `tenant_id`, `org_id`, or `account_id` columns
+  - User reference exists only as `created_by_user_id` VARCHAR(255) in studio_conversations (V1:line 114)
+- **Migrations:** Flyway (4 files: V1–V4) – api/infrastructure/src/main/resources/db/migration/ (lines 17–19 in application.yml)
 
 ---
 
-### **4. Auth/Security Setup**
-
-**Current State: NONE (completely open)**
-
-- ✗ **No Spring Security** in pom.xml (checked all 7 modules)
-- ✗ **No JWT** implementation (no `JwtAuthenticationFilter`, `Jwt*` classes found)
-- ✗ **No `SecurityContextHolder`**, `UserDetails`, `Authentication` usage
-- ✗ **Controllers have no auth parameters** — all endpoints accept unauthenticated requests
-  - `/Users/johnlin/sovereign/api/web/src/main/java/com/sovereign/web/controllers/` — 7 controllers, all stateless, no principal extraction
-- ✓ **CORS configured** but NOT for auth (`allowCredentials=false`)
-  - `/Users/johnlin/sovereign/api/web/src/main/java/com/sovereign/web/WebConfig.java` — allows "Authorization" header (prep for future JWT, but unused)
-- **External JWT Only:** `CopilotChatService` uses Bearer token for GitHub Copilot API (not internal auth)
-
-**Implication:** Auth layer must be built from scratch; ADR-0001 proposes JWT → TenantContext → Postgres session var flow.
+### **3. AUTHENTICATION & AUTHORIZATION**
+**Current state:** No auth framework implemented.
+- **Spring Security:** ❌ NOT included in web/pom.xml (checked lines 14–43)
+- **JWT/OAuth:** ❌ NOT found
+- **User/Principal model:** 
+  - Minimal user tracking: `created_by_user_id` VARCHAR(255) in studio_conversations (V1:line 114)
+  - No `User`, `Principal`, or `UserDetails` entity
+- **SecurityContext:** ❌ No filters, interceptors, or SecurityContext setup found
+- **Controllers access users:** ❌ Controllers receive no user context (e.g., AgentExecutionController.java:17–24 shows no Principal injection)
 
 ---
 
-### **5. Hibernate Filters / PostgreSQL RLS / Tenant Resolver**
-
-**Status: NONE FOUND**
-
-```bash
-grep -r "@Filter\|@FilterDef\|CurrentTenantIdentifierResolver\|RowLevel" /api → (no matches)
-```
-
-- ✗ No `@Filter` or `@FilterDef` annotations
-- ✗ No `CurrentTenantIdentifierResolver` implementation
-- ✗ No Postgres RLS policies configured
-- ✗ No Hibernate interceptors or custom `EntityManager` wiring
-
-**All must be implemented as part of multi-tenancy retrofit.**
-
----
-
-### **6. Architecture Documentation (ADRs)**
-
-**Location:** `/Users/johnlin/sovereign/docs/adr/`
-
-**Existing ADRs:**
-- `ADR-0001-multi-tenancy-fleet-isolation.md` (27 Apr, v1 — superseded)
-- `ADR-0001-multi-tenancy.md` (28 Apr, CURRENT — **Status: Proposed**)
-
-**Next ADR Number:** `ADR-0002-*`
-
-**Key ADR-0001 Decision:** Shared database, shared schema, discriminator column (`organisation_id`) + PostgreSQL RLS + Hibernate `@Filter` for defence-in-depth. JWT → TenantContext servlet filter → `SET LOCAL app.current_tenant`.
+### **4. PERSISTENCE LAYER**
+**Simple, unfiltered JPA repositories:**
+- **Repository pattern:** Standard Spring Data JpaRepository (20 files in api/infrastructure/repository/)
+  - Example: `LlmUsageRecordRepository.java:10` – `extends JpaRepository<LlmUsageRecord, Long>`
+  - No custom query methods beyond simple finders
+- **Hibernate configuration:** 
+  - DDL auto: `validate` (application.yml:11)
+  - Dialect: PostgreSQL
+- **Multi-tenancy interceptors:** ❌ NONE
+  - ❌ No `@Where` clauses
+  - ❌ No Hibernate filters registered
+  - ❌ No base entity class with tenant_id
+- **Entity structure:** Entities use standard Lombok (@Data, @Builder) – StudioConversation.java:8–10 shows no base tenant field
 
 ---
 
-### **7. Spring Boot / Dependencies**
+### **5. REST LAYER**
+**No user/tenant context extraction:**
+- **Controller pattern:** Simple @RestController with no user/principal handling
+  - Example: StudioController.java:28–42 – `listConversations()` takes no principal/context parameter
+  - AgentExecutionController.java:17–24 – `execute()` takes only roleKey and request body
+- **Request-scoped context:** ❌ NONE found
+  - ❌ No @RequestScope beans
+  - ❌ No ThreadLocal context holders
+  - ❌ No filter/interceptor establishing context
+- **No dependency injection of:** Principal, SecurityContext, UserDetails, or custom TenantContext
 
-**Parent POM:** `/Users/johnlin/sovereign/api/pom.xml`
+---
 
-```
-Spring Boot:              3.4.0
-Java:                     21
-Flyway:                   10.10.0
-PostgreSQL driver:        (included, runtime scope)
-Hibernate:                (via spring-boot-starter-data-jpa, no explicit version override)
-Spring Security:          ✗ NOT PRESENT
-```
-
-**Module Dependencies:**
-- `api/infrastructure/pom.xml` → `spring-boot-starter-data-jpa`, `flyway-core`, `postgresql`
-- `api/web/pom.xml` → `spring-boot-starter-web`, `spring-boot-starter-actuator` (no security)
-- `api/application/pom.xml` → `spring-boot-starter` only
-- `api/domain/pom.xml` → `jakarta.persistence-api` only
-
-**Multi-Tenancy Dependencies: NONE** (will need to add `spring-security-web`, `jjwt` or similar, potentially `hibernate-core` with explicit filter/interceptor wiring).
+### **6. FRONTEND (~/sovereign/web)**
+**No multi-org/tenant UI:**
+- **Framework:** Next.js (next.config.ts, layout.tsx)
+- **Route structure:** Single-org only (pages: studio/, repos/, domains/, tribes/, platform/, transformation/, discovery/)
+  - No `/orgs/`, `/tenants/`, `/account/settings/` routes
+- **Multi-tenancy code:** ❌ NONE
+  - ❌ No org/tenant references found in .tsx/.ts files
+  - ❌ No workspace switcher, org context, or auth state management
+  - ❌ No user profile or account management UI
 
 ---
 
 ## **SUMMARY**
 
-| Aspect | Status | Notes |
-|--------|--------|-------|
-| **Multi-Tenancy** | ❌ None | Single-tenant only; ADR-0001 proposed but not implemented |
-| **Auth Layer** | ❌ None | No Spring Security; all endpoints open; JWT planned |
-| **Isolation** | ❌ None | No org/tenant column, no RLS, no Hibernate filters |
-| **Migrations** | ✓ Present | 4 Flyway migrations (V1–V4); all table-creation, no org support |
-| **Entities** | Minimal | Only 1 explicit @Entity found; repositories likely use Spring Data projections or ad-hoc queries |
-| **Documentation** | ✓ ADR exists | ADR-0001-multi-tenancy.md ready (Proposed); next ADR = 0002 |
-| **Spring Boot** | ✓ 3.4.0 | No multi-tenancy libraries installed; clean slate for retrofit |
+| Component | Status | Details |
+|-----------|--------|---------|
+| Domain Model | ❌ Not Started | No Tenant/Org/Account entities |
+| Database Schema | ❌ Not Started | No tenant_id columns; single-tenant design |
+| Auth/Authz | ❌ Not Started | No Spring Security; user_id only as string |
+| Persistence | ❌ Not Started | Plain JPA, no Hibernate filters/interceptors |
+| REST API | ❌ Not Started | No principal extraction or context beans |
+| Frontend | ❌ Not Started | No org switching, single-app design |
 
-**Blast Radius for Multi-Tenancy Retrofit: HIGH** — all 20 tables need org_id column; all repositories need filtering; auth layer must be built.● Explore Survey current tenancy model
-  │ Check second migration for catalog tables (shell)
-  │   │ cat /Users/johnlin/sovereign/api/infrastructure/src/main/resources/db/migrat
-  │   │ ion/V2__eroad_catalog.sql | head -40
-  │   └ 41 lines...
-  └ Check third migration (shell)
-      │ cat /Users/johnlin/sovereign/api/infrastructure/src/main/resources/db/migrat
-      │ ion/V3__local_repos.sql
-      └ 18 lines...
+**Conclusion:** Codebase is **single-tenant, no existing multi-tenancy infrastructure**. Complete redesign needed across all 6 layers.● Explore Explore current tenancy state
+  │ List infrastructure directories (shell)
+  │   │ ls -la /Users/johnlin/sovereign/api/infrastructure/src/main/java/com/soverei
+  │   │ gn/infrastructure/ | head -20
+  │   └ 10 lines...
+  └ List infrastructure Java files (shell)
+      │ find /Users/johnlin/sovereign/api/infrastructure -name "*.java" | wc -l &&
+      │ find /Users/johnlin/sovereign/api/infrastructure/src/main/java -name
+      │ "*.java" | head -20
+      └ 22 lines...
 
-✗ Read ADR-0001-multi-tenancy.md
-  │ docs/adr/ADR-0001-multi-tenancy.md
-  └ Tool 'view' does not exist.
+● Request failed due to a transient API error. Retrying...
 
-● General-purpose(claude-opus-4.7) Author ADR-0002 implementation plan
-  │ Read ADR-0001-multi-tenancy.md
-  │   │ docs/adr/ADR-0001-multi-tenancy.md
-  │   └ 283 lines read
-  └ Create ADR-0002-multi-tenancy-implementation-plan.md +463
-      └ docs/adr/ADR-0002-multi-tenancy-implementation-plan.md
+The directory exists. Here are the files:
 
-ADR-0002 written: `/Users/johnlin/sovereign/docs/adr/ADR-0002-multi-tenancy-implementation-plan.md`
+- ADR-0001-multi-tenancy-fleet-isolation.md
+- ADR-0001-multi-tenancy.md
+- ADR-0002-multi-tenancy-implementation-plan.md
 
-## Summary
+**Highest ADR number: 2**
 
-**Decision (builds on ADR-0001):** Shared DB / shared schema with **three-layer defence-in-depth**:
-1. `organisation_id` discriminator column on 14 tenant-scoped tables (5 EROAD reference tables excluded)
-2. Postgres **Row-Level Security** policies, with app role losing `BYPASSRLS`
-3. Hibernate `@Filter` for early-fail in tests + better query plans
+The next ADR should be numbered **ADR-0003**.● Explore Check existing ADRs
+  └ List files in docs/adr directory (shell)
+      │ ls -1 /Users/johnlin/sovereign/docs/adr/ 2>&1
+      └ 4 lines...
 
-**Tenant resolution:** JWT (`org`, `role` claims) → `JwtAuthenticationFilter` → `TenantContextFilter` (ThreadLocal) → transaction-scoped `SET LOCAL app.current_tenant = '<uuid>'`. HikariCP-safe because `SET LOCAL` resets at COMMIT.
+● General-purpose(claude-haiku-4.5) Write ADR-0003 file
+  └ Create ADR-0003-multi-tenancy-rls.md +251
+      └ docs/adr/ADR-0003-multi-tenancy-rls.md
 
-**Super-admin:** sentinel `'SUPER_ADMIN'` value bypasses RLS via `OR current_setting(...) = 'SUPER_ADMIN'` and short-circuits the Hibernate filter; all actions audited with `acting_role` + `target_organisation_id` columns added to `agent_audit_log`.
+ADR-0003 written to `~/sovereign/docs/adr/ADR-0003-multi-tenancy-rls.md`. Summary below.
 
-**Migration — 5 feature-flagged stages, each independently rollback-able:**
-- **V5** additive schema + backfill `DEFAULT_ORG` + composite `(organisation_id, id)` indexes
-- Auth layer (Spring Security + jjwt 0.12.x)
-- App-level enforcement
-- **V6** RLS enable + remove `BYPASSRLS`
-- Org onboarding endpoints
+## Decision: Shared schema + Postgres Row-Level Security (RLS)
 
-**Blast Radius: HIGH** — breaks all unauthenticated API consumers; mitigated by staged rollout, perf benchmark gates, and explicit composite indexes to keep single-tenant query latency within 5% of baseline.
+**Why this over the alternatives**
+- DB-per-tenant / schema-per-tenant → ops & migration cost too high for fleet SaaS scale.
+- App-only Hibernate `@Filter` → not "DB-level isolation" as required; one bug leaks data.
+- **Shared schema + `tenant_id` discriminator + RLS** → true DB enforcement, single migration stream, ~1–3% perf overhead, super-admin via `BYPASSRLS` role.
 
-**Rejected alternatives:** DB-per-tenant (ops cost), schema-per-tenant (migration fan-out), app-filter-only (single missed `WHERE` = data leak), RLS-only (debuggability), Citus (overkill).
+**Mechanism (hexagonal-clean)**
+- `Organisation` aggregate + `OrganisationId` VO in **domain** (no Spring/JPA).
+- `CurrentTenantPort` in **application**; `TenantAwareDataSource` adapter in **infrastructure** issues `SET LOCAL app.tenant_id` per transaction.
+- `TenantResolutionFilter` in **web** reads JWT claims (`org_id`, `roles`); super-admin uses audited `X-Impersonate-Org`.
+- Two Postgres roles: `app_tenant` (RLS forced) for the API pool, `app_admin` (`BYPASSRLS`) for Flyway.
+- RLS policy uses `current_setting('app.tenant_id', true)` — unset = zero rows (fail-closed, not fail-open).
+
+**Migration path** — 5 Flyway steps, reversible up to V9:
+1. **V5** create `organisations`, insert legacy org `00000000-…-0001`.
+2. **V6** add nullable `organisation_id` on all 12 tables.
+3. **V7** chunked backfill to legacy org.
+4. **V8** `NOT NULL` + FK + composite indexes `(organisation_id, hot_col)`.
+5. **App Release A** — ship filter + datasource wrapper, all traffic stamped to legacy org.
+6. **V9 + Release B** — enable + force RLS, install policies. Behaviour unchanged for legacy users; isolation now enforced.
+7. **Release C/D** — super-admin UI, org switcher, onboarding.
+
+**Blast radius: HIGH** (12 tables altered, new filter/datasource, transaction-required everywhere). Reversible until V9; mitigated by feature-flagged policies, ArchUnit + schema-assertion CI gates, and a Testcontainers cross-tenant integration test.
+
+**Open follow-up ADRs**: 0004 user↔org mapping, 0005 cross-tenant analytics, 0006 split tenant vs platform audit logs. Auth provider (JWT issuer) is assumed and tracked separately.
 
 ## Grading Reasoning
-This is a strong, implementation-oriented plan with clear architecture choices, high-quality blast-radius analysis, and a practical phased migration strategy. The main gap is tighter, explicit acceptance criteria and more direct articulation of hexagonal boundary guarantees.
+This is a solid and mostly complete architecture/migration plan with strong hexagonal alignment and sequencing. The main weakness is insufficiently explicit, measurable acceptance criteria and incomplete treatment of some operational edge cases.
 
 ## Scores
 
 | Dimension | Weight | Score (0-100) | Reasoning |
 |---|---|---|---|
-| domain_understanding | 15% | 90 | Strong tenant-boundary modeling: "organisation_id discriminator column on 14 tenant-scoped tables" and "Each fleet organisation sees only its own data" is addressed via org-scoped design plus super-admin override. It consistently frames isolation around organisations/fleets rather than generic users. |
-| hexagonal_architecture | 20% | 78 | Good infrastructure-oriented placement is shown by "JWT ... -> TenantContextFilter (ThreadLocal) -> SET LOCAL app.current_tenant" and "Postgres RLS"/"Hibernate @Filter". However, it does not explicitly state/enforce that domain remains tenancy-unaware, so architecture boundary handling is implied rather than fully articulated. |
-| blast_radius_assessment | 15% | 92 | Clear and specific blast radius: "HIGH ... all 20 tables need org_id column; all repositories need filtering; auth layer must be built" and later "breaks all unauthenticated API consumers." It also touches operational concerns like connection behavior: "HikariCP-safe because SET LOCAL resets at COMMIT." |
-| edge_cases | 15% | 80 | Multiple edge conditions are covered: super-admin bypass ("sentinel 'SUPER_ADMIN'"), rollbackability ("5 feature-flagged stages, each independently rollback-able"), connection/session safety ("HikariCP-safe"), and auditability ("acting_role + target_organisation_id"). Cross-tenant query validation is addressed indirectly via RLS/filter design, but not deeply enumerated as explicit scenarios. |
-| dependency_ordering | 15% | 88 | Phasing is explicit and mostly well ordered: "V5 additive schema + backfill ... indexes" then "Auth layer" then "App-level enforcement" then "V6 RLS enable" then onboarding endpoints. This matches a practical schema-first rollout with gated enforcement. |
-| acceptance_criteria | 20% | 68 | Some measurable signal exists ("single-tenant query latency within 5% of baseline"), and functional goals are implied (super-admin visibility, org isolation). But criteria are not consistently written as concrete pass/fail checks (e.g., explicit Fleet A vs Fleet B test cases, p99 targets, migration success metrics). |
+| Domain understanding | 15% | 85 | Strong tenant-boundary modeling with evidence like 'Organisation aggregate + OrganisationId VO' and migration steps adding 'organisation_id on all 12 tables'. It addresses organisation-level isolation well, but does not deeply model Fleet-specific domain semantics beyond treating organisation as tenant. |
+| Hexagonal architecture | 20% | 92 | Excellent separation of concerns: 'Organisation aggregate ... in domain (no Spring/JPA)', 'CurrentTenantPort in application', 'TenantAwareDataSource adapter in infrastructure', and 'TenantResolutionFilter in web'. This keeps tenancy resolution outside core domain logic. |
+| Blast radius assessment | 15% | 82 | Clearly classified as 'Blast radius: HIGH' with concrete impacts: '12 tables altered, new filter/datasource, transaction-required everywhere'. Good mitigations are listed, but it is less explicit on connection-pool behavior and downtime windows than a top score would require. |
+| Edge cases | 15% | 72 | Covers multiple edge conditions: super-admin ('BYPASSRLS' + 'X-Impersonate-Org'), fail-closed behavior ('unset = zero rows'), and rollback boundary ('Reversible until V9'). It only partially addresses cross-tenant analytics (deferred to follow-up ADR) and does not explicitly cover connection pool exhaustion. |
+| Dependency ordering | 15% | 90 | Very strong phased sequencing: 'V5 create organisations' → 'V6 add nullable organisation_id' → 'V7 backfill' → 'V8 NOT NULL + FK + indexes' → app releases → 'V9 ... enable + force RLS'. This is clear, dependency-aware, and operationally sensible. |
+| Acceptance criteria | 20% | 58 | Some test intent appears ('Testcontainers cross-tenant integration test') and qualitative targets are implied ('~1–3% perf overhead'), but explicit measurable acceptance criteria are missing (e.g., concrete pass/fail checks like 'Fleet A cannot see Fleet B' and strict latency SLO thresholds). |
 
-## Overall Score: 81.7/100
+## Overall Score: 79.35/100
