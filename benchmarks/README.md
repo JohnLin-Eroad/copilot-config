@@ -14,18 +14,6 @@ Tracks the quality and capability of the Copilot agent system over time. Every M
 
 ```
 benchmarks/
-<<<<<<< HEAD
-├── README.md              ← This file
-├── baseline.json          ← Week 0 measurement (before weekly learnings)
-├── tasks/
-│   ├── code-generation.md       ← Task 1: rotating variants, 6-dimension rubric
-│   ├── context-retrieval.md     ← Task 2: brain retrieval + hallucination check
-│   ├── security-review.md       ← Task 3: planted OWASP vulns
-│   ├── planning.md              ← Task 4: rotating variants, 8-dimension rubric
-│   ├── learning-retention.md    ← Task 5: experiment delta (2=WARN if no branch)
-│   ├── workflow-adherence.md    ← Task 6 (NEW): STM, brain, skills, pipeline
-│   └── instruction-following.md ← Task 7 (NEW): IFEval-style preference checking
-=======
 ├── README.md                      ← This file
 ├── EXECUTOR-GRADER-SPLIT.md       ← Execution flow documentation
 ├── baseline.json                  ← Normalized to 0-100 scale
@@ -43,14 +31,13 @@ benchmarks/
 │   ├── context-retrieval.md
 │   ├── security-review.md
 │   ├── planning.md
-│   ├── hallucination-resistance.md  ← NEW adversarial
-│   ├── error-recovery.md            ← NEW adversarial
+│   ├── hallucination-resistance.md  ← Adversarial
+│   ├── error-recovery.md            ← Adversarial
 │   ├── pipeline-compliance.md       ← Replaces workflow-adherence
 │   └── config-health.md             ← Pass/fail checklist (NOT weighted)
 ├── traces/                        ← Mandatory execution traces
 │   ├── TRACE-FORMAT.md            ← Trace spec + validation rules
 │   └── YYYY-WXX/                  ← Per-week trace files
->>>>>>> weekly/2026-W17
 ├── results/
 │   └── YYYY-WXX.json             ← Weekly results (0-100 scale)
 └── reports/
@@ -59,25 +46,6 @@ benchmarks/
 
 ## Scoring (0-100 Scale)
 
-<<<<<<< HEAD
-| Category | Weight | Method | Scale |
-|---|---|---|---|
-| Code Generation | **20%** | Rubric: 6 dimensions, rotates weekly variant | 1–5 |
-| Context Retrieval | **20%** | Brain data used + accuracy + hallucination check | Pass/Fail + 1–5 |
-| Security Review | **20%** | Planted 3 OWASP vulns — recall + precision | 1–5 |
-| Planning Quality | **15%** | Rubric: 8 dimensions, rotates weekly variant | 1–5 |
-| Workflow Adherence | **15%** | 5 pipeline dimensions: STM, brain, skills, blast radius, consolidation | Pass/fail per dim |
-| Instruction Following | **5%** | 5 preference rules from learnings.md — pass/fail | Pass/fail per rule |
-| Learning Retention | **5%** | Experiment delta (2=WARN if no branch produced) | 1–5 |
-
-**Overall score** = weighted average across 7 categories
-
-### Why the weights changed (2026-W18)
-- Code Gen and Planning hit 5.0 ceiling — reduced weight so saturated categories don't dominate
-- Workflow Adherence added at 15% — most important real-world capability
-- Learning Retention reduced to 5% — until weekly-experimenter is reliably producing branches
-- Instruction Following added at 5% — new category, weight will increase as baseline establishes
-=======
 | Category | Weight | What It Tests |
 |---|---|---|
 | Code Generation | 20% | Can the developer agent produce correct, hexagonal, tested code? |
@@ -99,7 +67,6 @@ benchmarks/
 | Codex (gpt-5.x) | Claude Opus 4.6 |
 | Claude Sonnet/Opus | GPT-5.3-Codex |
 | Claude Haiku | Claude Opus 4.6 |
->>>>>>> weekly/2026-W17
 
 ## Interpreting Results
 
@@ -117,15 +84,6 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 
 ## Score History
 
-<<<<<<< HEAD
-| Week | Overall | Code | Context | Security | Planning | Workflow | Instr. | Retention | vs Prev |
-|---|---|---|---|---|---|---|---|---|---|
-| **2026-W16** 🏁 | **4.35** | 5.0 | 3.6 | 4.6 | 4.9 | — | — | 3.0 (N) | baseline |
-| **2026-W17** | **4.615** | 5.0 | 4.5 | 4.7 | 5.0 | — | — | 3.0 (N) | +0.265 |
-| **2026-W18** *(new weights)* | TBD | — | — | — | — | — | — | — | — |
-
-> **Note:** W16/W17 used old weights (25/25/20/20/10). From W18 onward, new weights apply (20/20/20/15/15/5/5). Scores are **not comparable** across this boundary — treat W18 as a new baseline.
-=======
 | Week | Overall | Code (20%) | Context (20%) | Security (15%) | Planning (15%) | Pipeline (15%) | Halluc. (10%) | Error (5%) | vs Prev |
 |---|---|---|---|---|---|---|---|---|---|
 | **2026-W16** 🏁 | **87.0** | 100 | 72 | 92 | 98 | — | — | — | baseline |
@@ -135,4 +93,3 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 *W16/W17 scores back-converted from 1-5 scale (×20). W18 was config-audit only (not real execution) — excluded from trend analysis. W19+ will use the new system with all 7 categories, rotating prompts, separate grading, and mandatory traces. Expect scores to drop initially — this is correct behavior, not regression.*
 
 *Categories marked "—" did not exist in that week's benchmark definition.*
->>>>>>> weekly/2026-W17

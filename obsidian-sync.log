@@ -72,3 +72,34 @@ Starting Obsidian sync watcher...
 [15:19:09] Synced john-brain
 [15:19:22] Synced john-brain
 [15:20:07] Synced john-brain
+Starting Obsidian sync watcher...
+  Watching: /Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/eroad-brain
+  Watching: /Users/johnlin/Library/CloudStorage/OneDrive-EROAD/Documents/copilot-sessions
+  Watching: /Users/johnlin/john-brain
+[18:31:42] Synced eroad-brain
+[18:32:01] Synced copilot-sessions
+[18:32:33] Synced eroad-brain
+[18:33:30] Synced eroad-brain
+[18:33:59] Synced eroad-brain
+On branch main
+Your branch is ahead of 'origin/main' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	deleted:    .DS_Store
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.gitignore
+	.obsidian/
+	01 - Services/
+	02 - Domain Models/
+	03 - Architecture/
+	06 - AI Agent Outputs/
+	Brain/
+	Untitled.md
+
+no changes added to commit (use "git add" and/or "git commit -a")
+[21:53:51] Synced eroad-brain

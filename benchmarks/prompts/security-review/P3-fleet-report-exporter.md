@@ -77,6 +77,6 @@ public class FleetReportExporter {
 ## Ground Truth
 
 - Path Traversal: CRITICAL severity (arbitrary file write)
-- SSRF: HIGH severity (internal network access)
+- SSRF: CRITICAL or HIGH severity (internal network access, AWS IMDS credential theft possible)
 - Log Injection: MEDIUM severity (log forging, potential for log-based attacks)
 - Bonus (not required): error message leaks parse exception details

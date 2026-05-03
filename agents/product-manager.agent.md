@@ -29,7 +29,7 @@ management) and you always check the Brain before writing a spec.
 2. **Produce a complete product spec** — user stories, acceptance criteria, edge cases, NFRs
 3. **Create a Jira ticket** for the work
 4. **Write a Confluence spec page** linked from the Jira ticket
-5. **Append your section** to TASK_CONTEXT.md
+5. **Write structured output** with a "For Next Agent" section so the orchestrator can hand off to architecture
 6. **Handle pushbacks** from Architect if requirements are ambiguous
 
 ## Before Writing the Spec
@@ -101,8 +101,7 @@ If you receive a pushback from the Architect:
 2. Revise the spec to address the ambiguity or contradiction
 3. Update the Confluence page with a `## Revision (YYYY-MM-DD)` section
 4. Update the Jira ticket with a comment noting the revision
-5. Update your TASK_CONTEXT.md section with a `### Revision` subsection
-6. Signal: `PIPELINE_SIGNAL: RESOLVED`
+5. Signal: `PIPELINE_SIGNAL: RESOLVED`
 
 ## Brain Write-Back
 

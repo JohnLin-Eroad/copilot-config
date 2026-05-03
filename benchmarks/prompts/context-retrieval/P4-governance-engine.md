@@ -34,7 +34,7 @@ Answer based on what is in the eroad-brain vault and the sovereign codebase. For
 
 From copilot-config/governance-rules.json:
 - 16+ rules with IDs like sec-001, gov-001, audit-001
-- Severity levels: BLOCK and LOG
+- Severity levels: BLOCK, WARN, and LOG
 - Rules cover: pipe-to-shell downloads, credential exfiltration, metadata access, rm -rf, force push, DROP TABLE, etc.
 - Blast radius levels: LOW, MEDIUM, HIGH, CRITICAL (defined in copilot-instructions.md)
 - CRITICAL requires explicit human approval

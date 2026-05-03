@@ -45,9 +45,8 @@ Run `python3 -c` to verify:
 ```python
 import hashlib
 for cat in ['code-generation', 'security-review']:
+    offset = int(hashlib.sha256(cat.encode()).hexdigest()[:8], 16)
     for w in range(16, 24):
-        week = f"2026-W{w:02d}"
-        h = hashlib.sha256(f"{week}:{cat}".encode()).hexdigest()
-        idx = int(h[:8], 16) % 4
-        print(f"{week} {cat}: P{idx+1}")
+        idx = (w + offset) % 4
+        print(f"2026-W{w:02d} {cat}: P{idx+1}")
 ```

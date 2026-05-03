@@ -43,7 +43,7 @@ Invoke before any Flyway/Liquibase migration is merged; when data-migration agen
 6. **Check naming conventions**: tables and columns must be snake_case; no reserved words.
 7. **Cross-reference prior migrations**: read earlier migration files to understand current schema state.
 8. **Issue verdict**: PASS, WARN, or BLOCK with specific findings.
-9. **Write validation report** to TASK_CONTEXT.md under `## Migration Validation`.
+9. **Write validation report** in your structured output under `## Migration Validation`.
 
 ## Validation Workflow
 
@@ -109,7 +109,7 @@ ls -v $(dirname <migration-file>)/*.sql | tail -10
 
 ## Output Format
 
-Write to TASK_CONTEXT.md under `## Migration Validation`:
+Write your validation report in your structured output under `## Migration Validation`:
 
 ```markdown
 ## Migration Validation

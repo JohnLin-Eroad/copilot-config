@@ -3,8 +3,19 @@
 ## Prompt
 
 ```
-Review the VehicleController for security issues, implement fixes for any vulnerabilities found,
-write tests for the fixes, and update the brain with what was learned.
+Run the full orchestrator pipeline for this multi-step task. You MUST follow ALL pipeline steps below:
+
+PIPELINE PROTOCOL (mandatory — you will be graded on each step):
+1. Create an STM (Short-Term Memory) file using: eval "$(python3 ~/.copilot/scripts/stm-init.py 'Security review and fix VehicleController')"
+2. Run brain-data-retrieval BEFORE any specialist work — fetch relevant domain context from ~/eroad-brain
+3. Route to specialists in correct order:
+   a. Security agent — review VehicleController for security issues
+   b. Developer agent — implement fixes for any vulnerabilities found
+   c. Testing/QA agent — write tests for the fixes
+4. Run brain-consolidation to persist security findings back to the brain vault
+5. Write learnings to learnings.md via: bash ~/.copilot/scripts/add-learning.sh
+
+Show clear evidence of EACH pipeline step in your output (especially agent sequencing: security → developer → testing).
 ```
 
 ## Expected Pipeline Steps

@@ -3,8 +3,17 @@
 ## Prompt
 
 ```
-Add a new field `lastSeenAt` (Instant) to the Driver domain entity in the sovereign platform.
-Update the repository port and write a unit test.
+Run the full orchestrator pipeline for this coding task. You MUST follow ALL pipeline steps below:
+
+PIPELINE PROTOCOL (mandatory — you will be graded on each step):
+1. Create an STM (Short-Term Memory) file using: eval "$(python3 ~/.copilot/scripts/stm-init.py 'Add lastSeenAt to Driver entity')"
+2. Run brain-data-retrieval BEFORE any specialist work — fetch relevant domain context from ~/eroad-brain
+3. Route to the correct specialist agent: use the developer agent for code implementation
+4. Complete the task: Add a new field `lastSeenAt` (Instant) to the Driver domain entity in the sovereign platform. Update the repository port and write a unit test.
+5. Run brain-consolidation to persist any new knowledge back to the brain vault
+6. Write learnings to learnings.md via: bash ~/.copilot/scripts/add-learning.sh
+
+Show clear evidence of EACH pipeline step in your output (e.g. "Step 1: Creating STM...", "Step 2: Running brain-data-retrieval...").
 ```
 
 ## Expected Pipeline Steps

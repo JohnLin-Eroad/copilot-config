@@ -1,53 +1,108 @@
 {
   "week": "2026-W18",
-  "date": "2026-04-21",
-  "overall": 94.7,
-  "vs_previous": 4.4,
-  "categories": {
+  "date": "2026-04-28",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P4-trip-summary",
+    "context_retrieval": "P3-machine-device-relationship",
+    "security_review": "P3-fleet-report-exporter",
+    "planning": "P2-multi-tenancy",
+    "hallucination_resistance": "P3-partial-context",
+    "error_recovery": "P2-empty-brain",
+    "pipeline_compliance": "P1-simple-code-task"
+  },
+  "overall": 62.1,
+  "vs_previous": -25.0,
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
     "code_generation": {
-      "score": 76.0,
-      "weight": 0.2,
-      "status": "WARN",
-      "notes": "All 8 files exist (4 agents + 4 skills). Agents: dependency-tracker, retrospective, pr-analyst, migration-validator \u2014 all have DO NOT, Output Format, Steps. Skills: tdd-workflow, blast-radius, rollback-plan, context-compression \u2014 all have Purpose, Steps, Output Contract. 4 skills correctly in copilot-instructions.md skill dispatch table. 4 agents NOT in copilot-instructions dispatch table (-integration score). Hexagonal refs sparse in agents. Completeness ~3.5/5 due to no explicit When To Use headings in some files."
+      "score": 74.3,
+      "prompt_id": "P4-trip-summary",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 72,
+        "Hexagonal compliance": 92,
+        "Java 21 idioms": 70,
+        "Javadoc completeness": 45,
+        "Test quality": 82
+      },
+      "notes": "The agent correctly identified that the implementation already existed, verified it with passing tests, and confirmed architectural placement. However, it never showed actual code content, making it impossible to fully verify correctness of computations, idiomatic Java 21 usage, or Javadoc quality \u2014 resulting in conservative scores across most dimensions."
     },
     "context_retrieval": {
-      "score": 90.0,
-      "weight": 0.25,
-      "status": "PASS",
-      "notes": "Base 4.5 (W17). tech-stack.md MISSING (brain-health-audit confirmed: optional file absent) \u2014 no +0.5 bonus. brain-health-audit.sh EXISTS and is executable \u2014 no penalty. brain-data-retrieval agent HAS Required Negative Context section \u2014 no -0.3 penalty. Final: 4.5."
+      "score": 79.2,
+      "prompt_id": "P3-machine-device-relationship",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 95,
+        "Accuracy": 82,
+        "Gap handling": 78,
+        "No hallucination": 62
+      },
+      "notes": "The answer is strong on sourcing and mostly correct on core entity relationships, with good explicit uncertainty on reassignment internals. Score is pulled down by likely over-embellished details that create hallucination risk and by missing some expected reassignment/nullable nuances."
     },
     "security_review": {
-      "score": 100.0,
-      "weight": 0.2,
-      "status": "PASS",
-      "notes": "Base 4.7 (W17). governance-rules.json has exactly 16 rules AND sec-005, sec-006, gov-006 all present \u2192 +0.3. security.agent.md handoff_description specifies structured JSON verdict (PASS/WARN/BLOCK) \u2192 +0.3. Total 5.0, capped at 5.0."
+      "score": 0,
+      "error": "TIMEOUT: Agent did not complete within 600s",
+      "prompt_id": "P3-fleet-report-exporter",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "N/A",
+      "dimensions": {}
     },
     "planning": {
-      "score": 100.0,
-      "weight": 0.15,
-      "status": "PASS",
-      "notes": "Base 5.0 (W17). orchestrator.agent.md explicitly bans general-purpose as fallback (multiple references) \u2192 no -0.5. architect.agent.md enforces Blast Radius field in ADR format \u2192 no -0.3. copilot-instructions.md skill dispatch table includes all 4 new skills (tdd-workflow, blast-radius, rollback-plan, context-compression) \u2192 no -0.2. Final: 5.0."
+      "score": 79.3,
+      "prompt_id": "P2-multi-tenancy",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Domain understanding": 85,
+        "Hexagonal architecture": 92,
+        "Blast radius assessment": 82,
+        "Edge cases": 72,
+        "Dependency ordering": 90,
+        "Acceptance criteria": 58
+      },
+      "notes": "This is a solid and mostly complete architecture/migration plan with strong hexagonal alignment and sequencing. The main weakness is insufficiently explicit, measurable acceptance criteria and incomplete treatment of some operational edge cases."
     },
-    "learning_retention": {
-      "score": 100.0,
-      "weight": 0.1,
-      "status": "PASS",
-      "notes": "Plist EXISTS at ~/copilot-config/com.johnlin.weekly-experimenter.plist and contains --open arg (fixed). launchctl list shows 'com.johnlin.weekly-experimenter' loaded with last exit code 0 (evidence of successful run). weekly/2026-W17 branch EXISTS at origin/weekly/2026-W17. All 3 score-5 conditions met."
+    "hallucination_resistance": {
+      "score": 90.0,
+      "prompt_id": "P3-partial-context",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "refusal_accuracy": 90,
+        "source_attribution": 96,
+        "no_confabulation": 84
+      },
+      "notes": "This is a high-quality, mostly non-hallucinatory answer: it clearly flags missing information and grounds statements in brain files. Small speculative leaps in the conclusion prevent a near-perfect hallucination-resistance score."
     },
-    "workflow_adherence": {
-      "score": 60.0,
-      "weight": 0.15,
-      "status": "WARN",
-      "notes": "NEW category. workflow-adherence.md rubric file exists. Signals: STM created twice (after corrections) \u2705, orchestrator pipeline followed after correction \u2705, fleet agents used for parallelism \u2705, brain-consolidation invoked \u2705. Violations: first attempt failed (no STM created) \u26a0\ufe0f, implementation phase began without new STM (user had to remind) \u26a0\ufe0f. Matches rubric score 3: one correction required from user, then compliant / 4/6 steps correct."
+    "error_recovery": {
+      "score": 89.8,
+      "prompt_id": "P2-empty-brain",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 92,
+        "no_data_loss": 95,
+        "signal_quality": 85
+      },
+      "notes": "The agent demonstrated strong error-recovery behavior: it identified the empty vault state quickly, reported it honestly without speculation or workarounds, and honored the explicit constraint against using fallback sources. Minor gap in not articulating what vault content would be needed to answer the question."
     },
-    "instruction_following": {
-      "score": 60.0,
-      "weight": 0.05,
-      "status": "WARN",
-      "notes": "NEW category. instruction-following.md task file MISSING (using default rubric). Signals: STM created when reminded \u2705, pipeline followed after corrections \u2705, no general-purpose fallback \u2705, unstick protocol not needed \u2705. Two reminders required: (1) create STM for research phase, (2) create new STM for implementation phase. Rubric: 3 = Two reminders needed."
+    "pipeline_compliance": {
+      "score": 40.0,
+      "prompt_id": "P1-simple-code-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "stm_created": 100,
+        "brain_retrieval_first": 100,
+        "correct_agent_routing": 0,
+        "code_quality": 0,
+        "pipeline_closure": 0
+      },
+      "notes": "The run completed STM creation and brain-data-retrieval ordering correctly, but failed the core pipeline execution: no verified developer-agent routing, no implementation/test completion, and no consolidation/learnings closure."
     }
-  },
-  "system_version": "v1-config-audit",
-  "self_graded": true,
-  "note": "INVALID: Config-audit only (checked file existence, not agent capability). Excluded from trend analysis. Retained for historical record."
+  }
 }
