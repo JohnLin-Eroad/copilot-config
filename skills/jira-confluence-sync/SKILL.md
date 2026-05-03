@@ -40,7 +40,7 @@ When adding a comment from an agent, prefix with the agent name:
 ```
 [AGENT: architect] Architecture review complete. ADR written at: <Confluence link>.
 Key decision: switched from REST to event-driven for device provisioning.
-See TASK_CONTEXT.md §v3 for details.
+See the STM for details.
 ```
 
 ---
