@@ -922,10 +922,6 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
         except Exception:
             dag = None
 
-    # Reconcile DAG node statuses with STM agent activity
-    if dag and dag.get("nodes"):
-        dag = _reconcile_dag_with_stm(dag, agent_latest)
-
     return {
         "stm_path":    str(stm_path),
         "stm_name":    re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "", stm_path.parent.name.replace("-", " ")).title(),
@@ -2850,4 +2846,15 @@ def main():
 
     try:
         server.shutdown()
-        server.server_clo
+        server.server_close()
+    except Exception:
+        pass
+    finally:
+        _release_singleton()
+
+    sys.exit(_exit_code)
+
+
+if __name__ == "__main__":
+    main()
+
