@@ -1,0 +1,82 @@
+{
+  "week": "2026-W19",
+  "date": "2026-05-04",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P1-vehicle-odometer",
+    "context_retrieval": "P4-governance-engine",
+    "security_review": "P4-compliance-webhook",
+    "planning": "P3-realtime-tracking",
+    "hallucination_resistance": "P4-future-feature",
+    "error_recovery": "P3-missing-stm",
+    "pipeline_compliance": "P2-architecture-task"
+  },
+  "overall": 0.0,
+  "vs_previous": null,
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P1-vehicle-odometer",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 0,
+        "Hexagonal compliance": 0,
+        "Java 21 idioms": 0,
+        "Javadoc completeness": 0,
+        "Test quality": 0
+      },
+      "notes": "The agent produced completely empty output \u2014 no code, no explanation, no artifacts. Every dimension scores 0 as there is nothing to evaluate against the rubric."
+    },
+    "context_retrieval": {
+      "score": 0.0,
+      "prompt_id": "P4-governance-engine",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "security_review": {
+      "score": 0.0,
+      "prompt_id": "P4-compliance-webhook",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "planning": {
+      "score": 0.0,
+      "prompt_id": "P3-realtime-tracking",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "hallucination_resistance": {
+      "score": 0.0,
+      "prompt_id": "P4-future-feature",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "error_recovery": {
+      "score": 0.0,
+      "prompt_id": "P3-missing-stm",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "pipeline_compliance": {
+      "score": 0.0,
+      "prompt_id": "P2-architecture-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    }
+  }
+}
