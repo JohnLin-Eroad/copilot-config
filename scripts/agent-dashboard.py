@@ -877,6 +877,79 @@ def parse_stm_meta(content: str) -> dict:
     return meta
 
 
+
+def _reconcile_dag_with_stm(dag: dict, agent_latest: dict) -> dict:
+    """Reconcile DAG node statuses with STM agent activity entries.
+
+    The DAG JSON is updated by the orchestrator via pipeline-dag.sh, but there
+    can be timing gaps where the STM activity already shows an agent as
+    complete while the DAG file still says 'pending' or 'running'.  This
+    function merges STM-derived statuses into the DAG so the dashboard nodes
+    light up correctly.
+
+    Matching strategy (mirrors the frontend findAgentEntry logic):
+      1. Exact node.id match in parenthesised agent name: "developer (dev-01)"
+      2. Case-insensitive match on node.agent == STM agent type
+      3. STM agent name contains node.id
+      4. node.agent contains STM agent name
+    """
+    stm_status_map = {
+        "complete":    "done",
+        "in_progress": "running",
+        "starting":    "running",
+        "failed":      "failed",
+        "blocked":     "pending",
+        "idle":        None,
+    }
+
+    def _find_stm_entry(node):
+        nid = node.get("id", "").lower()
+        nagent = node.get("agent", "").lower()
+        # 1. Parenthesised ID match: STM key "developer (dev-01)" -> node id "dev-01"
+        for key, entry in agent_latest.items():
+            m = re.search(r"\(([^)]+)\)", key)
+            if m and m.group(1).lower() == nid:
+                return entry
+        # 2. Case-insensitive exact match on agent type
+        matches = [(k, e) for k, e in agent_latest.items() if k.lower() == nagent or k.lower().startswith(nagent)]
+        if len(matches) == 1:
+            return matches[0][1]
+        # 3. STM agent name contains node id
+        for key, entry in agent_latest.items():
+            if nid and nid in key.lower():
+                return entry
+        # 4. Node agent contains STM agent name
+        for key, entry in agent_latest.items():
+            if nagent and key.lower() in nagent:
+                return entry
+        return None
+
+    for node in dag.get("nodes", []):
+        entry = _find_stm_entry(node)
+        if not entry:
+            continue
+        stm_status = entry.get("status", "")
+        dag_target = stm_status_map.get(stm_status)
+        if dag_target is None:
+            continue
+        current = node.get("status", "pending")
+        # Only promote forward - never regress a done/failed node
+        if current in ("done", "failed", "skipped"):
+            continue
+        # Don't downgrade running to pending
+        if current == "running" and dag_target == "pending":
+            continue
+        node["status"] = dag_target
+        ts = entry.get("timestamp")
+        if dag_target in ("running", "done") and not node.get("started_at") and ts:
+            node["started_at"] = ts
+        if dag_target == "done" and not node.get("completed_at") and ts:
+            node["completed_at"] = ts
+        if dag_target == "done":
+            node["_stm_reconciled"] = True
+
+    return dag
+
 def _build_dashboard_data(stm_path: Path, content: str) -> dict:
     """Build dashboard payload from pre-read content (avoids double-read in refresh loop)."""
     entries = parse_stm_entries(content)
@@ -921,6 +994,10 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
             dag = json.loads(dag_path.read_text(encoding="utf-8"))
         except Exception:
             dag = None
+
+    # Reconcile DAG node statuses with STM agent activity
+    if dag and dag.get("nodes"):
+        dag = _reconcile_dag_with_stm(dag, agent_latest)
 
     return {
         "stm_path":    str(stm_path),
@@ -2657,11 +2734,14 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "entry_count": len(wf.entries),
                 "updated_at":  datetime.now(timezone.utc).isoformat(),
             }
-            # Attach DAG if present
+            # Attach DAG if present, reconciled with STM activity
             dag_path = wf.identity.directory / "pipeline-dag.json"
             if dag_path.exists():
                 try:
-                    selected_data["dag"] = json.loads(dag_path.read_text(encoding="utf-8"))
+                    dag = json.loads(dag_path.read_text(encoding="utf-8"))
+                    if dag and dag.get("nodes"):
+                        dag = _reconcile_dag_with_stm(dag, agent_latest)
+                    selected_data["dag"] = dag
                 except Exception:
                     selected_data["dag"] = None
 
