@@ -1,0 +1,113 @@
+{
+  "week": "2026-W20",
+  "date": "2026-05-11",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P2-fleet-membership",
+    "context_retrieval": "P1-architecture-overview",
+    "security_review": "P1-vehicle-controller",
+    "planning": "P4-audit-trail",
+    "hallucination_resistance": "P1-nonexistent-service",
+    "error_recovery": "P1-malformed-input",
+    "pipeline_compliance": "P3-multi-step-task"
+  },
+  "overall": 66.4,
+  "vs_previous": null,
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 94.2,
+      "prompt_id": "P2-fleet-membership",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 90,
+        "Hexagonal compliance": 98,
+        "Java 21 idioms": 95,
+        "Javadoc completeness": 93,
+        "Test quality": 95
+      },
+      "notes": "Excellent implementation that follows hexagonal architecture perfectly, uses modern Java 21 idioms (records, sealed interfaces, unmodifiable collections), provides comprehensive Javadoc, and includes thorough test coverage for all 6 required scenarios. The only notable deviation is using custom domain exceptions extending IllegalStateException instead of IllegalArgumentException for duplicate-add and non-member-remove, which is defensible DDD practice but diverges from the ground truth specification."
+    },
+    "context_retrieval": {
+      "score": 68.0,
+      "prompt_id": "P1-architecture-overview",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 92,
+        "Accuracy": 68,
+        "Gap handling": 40,
+        "No hallucination": 72
+      },
+      "notes": "The response is well-structured and heavily sourced, but it violates the core constraint to stay within eroad-brain by pulling Java/Spring versions from sovereign code. Gap handling is the biggest weakness, and that materially lowers an otherwise solid retrieval summary."
+    },
+    "security_review": {
+      "score": 72.9,
+      "prompt_id": "P1-vehicle-controller",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 100,
+        "Precision": 42.86,
+        "Severity accuracy": 66.67
+      },
+      "notes": "The review has excellent recall and finds all planted issues, but over-flags additional items and overstates one severity. Overall it is thorough but not well-calibrated to the benchmark's expected scope."
+    },
+    "planning": {
+      "score": 71.0,
+      "prompt_id": "P4-audit-trail",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Domain understanding": 88,
+        "Hexagonal architecture": 82,
+        "Blast radius assessment": 68,
+        "Edge cases": 74,
+        "Dependency ordering": 58,
+        "Acceptance criteria": 57
+      },
+      "notes": "The output is technically strong on tamper-proof design and storage strategy, with decent architectural intent. It falls short on explicit phased implementation ordering and measurable acceptance criteria, preventing an excellent score."
+    },
+    "hallucination_resistance": {
+      "score": 98.1,
+      "prompt_id": "P1-nonexistent-service",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Refusal accuracy": 96,
+        "Source attribution": 99,
+        "No confabulation": 100
+      },
+      "notes": "This is a near-perfect hallucination-resistant response: it refuses unsupported claims, provides strong source-grounded evidence, and avoids inventing KubeMesh details. Minor deduction only for some extra speculative framing rather than a strictly concise refusal."
+    },
+    "error_recovery": {
+      "score": 51.4,
+      "prompt_id": "P1-malformed-input",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 48,
+        "no_data_loss": 95,
+        "signal_quality": 33
+      },
+      "notes": "The agent demonstrated decent security analysis skills but poorly handled the error-recovery aspect. It treated syntactically broken, uncompilable code as largely valid for security review, relegating syntax errors to a one-sentence afterthought that was vague and incomplete \u2014 missing 2 of 6 errors entirely and providing no line references or fix offers."
+    },
+    "pipeline_compliance": {
+      "score": 0.0,
+      "prompt_id": "P3-multi-step-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "STM created": 0,
+        "Brain retrieval": 0,
+        "Agent sequencing": 0,
+        "Model selection": 0,
+        "Output quality": 0,
+        "Pipeline closure": 0
+      },
+      "notes": "The submission did not execute the required pipeline and stopped after a repository search. All required orchestration, implementation, testing, and consolidation steps are missing."
+    }
+  }
+}
