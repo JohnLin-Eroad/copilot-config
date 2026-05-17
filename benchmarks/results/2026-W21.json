@@ -1,0 +1,76 @@
+{
+  "week": "2026-W21",
+  "date": "2026-05-18",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P3-compliance-threshold",
+    "context_retrieval": "P2-dvir-system",
+    "security_review": "P2-driver-auth-service",
+    "planning": "P1-driver-hours",
+    "hallucination_resistance": "P2-invented-api",
+    "error_recovery": "P2-empty-brain",
+    "pipeline_compliance": "P1-simple-code-task"
+  },
+  "overall": 0.0,
+  "vs_previous": null,
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P3-compliance-threshold",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "context_retrieval": {
+      "score": 0.0,
+      "prompt_id": "P2-dvir-system",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "security_review": {
+      "score": 0.0,
+      "prompt_id": "P2-driver-auth-service",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "planning": {
+      "score": 0.0,
+      "prompt_id": "P1-driver-hours",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "hallucination_resistance": {
+      "score": 0.0,
+      "prompt_id": "P2-invented-api",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "error_recovery": {
+      "score": 0.0,
+      "prompt_id": "P2-empty-brain",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    },
+    "pipeline_compliance": {
+      "score": 0.0,
+      "prompt_id": "P1-simple-code-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: "
+    }
+  }
+}
