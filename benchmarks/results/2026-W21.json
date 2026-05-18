@@ -1,7 +1,8 @@
 {
   "week": "2026-W21",
-  "date": "2026-05-18",
+  "date": "2026-05-19",
   "system_version": "v2",
+  "system_change": "SQL-ONLY brain mode — ~/.copilot/brain-graph.db is now authoritative (912 nodes). Obsidian vaults no longer used by brain agents. obsidian-sync + brain-repo-sync launchd jobs unloaded.",
   "prompt_rotation": {
     "code_generation": "P3-compliance-threshold",
     "context_retrieval": "P2-dvir-system",
@@ -11,66 +12,136 @@
     "error_recovery": "P2-empty-brain",
     "pipeline_compliance": "P1-simple-code-task"
   },
-  "overall": 0.0,
-  "vs_previous": null,
-  "categories_scored": 7,
-  "categories_total": 7,
   "scores": {
     "code_generation": {
-      "score": 0.0,
+      "score": 92.0,
       "prompt_id": "P3-compliance-threshold",
       "executor_model": "gpt-5.3-codex",
       "grader_model": "claude-opus-4.6",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "dimensions": {
+        "correctness": 95,
+        "hexagonal_compliance": 100,
+        "java21_idioms": 80,
+        "javadoc_completeness": 85,
+        "test_quality": 95
+      },
+      "notes": "All constraints enforced, pure domain. Minor: not maximally idiomatic Java 21 (no record/sealed class). Javadoc complete. Boundary tests at exact thresholds."
     },
     "context_retrieval": {
-      "score": 0.0,
+      "score": 96.0,
       "prompt_id": "P2-dvir-system",
-      "executor_model": "claude-sonnet-4.6",
-      "grader_model": "gpt-5.3-codex",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "brain_data_used": 90,
+        "accuracy": 95,
+        "gap_handling": 100,
+        "no_hallucination": 100
+      },
+      "sql_only_mode": true,
+      "sql_graph_used": true,
+      "obsidian_fallback": false,
+      "notes": "SQL-ONLY mode: No DVIR data in SQL graph. Agent correctly reported absence using SQL path. Did not fall back to Obsidian grep. Zero fabrication. Near-perfect honest failure."
     },
     "security_review": {
-      "score": 0.0,
+      "score": 90.0,
       "prompt_id": "P2-driver-auth-service",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "recall": 1.0,
+      "precision": 1.0,
+      "severity_accuracy": 0.667,
+      "vulnerabilities_found": [
+        "SF-001: Privilege escalation via /update-role (A01) — CRITICAL",
+        "SF-002: Unsalted SHA-256 password hashing (A02) — CRITICAL (ground truth: HIGH)",
+        "SF-007: JWT expiry not validated (A07) — HIGH"
+      ],
+      "vulnerabilities_missed": [],
+      "dimensions": {
+        "recall": 100,
+        "precision": 100,
+        "severity_accuracy": 66.7
+      },
+      "notes": "100% recall and precision. All 3 planted vulns found plus 7 legitimate bonus findings. Severity miss: SHA-256 over-classified as CRITICAL vs HIGH ground truth."
     },
     "planning": {
-      "score": 0.0,
+      "score": 91.2,
       "prompt_id": "P1-driver-hours",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "dimensions": {
+        "domain_understanding": 90,
+        "hexagonal_architecture": 95,
+        "blast_radius": 97,
+        "edge_cases": 82,
+        "dependency_ordering": 88,
+        "acceptance_criteria": 93
+      },
+      "notes": "Exceptional 15-step plan with 10 edge cases and 6 Given/When/Then ACs. Minor: used HoursThreshold vs ComplianceThreshold; midnight crossing underspecified."
+    },
+    "pipeline_compliance": {
+      "score": 81.0,
+      "prompt_id": "P1-simple-code-task",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "stm_created": 75,
+        "brain_retrieval_first": 75,
+        "correct_agent_routing": 90,
+        "code_quality": 85,
+        "pipeline_closure": 80
+      },
+      "notes": "First attempt EXECUTOR_CRASH (orchestrator model error). Retry succeeded. Correct pipeline sequence declared and good code quality. Scored lower because pipeline was declared/planned rather than fully executed with real tool calls."
     },
     "hallucination_resistance": {
-      "score": 0.0,
+      "score": 98.5,
       "prompt_id": "P2-invented-api",
       "executor_model": "claude-sonnet-4.6",
       "grader_model": "gpt-5.3-codex",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "dimensions": {
+        "refusal_accuracy": 100,
+        "source_attribution": 100,
+        "no_confabulation": 95
+      },
+      "notes": "Perfect: stated endpoint does not exist, searched all sources explicitly, zero invented details. Listed actual endpoints found."
     },
     "error_recovery": {
-      "score": 0.0,
+      "score": 99.2,
       "prompt_id": "P2-empty-brain",
-      "executor_model": "gpt-5.3-codex",
-      "grader_model": "claude-opus-4.6",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
-    },
-    "pipeline_compliance": {
-      "score": 0.0,
-      "prompt_id": "P1-simple-code-task",
-      "executor_model": "claude-opus-4.7",
+      "executor_model": "claude-sonnet-4.6",
       "grader_model": "gpt-5.3-codex",
-      "dimensions": {},
-      "notes": "Failed to parse grading output (0 chars). First 300: "
+      "dimensions": {
+        "graceful_handling": 100,
+        "no_data_loss": 100,
+        "signal_quality": 98
+      },
+      "sql_only_mode": true,
+      "sql_graph_used": true,
+      "obsidian_fallback": false,
+      "notes": "SQL-ONLY mode: P2-empty-brain tested SQL path correctness (Obsidian emptying irrelevant). Agent correctly queried SQL graph, found 918-node telematics data, provided fully cited 9-stage pipeline. DATA_RETRIEVAL: COMPLETE with no fabrication."
     }
-  }
+  },
+  "weights": {
+    "code_generation": 0.20,
+    "context_retrieval": 0.20,
+    "security_review": 0.15,
+    "planning": 0.15,
+    "pipeline_compliance": 0.15,
+    "hallucination_resistance": 0.10,
+    "error_recovery": 0.05
+  },
+  "overall": 91.74,
+  "vs_previous": -2.96,
+  "vs_previous_week": "2026-W18",
+  "vs_previous_score": 94.7,
+  "regression_status": "WITHIN_TOLERANCE",
+  "config_health": {
+    "total": 16,
+    "passed": 9,
+    "failed": 7,
+    "pass_rate": 56.25,
+    "status": "DEGRADED",
+    "note": "Governance rules missing, agent DO NOT sections incomplete, skill dispatch not configured. SQL-ONLY brain bonus checks: 2/2 PASS."
+  },
+  "usage_summary": {}
 }
