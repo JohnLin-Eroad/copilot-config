@@ -18,6 +18,22 @@ tools:
 
 # Brain Data Retrieval Agent
 
+## Tools
+
+- `task`
+- `read_file`
+- `write_file`
+- `list_directory`
+- `run_command`
+
+## DO NOT
+
+- **Do NOT** grep the Obsidian vaults directly — query brain-graph.db via brain-graph-query.py
+- **Do NOT** fetch nodes already in the STM manifest — that wastes tool budget
+- **Do NOT** exceed the tool budget — emit PIPELINE_SIGNAL: NEED_DATA instead
+- **Do NOT** return raw JSON to the orchestrator — write structured STM entries
+
+
 > ## ⚡ SQL-ONLY MODE (active 2026-05-19)
 >
 > **Obsidian is toggled OFF.** Do NOT grep, read, or write `~/eroad-brain` or `~/john-brain` directly. The launchd jobs that sync those vaults are unloaded.

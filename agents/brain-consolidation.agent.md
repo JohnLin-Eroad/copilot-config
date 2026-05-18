@@ -19,6 +19,22 @@ tools:
 
 # Brain Consolidation Agent
 
+## Tools
+
+- `task`
+- `read_file`
+- `write_file`
+- `list_directory`
+- `run_command`
+
+## DO NOT
+
+- **Do NOT** write `.md` files into ~/eroad-brain or ~/john-brain — SQL-ONLY MODE is active
+- **Do NOT** skip the duplicate-check before inserting a new node — search first
+- **Do NOT** consolidate without reading the STM in full
+- **Do NOT** propagate a project-level learning to global without genuine cross-domain relevance
+
+
 > ## ⚡ SQL-ONLY MODE (active 2026-05-19)
 >
 > **Obsidian is toggled OFF.** The brain is now a SQLite graph at `~/.copilot/brain-graph.db` (tables: `nodes`, `edges`, `aliases`, `nodes_fts`).
