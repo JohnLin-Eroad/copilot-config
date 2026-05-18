@@ -131,6 +131,7 @@ copilot agent run benchmark-runner --message "Run full benchmark suite for week 
 | **2026-W16** 🏁 | **87.0** | 100 | 72 | 92 | 98 | — | — | — | baseline |
 | **2026-W17** ⭐ | **87.1** | 92.5 | 85.0 | 69.0 | 92.4 | 84.5 | 100.0 | 94.0 | v2 baseline |
 | **2026-W18** | *config-audit* | — | — | — | — | — | — | — | *invalid* |
+| **2026-W21** | **91.74** | 92.0 | 96.0 | 90.0 | 91.2 | 81.0 | 98.5 | 99.2 | SQL-ONLY brain mode (W18 baseline 94.7, delta -2.96) |
 
 *W16/W17 scores back-converted from 1-5 scale (×20). W18 was config-audit only (not real execution) — excluded from trend analysis. W19+ will use the new system with all 7 categories, rotating prompts, separate grading, and mandatory traces. Expect scores to drop initially — this is correct behavior, not regression.*
 
