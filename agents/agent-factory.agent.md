@@ -27,7 +27,7 @@ then build the new agent to the same quality standard.
 The Orchestrator will invoke you with:
 - A description of the **capability gap** (what the pipeline needs that no agent provides)
 - The **task context** (what the overall task is)
-- The **task brief** from TASK_CONTEXT.md
+- The **task brief** from the handoff
 
 ## Your Process
 
@@ -92,7 +92,7 @@ tools:
 2. **Responsibilities** — numbered list
 3. **Before Starting** — Brain search instructions
 4. **Core process** — how to do the work
-5. **Output format** — what to write in TASK_CONTEXT.md
+5. **Output format** — structured output with "For Next Agent" section
 6. **Pushback Protocol** — when and how to push back
 7. **Brain Write-Back** — what to write back to the vault
 
@@ -155,7 +155,7 @@ NOTE: Run `/skills reload` in the CLI to make the new agent available immediatel
 Before completing, verify the new agent:
 - [ ] Has valid YAML frontmatter with name, description, model, tools
 - [ ] Begins with a Brain search using grep/find
-- [ ] Has a clear output format for TASK_CONTEXT.md
+- [ ] Has a clear structured output format with "For Next Agent" section
 - [ ] Has a pushback protocol
 - [ ] Has Brain write-back instructions
 - [ ] Is consistent with EROAD context and terminology
