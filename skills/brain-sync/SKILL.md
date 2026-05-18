@@ -7,7 +7,35 @@ description: >
   systems, services, and decisions.
 ---
 
-# Brain Sync — Obsidian Vault Integration
+# Brain Sync — SQL Graph Integration
+
+> ## ⚡ SQL-ONLY MODE (active 2026-05-19)
+>
+> **Obsidian vaults are toggled OFF as a knowledge source.** The single source of truth is now `~/.copilot/brain-graph.db` (SQLite). The `obsidian-sync` and `brain-repo-sync` launchd jobs have been unloaded.
+>
+> ### Lookup (replaces "grep the vault")
+>
+> ```bash
+> # FTS search across the graph
+> python3 ~/.copilot/scripts/brain-graph-query.py search \
+>   --query "KEYWORDS" --vault eroad-brain --max-results 10 --fetch-content --compact
+>
+> # BFS traversal from a known node
+> python3 ~/.copilot/scripts/brain-graph-query.py traverse \
+>   --start-id "eroad-brain/01 - Services/media-service" --depth 2 --fetch-content
+> ```
+>
+> Vaults available in the graph: `eroad-brain` (858 nodes), `john-brain` (54 nodes).
+>
+> ### Write-back (replaces creating `.md` files)
+>
+> See `brain-consolidation.agent.md` for the SQL upsert protocol. **Do not write `.md` files into `~/eroad-brain` or `~/john-brain`** — they are no longer authoritative.
+>
+> Everything below this block describing `grep -r "$BRAIN"`, file-based templates, wiki-link `.md` cross-references, etc. is retained for reference but is **superseded**. Use the SQL graph.
+
+---
+
+# Brain Sync — Obsidian Vault Integration (LEGACY, superseded by SQL-Only Mode above)
 
 ## Vault Location
 
