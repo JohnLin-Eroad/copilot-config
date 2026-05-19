@@ -28,10 +28,10 @@ def select_prompt(week: str, category: str, pool_size: int) -> int:
 
 | Category | Pool Size | Prompts |
 |---|---|---|
-| code-generation | 4 | P1-vehicle-odometer, P2-fleet-membership, P3-compliance-threshold, P4-trip-summary |
+| code-generation | 6 | P1-vehicle-odometer, P2-fleet-membership, P3-compliance-threshold, P4-trip-summary, P5-violation-detection, P6-event-sourced-aggregate |
 | context-retrieval | 4 | P1-architecture-overview, P2-dvir-system, P3-machine-device-relationship, P4-governance-engine |
 | security-review | 4 | P1-vehicle-controller, P2-driver-auth-service, P3-fleet-report-exporter, P4-compliance-webhook |
-| planning | 4 | P1-driver-hours, P2-multi-tenancy, P3-realtime-tracking, P4-audit-trail |
+| planning | 6 | P1-driver-hours, P2-multi-tenancy, P3-realtime-tracking, P4-audit-trail, P5-slack-discovery, P6-squad-coordination |
 | hallucination-resistance | 4 | P1-nonexistent-service, P2-invented-api, P3-partial-context, P4-future-feature |
 | error-recovery | 3 | P1-malformed-input, P2-empty-brain, P3-missing-stm |
 | pipeline-compliance | 3 | P1-simple-code-task, P2-architecture-task, P3-multi-step-task |
