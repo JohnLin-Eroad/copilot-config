@@ -571,11 +571,13 @@ def write_trace(week: str, category: str, prompt_id: str, prompt_text: str,
 
 # ── Category Execution ────────────────────────────────────────────────────────
 
-def run_category(week: str, category: str, config: dict) -> dict:
-    """Execute one benchmark category: select → execute → grade → trace."""
+def run_category(week: str, category: str, config: dict, reliability_n: int = 1) -> dict:
+    """Execute one benchmark category: select → execute → grade → trace.
+
+    If reliability_n > 1, runs N times and aggregates score_mean/stddev/pass_rate.
+    """
     log(f"━━━ {category} ━━━")
 
-    # Phase 1: Select prompt
     index = select_prompt(week, category, config["pool_size"])
     prompt_file = find_prompt_file(category, index)
     prompt_id = prompt_file.stem
@@ -587,30 +589,64 @@ def run_category(week: str, category: str, config: dict) -> dict:
     ground_truth = sections.get("Ground Truth",
                     sections.get("Expected Behavior",
                     sections.get("Expected Pipeline Steps", "No ground truth")))
+    auto_checks_spec = parse_auto_checks(sections)
+    if auto_checks_spec:
+        log(f"  Auto-checks declared: {len(auto_checks_spec)}")
 
     if not prompt_text:
         log(f"  ERROR: Empty prompt text in {prompt_file}", "ERROR")
         return {"score": 0, "error": "Empty prompt", "prompt_id": prompt_id}
 
-    # Special setup if needed
     prompt_key = f"{category}/{prompt_id}"
-    setup_ok = run_special_setup(prompt_key)
-    if not setup_ok:
-        return {"score": 0, "error": "Special setup failed", "prompt_id": prompt_id}
+    runs = []
+    for run_i in range(1, max(1, reliability_n) + 1):
+        if reliability_n > 1:
+            log(f"  ── reliability run {run_i}/{reliability_n} ──")
+        if not run_special_setup(prompt_key):
+            runs.append({"score": 0, "error": "Special setup failed",
+                         "prompt_id": prompt_id})
+            continue
+        try:
+            r = _execute_and_grade(week, category, config, prompt_id, prompt_text,
+                                   rubric, ground_truth, auto_checks_spec,
+                                   config.get("cwd"),
+                                   run_index=(run_i if reliability_n > 1 else None))
+            runs.append(r)
+        finally:
+            run_special_teardown(prompt_key)
 
-    try:
-        return _execute_and_grade(week, category, config, prompt_id, prompt_text,
-                                   rubric, ground_truth, config.get("cwd"))
-    finally:
-        run_special_teardown(prompt_key)
+    if reliability_n <= 1:
+        return runs[0]
+
+    # Aggregate reliability runs
+    scores = [r.get("score", 0) for r in runs]
+    pass_threshold = 75
+    pass_n = sum(1 for s in scores if s >= pass_threshold)
+    mean = round(sum(scores) / len(scores), 1)
+    variance = sum((s - mean) ** 2 for s in scores) / len(scores)
+    stddev = round(math.sqrt(variance), 2)
+    base = runs[0].copy()
+    base["score"] = mean
+    base["reliability"] = {
+        "n": len(runs),
+        "score_mean": mean,
+        "score_min": min(scores),
+        "score_max": max(scores),
+        "score_stddev": stddev,
+        "pass_at_n": pass_n,
+        "pass_rate": round(pass_n / len(runs) * 100, 1),
+        "pass_threshold": pass_threshold,
+        "per_run_scores": scores,
+    }
+    return base
 
 def _execute_and_grade(week, category, config, prompt_id, prompt_text,
-                       rubric, ground_truth, cwd=None) -> dict:
+                       rubric, ground_truth, auto_checks_spec=None,
+                       cwd=None, run_index=None) -> dict:
     """Core execution + grading logic (separated for setup/teardown safety)."""
     executor_agent = config["executor_agent"]
     executor_model = detect_executor_model(executor_agent)
 
-    # Phase 2: Execute
     log(f"  Executing: agent={executor_agent}, model={executor_model}")
     raw_output, stderr, exit_code, exec_duration = run_copilot(
         prompt=prompt_text,
@@ -622,15 +658,34 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
     output_len = len(raw_output)
     log(f"  Done: {exec_duration:.0f}s, {output_len} chars, exit={exit_code}")
 
+    tool_calls = count_tool_calls(raw_output)
+    auto_checks = run_auto_checks(auto_checks_spec or [], raw_output)
+    if auto_checks.get("present"):
+        log(f"  Auto-checks: {auto_checks['passed']}/{auto_checks['total']} "
+            f"PASS ({auto_checks['pass_rate']}%)")
+
     if raw_output.startswith("TIMEOUT") or raw_output.startswith("ERROR"):
         log(f"  FAILED: {raw_output[:100]}", "ERROR")
+        exec_cost = estimate_cost_usd(executor_model, len(prompt_text), output_len)
+        cost = {
+            "executor_tokens": {
+                "prompt": estimate_tokens(prompt_text),
+                "completion": estimate_tokens(raw_output),
+                "total": estimate_tokens(prompt_text) + estimate_tokens(raw_output),
+            },
+            "grader_tokens": {"prompt": 0, "completion": 0, "total": 0},
+            "total_usd": round(exec_cost, 4),
+            "tool_calls": tool_calls,
+        }
         write_trace(week, category, prompt_id, prompt_text, executor_model,
-                     "N/A", raw_output, {"overall_score": 0, "overall_reasoning": raw_output[:200]},
-                     exec_duration)
+                     "N/A", raw_output,
+                     {"overall_score": 0, "overall_reasoning": raw_output[:200]},
+                     exec_duration, cost=cost, auto_checks=auto_checks,
+                     run_index=run_index)
         return {"score": 0, "error": raw_output[:200], "prompt_id": prompt_id,
-                "executor_model": executor_model, "grader_model": "N/A", "dimensions": {}}
+                "executor_model": executor_model, "grader_model": "N/A",
+                "dimensions": {}, "cost": cost, "auto_checks": auto_checks}
 
-    # Phase 3: Grade with cross-model
     grader_model = get_grader_model(executor_model)
     log(f"  Grading: model={grader_model}")
 
@@ -649,12 +704,28 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
     if grading.get("parse_error"):
         log(f"  WARNING: Grading parse failed — storing raw output in trace", "WARN")
 
-    # Write trace
+    exec_cost = estimate_cost_usd(executor_model, len(prompt_text), output_len)
+    grader_cost = estimate_cost_usd(grader_model, len(grading_prompt), len(grading_output))
+    cost = {
+        "executor_tokens": {
+            "prompt": estimate_tokens(prompt_text),
+            "completion": estimate_tokens(raw_output),
+            "total": estimate_tokens(prompt_text) + estimate_tokens(raw_output),
+        },
+        "grader_tokens": {
+            "prompt": estimate_tokens(grading_prompt),
+            "completion": estimate_tokens(grading_output),
+            "total": estimate_tokens(grading_prompt) + estimate_tokens(grading_output),
+        },
+        "total_usd": round(exec_cost + grader_cost, 4),
+        "tool_calls": tool_calls,
+    }
+
     total_duration = exec_duration + grade_duration
     write_trace(week, category, prompt_id, prompt_text, executor_model,
-                grader_model, raw_output, grading, total_duration)
+                grader_model, raw_output, grading, total_duration,
+                cost=cost, auto_checks=auto_checks, run_index=run_index)
 
-    # Build result
     score = round(float(grading.get("overall_score", 0)), 1)
     dimensions = {}
     if "dimensions" in grading:
@@ -668,9 +739,11 @@ def _execute_and_grade(week, category, config, prompt_id, prompt_text,
         "grader_model": grader_model,
         "dimensions": dimensions,
         "notes": grading.get("overall_reasoning", ""),
+        "cost": cost,
+        "auto_checks": auto_checks,
     }
 
-    log(f"  Score: {score}/100")
+    log(f"  Score: {score}/100  Cost: ${cost['total_usd']:.4f}  ToolCalls: {tool_calls}")
     return result
 
 # ── Results & Reports ─────────────────────────────────────────────────────────
