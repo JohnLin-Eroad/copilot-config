@@ -63,6 +63,184 @@ SPECIAL_SETUP_PROMPTS = {
 
 MAX_RAW_OUTPUT_FOR_GRADING = 15000  # chars — truncate longer outputs for grader context
 
+# ── P3: Cost & Token Estimation ───────────────────────────────────────────────
+
+# Per-million-token pricing (USD). Conservative public-list prices.
+PRICING_USD_PER_M_TOKENS = {
+    "claude-opus-4.7":   {"prompt": 15.0, "completion": 75.0},
+    "claude-opus-4.6":   {"prompt": 15.0, "completion": 75.0},
+    "claude-sonnet-4.6": {"prompt": 3.0,  "completion": 15.0},
+    "claude-haiku-4.5":  {"prompt": 1.0,  "completion": 5.0},
+    "gpt-5.5":           {"prompt": 10.0, "completion": 30.0},
+    "gpt-5.4":           {"prompt": 5.0,  "completion": 15.0},
+    "gpt-5.4-mini":      {"prompt": 0.5,  "completion": 1.5},
+    "gpt-5-mini":        {"prompt": 0.5,  "completion": 1.5},
+    "gpt-5.3-codex":     {"prompt": 5.0,  "completion": 15.0},
+    "gpt-4.1":           {"prompt": 2.0,  "completion": 8.0},
+}
+
+def estimate_tokens(text: str) -> int:
+    """Rough estimate: 4 chars per token (English-skewed)."""
+    return max(0, len(text or "") // 4)
+
+def estimate_cost_usd(model: str, prompt_chars: int, completion_chars: int) -> float:
+    """Approx USD cost for a single call."""
+    price = PRICING_USD_PER_M_TOKENS.get(model)
+    if not price:
+        return 0.0
+    p_tok = prompt_chars // 4
+    c_tok = completion_chars // 4
+    return (p_tok / 1_000_000) * price["prompt"] + (c_tok / 1_000_000) * price["completion"]
+
+def count_tool_calls(raw_output: str) -> int:
+    """Heuristic tool-call counter: regex over rendered CLI output patterns."""
+    if not raw_output:
+        return 0
+    patterns = [
+        r"●\s*(bash|view|edit|create|grep|glob|web_fetch|task|skill|sql|report_intent)",
+        r"Tool call:\s*\w+",
+        r"Running tool:\s*\w+",
+    ]
+    n = 0
+    for p in patterns:
+        n += len(re.findall(p, raw_output))
+    return n
+
+# ── P1: Deterministic Auto-Checks ─────────────────────────────────────────────
+
+def parse_auto_checks(sections: dict) -> list:
+    """Parse the `## Auto-Checks` section from a prompt file.
+
+    Format inside the section is a fenced ```yaml block with a list of checks.
+    Each check supports keys:
+      - name (required)
+      - must_contain_any / must_contain_all / must_not_contain (list of strings)
+      - regex / regex_not (string)
+      - case_insensitive (bool, default false)
+    """
+    section = sections.get("Auto-Checks") or sections.get("Auto Checks")
+    if not section:
+        return []
+    # Strip ```yaml ... ``` fence
+    m = re.search(r"```(?:yaml|yml)?\s*\n(.*?)\n```", section, re.DOTALL)
+    body = m.group(1) if m else section
+    # Fast path: PyYAML if available
+    try:
+        import yaml  # type: ignore
+        parsed = yaml.safe_load(body)
+        if isinstance(parsed, list):
+            return [c for c in parsed if isinstance(c, dict) and c.get("name")]
+    except Exception:
+        pass
+    # Fallback: tiny line-based parser (handles only what we generate)
+    checks = []
+    current = None
+    for raw in body.splitlines():
+        line = raw.rstrip()
+        if not line.strip():
+            continue
+        if line.lstrip().startswith("- name:"):
+            if current:
+                checks.append(current)
+            current = {"name": line.split(":", 1)[1].strip().strip('"').strip("'")}
+            continue
+        if current is None:
+            continue
+        if ":" not in line:
+            continue
+        key, _, val = line.lstrip().partition(":")
+        key = key.strip()
+        val = val.strip()
+        if val.startswith("[") and val.endswith("]"):
+            items = [v.strip().strip('"').strip("'") for v in val[1:-1].split(",") if v.strip()]
+            current[key] = items
+        elif val.lower() in ("true", "false"):
+            current[key] = (val.lower() == "true")
+        else:
+            current[key] = val.strip('"').strip("'")
+    if current:
+        checks.append(current)
+    return checks
+
+def run_auto_check(check: dict, text: str) -> dict:
+    """Execute a single auto-check; returns {name, result, type, detail}."""
+    name = check.get("name", "unnamed")
+    haystack = text or ""
+    ci = bool(check.get("case_insensitive", False))
+    if ci:
+        haystack_cmp = haystack.lower()
+    else:
+        haystack_cmp = haystack
+
+    def _norm(needles):
+        if isinstance(needles, str):
+            needles = [needles]
+        return [n.lower() if ci else n for n in (needles or [])]
+
+    if "must_contain_any" in check:
+        needles = _norm(check["must_contain_any"])
+        hit = next((n for n in needles if n in haystack_cmp), None)
+        return {"name": name, "type": "must_contain_any",
+                "result": "PASS" if hit else "FAIL",
+                "detail": f"matched: {hit!r}" if hit else f"none of {len(needles)} found"}
+    if "must_contain_all" in check:
+        needles = _norm(check["must_contain_all"])
+        missing = [n for n in needles if n not in haystack_cmp]
+        return {"name": name, "type": "must_contain_all",
+                "result": "PASS" if not missing else "FAIL",
+                "detail": "all matched" if not missing else f"missing: {missing}"}
+    if "must_not_contain" in check:
+        needles = _norm(check["must_not_contain"])
+        hit = next((n for n in needles if n in haystack_cmp), None)
+        return {"name": name, "type": "must_not_contain",
+                "result": "PASS" if not hit else "FAIL",
+                "detail": "no forbidden strings present" if not hit else f"forbidden hit: {hit!r}"}
+    if "regex" in check:
+        flags = re.IGNORECASE if ci else 0
+        m = re.search(check["regex"], haystack, flags)
+        return {"name": name, "type": "regex",
+                "result": "PASS" if m else "FAIL",
+                "detail": f"matched: {m.group(0)[:80]!r}" if m else "no match"}
+    if "regex_not" in check:
+        flags = re.IGNORECASE if ci else 0
+        m = re.search(check["regex_not"], haystack, flags)
+        return {"name": name, "type": "regex_not",
+                "result": "PASS" if not m else "FAIL",
+                "detail": "no forbidden match" if not m else f"forbidden match: {m.group(0)[:80]!r}"}
+    return {"name": name, "type": "unknown", "result": "FAIL", "detail": "no check key recognised"}
+
+def run_auto_checks(checks: list, text: str) -> dict:
+    """Run all checks, return aggregate result."""
+    if not checks:
+        return {"present": False, "total": 0, "passed": 0, "pass_rate": None, "results": []}
+    results = [run_auto_check(c, text) for c in checks]
+    passed = sum(1 for r in results if r["result"] == "PASS")
+    return {
+        "present": True,
+        "total": len(results),
+        "passed": passed,
+        "pass_rate": round(passed / len(results) * 100, 1),
+        "results": results,
+    }
+
+# ── P7: Bootstrap Confidence Interval ─────────────────────────────────────────
+
+def bootstrap_ci(values, confidence=0.90, resamples=1000, seed=42):
+    """Percentile-method bootstrap CI for the mean of `values`."""
+    if not values:
+        return (None, None)
+    rng = random.Random(seed)
+    n = len(values)
+    means = []
+    for _ in range(resamples):
+        sample = [values[rng.randrange(n)] for _ in range(n)]
+        means.append(sum(sample) / n)
+    means.sort()
+    alpha = (1 - confidence) / 2
+    lo_idx = int(alpha * resamples)
+    hi_idx = int((1 - alpha) * resamples) - 1
+    return (round(means[lo_idx], 2), round(means[max(hi_idx, 0)], 2))
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 
 VERBOSE = False
