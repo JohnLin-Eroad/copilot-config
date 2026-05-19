@@ -905,17 +905,32 @@ def write_report(week: str, results: dict):
     vs_prev = results.get("vs_previous")
     trend = f" ({'+' if vs_prev > 0 else ''}{vs_prev} vs prev)" if vs_prev is not None else ""
 
+    ci = results.get("confidence_interval_90")
+    sig = results.get("significant_vs_previous")
+    ci_line = ""
+    if ci:
+        ci_line = f"**90% CI on dimension mean:** [{ci[0]}, {ci[1]}]"
+        if sig is True:
+            ci_line += "  — week-over-week delta is **significant** (>1.5× CI half-width)"
+        elif sig is False:
+            ci_line += "  — week-over-week delta is within noise floor"
+
+    cost = results.get("cost_summary", {}) or {}
+    det = results.get("deterministic_checks", {}) or {}
+
     lines = [
         f"# Benchmark Report — {week}",
         f"",
         f"**Overall Score: {overall}/100{trend}**",
         f"",
+        ci_line,
+        f"",
         f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
         f"",
         f"## Summary",
         f"",
-        f"| Category | Prompt | Score | Weight | Status |",
-        f"|---|---|---|---|---|",
+        f"| Category | Prompt | Score | Weight | Auto-Checks | Cost | Status |",
+        f"|---|---|---|---|---|---|---|",
     ]
 
     for cat in CATEGORIES:
@@ -924,13 +939,35 @@ def write_report(week: str, results: dict):
         score = cat_data.get("score", 0)
         weight = CATEGORIES[cat]["weight"]
         prompt_id = cat_data.get("prompt_id", "?")
+        ac = cat_data.get("auto_checks", {}) or {}
+        ac_cell = f"{ac['passed']}/{ac['total']} ({ac['pass_rate']}%)" if ac.get("present") else "—"
+        c = cat_data.get("cost", {}) or {}
+        cost_cell = f"${c.get('total_usd', 0.0):.4f}" if c else "—"
         if score >= 70:
             status = "✅ PASS"
         elif score >= 50:
             status = "⚠️ WARN"
         else:
             status = "❌ FAIL"
-        lines.append(f"| {cat} | {prompt_id} | {score} | {weight*100:.0f}% | {status} |")
+        lines.append(f"| {cat} | {prompt_id} | {score} | {weight*100:.0f}% | {ac_cell} | {cost_cell} | {status} |")
+
+    if cost.get("total_usd"):
+        lines.extend([
+            "",
+            f"## Cost This Week",
+            f"",
+            f"- **Total:** ${cost.get('total_usd', 0.0):.4f}",
+            f"- **Tool calls:** {cost.get('total_tool_calls', 0)}",
+            f"- **Most expensive category:** {cost.get('most_expensive_category', '—')}",
+        ])
+    if det and det.get("checks_total"):
+        lines.extend([
+            "",
+            f"## Deterministic Checks",
+            f"",
+            f"- Categories with declared `## Auto-Checks`: **{det['categories_with_checks']}/{len(CATEGORIES)}**",
+            f"- Overall pass rate: **{det['checks_passed']}/{det['checks_total']}** ({det['pass_rate']}%)",
+        ])
 
     lines.extend(["", "## Category Details", ""])
 
@@ -942,11 +979,19 @@ def write_report(week: str, results: dict):
         dims = cat_data.get("dimensions", {})
         executor = cat_data.get("executor_model", "?")
         grader = cat_data.get("grader_model", "?")
+        rel = cat_data.get("reliability")
 
         lines.append(f"### {cat} — {score}/100")
         lines.append(f"Executor: {executor} | Grader: {grader}")
         if dims:
             lines.append(f"Dimensions: {', '.join(f'{k}={v}' for k, v in dims.items())}")
+        if rel:
+            lines.append(
+                f"**Reliability ({rel['n']} runs):** mean={rel['score_mean']} "
+                f"min={rel['score_min']} max={rel['score_max']} σ={rel['score_stddev']} "
+                f"pass@{rel['n']}={rel['pass_at_n']}/{rel['n']} ({rel['pass_rate']}%) "
+                f"@ threshold {rel['pass_threshold']}"
+            )
         if notes:
             lines.append(f"Notes: {notes}")
         error = cat_data.get("error")
