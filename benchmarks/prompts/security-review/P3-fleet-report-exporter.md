@@ -80,3 +80,21 @@ public class FleetReportExporter {
 - SSRF: HIGH severity (internal network access)
 - Log Injection: MEDIUM severity (log forging, potential for log-based attacks)
 - Bonus (not required): error message leaks parse exception details
+
+## Auto-Checks
+
+```yaml
+- name: finds-path-traversal
+  must_contain_any: ["path traversal", "../", "directory traversal", "canonical path"]
+  case_insensitive: true
+- name: finds-ssrf
+  must_contain_any: ["SSRF", "server-side request forgery", "cloud metadata", "internal network", "metadata endpoint", "link-local"]
+  case_insensitive: true
+- name: finds-log-injection
+  must_contain_any: ["log injection", "log forging", "log spoofing", "sanitize log", "sanitise log"]
+  case_insensitive: true
+- name: severity-classification
+  must_contain_any: ["HIGH", "CRITICAL", "MEDIUM"]
+- name: cites-owasp
+  must_contain_any: ["OWASP", "A0", "Top 10"]
+```

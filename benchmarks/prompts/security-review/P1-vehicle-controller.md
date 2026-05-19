@@ -66,3 +66,21 @@ public class VehicleController {
 - Sensitive Data Exposure: HIGH severity
 - Password Reflection: HIGH severity
 - Bonus (not required): resource leak (Connection/Statement not closed) — code quality, not security
+
+## Auto-Checks
+
+```yaml
+- name: finds-sql-injection
+  must_contain_any: ["SQL injection", "SQLi", "string concatenation", "PreparedStatement", "parameterised", "parameterized"]
+  case_insensitive: true
+- name: finds-sensitive-data-exposure
+  must_contain_any: ["sensitive data", "data exposure", "owner_email", "PII", "access control"]
+  case_insensitive: true
+- name: finds-info-leak
+  must_contain_any: ["reflects password", "information disclosure", "error response", "leaks password", "sensitive in error"]
+  case_insensitive: true
+- name: severity-classification
+  must_contain_any: ["HIGH", "CRITICAL", "MEDIUM"]
+- name: cites-owasp
+  must_contain_any: ["OWASP", "A0", "Top 10"]
+```
