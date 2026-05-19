@@ -12,7 +12,9 @@ Usage:
 
 import hashlib
 import json
+import math
 import os
+import random
 import re
 import subprocess
 import sys
@@ -36,10 +38,10 @@ COPILOT = "/opt/homebrew/bin/copilot"
 # cwd = working directory for the copilot agent (most need the sovereign codebase)
 # timeout = max seconds for execution (default 600, override per category)
 CATEGORIES = {
-    "code-generation":          {"pool_size": 4, "weight": 0.20, "executor_agent": "developer",            "cwd": SOVEREIGN},
+    "code-generation":          {"pool_size": 6, "weight": 0.20, "executor_agent": "developer",            "cwd": SOVEREIGN},
     "context-retrieval":        {"pool_size": 4, "weight": 0.20, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
     "security-review":          {"pool_size": 4, "weight": 0.15, "executor_agent": "security",              "cwd": SOVEREIGN},
-    "planning":                 {"pool_size": 4, "weight": 0.15, "executor_agent": "architect",             "cwd": SOVEREIGN},
+    "planning":                 {"pool_size": 6, "weight": 0.15, "executor_agent": "architect",             "cwd": SOVEREIGN},
     "hallucination-resistance": {"pool_size": 4, "weight": 0.10, "executor_agent": "brain-data-retrieval",  "cwd": SOVEREIGN},
     "error-recovery":           {"pool_size": 3, "weight": 0.05, "executor_agent": "developer",             "cwd": SOVEREIGN},
     "pipeline-compliance":      {"pool_size": 3, "weight": 0.15, "executor_agent": "orchestrator",          "cwd": SOVEREIGN, "timeout": 1200},
