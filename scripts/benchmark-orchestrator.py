@@ -487,7 +487,8 @@ def run_special_teardown(prompt_key: str):
 
 def write_trace(week: str, category: str, prompt_id: str, prompt_text: str,
                 executor_model: str, grader_model: str, raw_output: str,
-                grading: dict, duration: float):
+                grading: dict, duration: float, cost: dict = None,
+                auto_checks: dict = None, run_index: int = None):
     """Write a trace file following TRACE-FORMAT.md spec."""
     trace_dir = TRACES_DIR / week
     trace_dir.mkdir(parents=True, exist_ok=True)
@@ -508,6 +509,34 @@ def write_trace(week: str, category: str, prompt_id: str, prompt_text: str,
     overall = grading.get("overall_score", "N/A")
     overall_reasoning = grading.get("overall_reasoning", "No reasoning provided")
 
+    # P3: cost + token metadata block
+    cost_lines = ""
+    if cost:
+        et = cost.get("executor_tokens", {})
+        gt = cost.get("grader_tokens", {})
+        cost_lines = (
+            f"- Estimated cost (USD): {cost.get('total_usd', 0.0):.4f}\n"
+            f"- Executor tokens (est.): prompt={et.get('prompt',0)} / completion={et.get('completion',0)} / total={et.get('total',0)}\n"
+            f"- Grader tokens (est.):   prompt={gt.get('prompt',0)} / completion={gt.get('completion',0)} / total={gt.get('total',0)}\n"
+            f"- Tool calls (heuristic): {cost.get('tool_calls', 0)}\n"
+        )
+    run_line = f"- Run index: {run_index}\n" if run_index else ""
+
+    # P1: deterministic checks block
+    auto_block = ""
+    if auto_checks and auto_checks.get("present"):
+        rows = []
+        for r in auto_checks.get("results", []):
+            rows.append(f"| {r['name']} | {r['type']} | {r['result']} | {r['detail']} |")
+        auto_block = (
+            "\n## Deterministic Checks\n\n"
+            f"Aggregate: {auto_checks['passed']}/{auto_checks['total']} PASS "
+            f"({auto_checks['pass_rate']}%)\n\n"
+            "| Check name | Type | Result | Detail |\n"
+            "|---|---|---|---|\n"
+            + "\n".join(rows) + "\n"
+        )
+
     trace_content = f"""# Trace: {category} — {week}
 
 ## Metadata
@@ -516,13 +545,13 @@ def write_trace(week: str, category: str, prompt_id: str, prompt_text: str,
 - Grader model: {grader_model}
 - Timestamp: {timestamp}
 - Duration: {duration:.1f}s
-
+{run_line}{cost_lines}
 ## Prompt Sent
 {prompt_text}
 
 ## Raw Output
 {raw_output}
-
+{auto_block}
 ## Grading Reasoning
 {overall_reasoning}
 
@@ -535,7 +564,8 @@ def write_trace(week: str, category: str, prompt_id: str, prompt_text: str,
 ## Overall Score: {overall}/100
 """
 
-    trace_file = trace_dir / f"{category}.md"
+    fname = f"{category}.md" if not run_index else f"{category}.run{run_index}.md"
+    trace_file = trace_dir / fname
     trace_file.write_text(trace_content)
     log(f"  Trace: {trace_file.name} ({len(trace_content)} chars)")
 
