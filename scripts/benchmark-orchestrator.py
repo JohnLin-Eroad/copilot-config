@@ -1038,6 +1038,7 @@ def main():
     week = None
     dry_run = False
     single_category = None
+    reliability_n = 1
 
     i = 0
     while i < len(args):
@@ -1047,6 +1048,13 @@ def main():
             VERBOSE = True
         elif args[i] == "--category" and i + 1 < len(args):
             single_category = args[i + 1]
+            i += 1
+        elif args[i] == "--reliability" and i + 1 < len(args):
+            try:
+                reliability_n = max(1, int(args[i + 1]))
+            except ValueError:
+                print(f"Invalid --reliability value: {args[i+1]}", file=sys.stderr)
+                sys.exit(1)
             i += 1
         elif not args[i].startswith("-"):
             week = args[i]
