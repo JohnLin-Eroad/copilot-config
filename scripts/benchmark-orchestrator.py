@@ -1099,7 +1099,7 @@ def main():
     for cat, config in cats_to_run.items():
         cat_start = time.time()
         try:
-            scores[cat] = run_category(week, cat, config)
+            scores[cat] = run_category(week, cat, config, reliability_n=reliability_n)
         except Exception as e:
             log(f"EXCEPTION in {cat}: {e}", "ERROR")
             import traceback
