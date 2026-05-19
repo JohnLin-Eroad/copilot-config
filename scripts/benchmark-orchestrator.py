@@ -7,7 +7,7 @@ and reporting. Copilot CLI is called ONLY for execution (run the prompt) and gra
 lost trying to self-orchestrate a complex multi-phase pipeline.
 
 Usage:
-    python3 benchmark-orchestrator.py [YYYY-WXX] [--dry-run] [--category CAT] [--verbose]
+    python3 benchmark-orchestrator.py [YYYY-WXX] [--dry-run] [--category CAT] [--verbose] [--reliability N]
 """
 
 import hashlib
