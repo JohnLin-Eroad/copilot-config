@@ -817,6 +817,47 @@ def write_results(week: str, scores: dict, prompt_rotation: dict,
     prev = load_previous_results(week)
     vs_previous = round(overall - prev["overall"], 1) if prev and "overall" in prev else None
 
+    # P7: bootstrap CI from all dimension scores
+    all_dim_scores = []
+    for cat_data in scored_cats.values():
+        dims = cat_data.get("dimensions", {}) or {}
+        for v in dims.values():
+            try:
+                all_dim_scores.append(float(v))
+            except (TypeError, ValueError):
+                pass
+    if len(all_dim_scores) >= 5:
+        ci_low, ci_high = bootstrap_ci(all_dim_scores, confidence=0.90)
+        ci_half_width = (ci_high - ci_low) / 2
+        significant = (vs_previous is not None
+                       and abs(vs_previous) > 1.5 * ci_half_width)
+    else:
+        ci_low, ci_high, significant = None, None, None
+
+    # P3: cost summary
+    total_usd = 0.0
+    cost_by_cat = {}
+    total_tool_calls = 0
+    for cat_key, cat_data in scored_cats.items():
+        c = cat_data.get("cost", {}) or {}
+        usd = float(c.get("total_usd", 0.0) or 0.0)
+        cost_by_cat[cat_key] = round(usd, 4)
+        total_usd += usd
+        total_tool_calls += int(c.get("tool_calls", 0) or 0)
+    most_expensive = max(cost_by_cat.items(), key=lambda kv: kv[1])[0] if cost_by_cat else None
+
+    # P1: deterministic check aggregate
+    det_passed = 0
+    det_total = 0
+    det_present_cats = 0
+    for cat_data in scored_cats.values():
+        ac = cat_data.get("auto_checks", {}) or {}
+        if ac.get("present"):
+            det_present_cats += 1
+            det_passed += ac.get("passed", 0)
+            det_total += ac.get("total", 0)
+    det_pass_rate = round(det_passed / det_total * 100, 1) if det_total else None
+
     # Merge prompt rotation
     existing_rotation = {}
     if results_file.exists():
@@ -833,6 +874,20 @@ def write_results(week: str, scores: dict, prompt_rotation: dict,
         "prompt_rotation": merged_rotation,
         "overall": overall,
         "vs_previous": vs_previous,
+        "confidence_interval_90": [ci_low, ci_high] if ci_low is not None else None,
+        "significant_vs_previous": significant,
+        "deterministic_checks": {
+            "categories_with_checks": det_present_cats,
+            "checks_passed": det_passed,
+            "checks_total": det_total,
+            "pass_rate": det_pass_rate,
+        },
+        "cost_summary": {
+            "total_usd": round(total_usd, 4),
+            "by_category": cost_by_cat,
+            "most_expensive_category": most_expensive,
+            "total_tool_calls": total_tool_calls,
+        },
         "categories_scored": len(scored_cats),
         "categories_total": len(CATEGORIES),
         "scores": merged_scores,
