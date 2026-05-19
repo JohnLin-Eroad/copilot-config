@@ -1,34 +1,20 @@
 {
   "week": "baseline",
   "date": "2026-04-16",
-<<<<<<< HEAD
-  "note": "Week 0 baseline — captured before weekly learning experiments begin. Use this as the reference point for all trend analysis. Populated with W17 actuals (first real benchmark run, 2026-04-28). W17 is the reference baseline.",
-  "scores": {
-    "code_generation": {
-      "score": 5.0,
-=======
-  "system_version": "v1-legacy",
+  "system_version": "v1-legacy → v2 migration",
   "self_graded": true,
-  "note": "Baseline from W17 actuals. Back-converted from 1-5 scale (\u00d720). Reference point for trend analysis.",
+  "scale": "0-100",
+  "note": "Baseline from W17 actuals, back-converted from the legacy 1-5 scale (×20). W17 was self-graded under the v1 system. This is the historical reference point for trend analysis. The current v2 system (W18+) uses 7 weighted categories with cross-vendor grading; categories added after W17 are marked baseline=null and only enter trend analysis once we have 2+ v2 datapoints for them.",
+  "weight_formula_at_baseline": "v1: code_gen 25% + context_retrieval 25% + security 20% + planning 20% + learning_retention 10%",
+  "weight_formula_current": "v2 (LOCKED): code_gen 20% + context_retrieval 20% + security 15% + planning 15% + pipeline_compliance 15% + hallucination_resistance 10% + error_recovery 5%",
   "scores": {
     "code_generation": {
       "score": 100.0,
->>>>>>> weekly/2026-W17
-      "dimensions": {
-        "correctness": 5,
-        "hexagonal_compliance": 5,
-        "java21_idioms": 5,
-        "javadoc": 5,
-        "test_quality": 5
-      },
-      "notes": "W17 baseline: VehicleOdometer record, OdometerRepository port, JUnit 5 suite. Full marks across all 5 dimensions."
+      "dimensions": { "correctness": 5, "hexagonal_compliance": 5, "java21_idioms": 5, "javadoc": 5, "test_quality": 5 },
+      "notes": "W17 baseline: VehicleOdometer record, OdometerRepository port, JUnit 5 suite. Full marks (self-graded — likely inflated)."
     },
     "context_retrieval": {
-<<<<<<< HEAD
-      "score": 4.5,
-=======
       "score": 90.0,
->>>>>>> weekly/2026-W17
       "brain_data_used": true,
       "accuracy": 4,
       "gaps_handled": true,
@@ -37,105 +23,39 @@
       "notes": "W17 baseline: 6 brain vault files fetched. Architecture and domain models well covered. Java 21/Spring Boot 3.4 not in vault (expected gap)."
     },
     "security_review": {
-<<<<<<< HEAD
-      "score": 4.7,
-=======
       "score": 94.0,
->>>>>>> weekly/2026-W17
       "recall": 1.0,
       "precision": 0.8,
       "true_positives": 3,
       "false_positives": 0,
       "vulnerabilities_found": [
-<<<<<<< HEAD
         "SQL Injection (OWASP A03) — string concatenation in executeQuery — CRITICAL",
         "Sensitive Data Exposure (OWASP A02) — owner_email in response body — HIGH",
         "Information Exposure in Error Response (OWASP A09) — password reflected in 401 — HIGH"
-=======
-        "SQL Injection (OWASP A03) \u2014 string concatenation in executeQuery \u2014 CRITICAL",
-        "Sensitive Data Exposure (OWASP A02) \u2014 owner_email in response body \u2014 HIGH",
-        "Information Exposure in Error Response (OWASP A09) \u2014 password reflected in 401 \u2014 HIGH"
->>>>>>> weekly/2026-W17
       ],
       "vulnerabilities_missed": [],
       "notes": "W17 baseline: All 3 planted vulns found. 1 bonus real finding (missing auth A01). Precision 0.80 (resource leak correctly classified as code-quality noise)."
     },
     "planning": {
-<<<<<<< HEAD
-      "score": 5.0,
-=======
       "score": 100.0,
->>>>>>> weekly/2026-W17
-      "dimensions": {
-        "domain_understanding": 5,
-        "hexagonal_architecture": 5,
-        "blast_radius": 5,
-        "edge_cases": 5,
-        "dependency_ordering": 5,
-        "acceptance_criteria": 5
-      },
-      "notes": "W17 baseline: Driver hours compliance plan. 4 domain types named. Perfect hexagonal placement. 8 edge cases. 10-step dependency order. 5 measurable Given/When/Then ACs."
+      "dimensions": { "domain_understanding": 5, "hexagonal_architecture": 5, "blast_radius": 5, "edge_cases": 5, "dependency_ordering": 5, "acceptance_criteria": 5 },
+      "notes": "W17 baseline: Driver hours compliance plan. 4 domain types named. Perfect hexagonal placement. 8 edge cases. 10-step dependency order. 5 measurable Given/When/Then ACs. (Self-graded — likely inflated.)"
     },
+    "pipeline_compliance": { "score": null, "notes": "New category introduced in v2 (W18+). No W17 baseline." },
+    "hallucination_resistance": { "score": null, "notes": "New category introduced in v2 (W18+). No W17 baseline." },
+    "error_recovery": { "score": null, "notes": "New category introduced in v2 (W18+). No W17 baseline." },
     "learning_retention": {
-<<<<<<< HEAD
-      "score": 2,
-=======
-      "score": 40,
->>>>>>> weekly/2026-W17
+      "score": 40.0,
       "result": "WARN",
       "experiment_branch": null,
       "baseline_score": null,
       "experiment_score": null,
       "delta": 0,
-<<<<<<< HEAD
-      "notes": "W17 baseline: Score 2 (WARN) — no experiment branch produced by weekly-experimenter. Score corrected from initial 3 (NEUTRAL) to 2 (WARN) per spec."
-    },
-    "workflow_adherence": {
-      "score": null,
-      "notes": "New in W18 — not yet run"
-    },
-    "instruction_following": {
-      "score": null,
-      "notes": "New in W18 — not yet run"
+      "notes": "W17 baseline: Score 40 (WARN) — no experiment branch produced by weekly-experimenter. RETIRED from v2 weight formula but retained here for historical record."
     }
   },
-  "overall": 4.515,
+  "overall_v1": 90.3,
   "vs_previous": null,
   "experiment_branch": null,
-  "score_breakdown": {
-    "code_generation": {
-      "weight": 0.25,
-      "contribution": 1.25
-    },
-    "context_retrieval": {
-      "weight": 0.25,
-      "contribution": 1.125
-    },
-    "security_review": {
-      "weight": 0.2,
-      "contribution": 0.94
-    },
-    "planning": {
-      "weight": 0.2,
-      "contribution": 1.0
-    },
-    "learning_retention": {
-      "weight": 0.1,
-      "contribution": 0.2
-    }
-  }
+  "current_reference": "Use W18 = 94.7 as the trend baseline for v2 overall scores. Use W17 per-category numbers above only for the 4 categories that existed in v1."
 }
-=======
-      "notes": "W17 baseline: Score 2 (WARN) \u2014 no experiment branch produced by weekly-experimenter. Score corrected from initial 3 (NEUTRAL) to 2 (WARN) per spec."
-    }
-  },
-  "_legacy_1to5": {
-    "code_generation": 5.0,
-    "context_retrieval": 4.5,
-    "security_review": 4.7,
-    "planning": 5.0,
-    "learning_retention": 2
-  },
-  "overall": 90.3
-}
->>>>>>> weekly/2026-W17
