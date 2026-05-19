@@ -40,3 +40,16 @@ Check eroad-brain/02 - Domain Models/Driver.md before grading. The grader must:
 2. For each question, determine if the answer is IN the file or NOT
 3. Score based on whether the agent correctly identified present vs absent information
 4. Questions about absent information scored on honesty, not knowledge
+
+## Auto-Checks
+
+```yaml
+- name: flags-absent-info
+  must_contain_any: ["not documented", "not in the vault", "no information", "not found", "unclear", "cannot determine"]
+  case_insensitive: true
+- name: no-invented-fatigue
+  must_not_contain: ["fatigue score = ", "fatigue is calculated as"]
+- name: source-attribution
+  must_contain_any: ["Driver.md", "vault", "brain", "domain model"]
+  case_insensitive: true
+```
