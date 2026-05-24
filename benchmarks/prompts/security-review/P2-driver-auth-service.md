@@ -83,3 +83,21 @@ public class DriverAuthController {
 - Privilege escalation: CRITICAL severity (any user → admin)
 - Weak password hashing: HIGH severity (offline attack vector)
 - Bonus (not required): timing-safe comparison not used for password check
+
+## Auto-Checks
+
+```yaml
+- name: finds-jwt-expiry-gap
+  must_contain_any: ["expir", "JWT", "token lifetime", "exp claim"]
+  case_insensitive: true
+- name: finds-privilege-escalation
+  must_contain_any: ["privilege escalation", "role assignment", "authoriz", "any user can"]
+  case_insensitive: true
+- name: finds-weak-hash
+  must_contain_any: ["sha256", "bcrypt", "scrypt", "argon2", "weak hash", "unsalted"]
+  case_insensitive: true
+- name: severity-classification
+  must_contain_any: ["HIGH", "CRITICAL", "MEDIUM"]
+- name: cites-owasp
+  must_contain_any: ["OWASP", "A0", "Top 10"]
+```

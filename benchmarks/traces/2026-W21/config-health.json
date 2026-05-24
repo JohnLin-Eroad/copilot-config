@@ -1,0 +1,31 @@
+{
+  "week": "2026-W21",
+  "timestamp": "2026-05-19T21:45:00Z",
+  "checks": [
+    {"id": "agent-files-exist", "category": "agent-config", "status": "PASS", "detail": "43 .agent.md files found"},
+    {"id": "agent-structure", "category": "agent-config", "status": "FAIL", "detail": "0/43 agents have ## Tools section"},
+    {"id": "agent-donot", "category": "agent-config", "status": "FAIL", "detail": "13/43 agents have DO NOT section (need ≥20)"},
+    {"id": "agent-dispatch", "category": "agent-config", "status": "FAIL", "detail": "2 agent.md references in copilot-instructions.md (need ≥5)"},
+    {"id": "skill-files-exist", "category": "agent-config", "status": "PASS", "detail": "13 SKILL.md files found"},
+    {"id": "skill-dispatch", "category": "agent-config", "status": "FAIL", "detail": "0 SKILL references in copilot-instructions.md"},
+    {"id": "governance-parse", "category": "governance", "status": "FAIL", "detail": "governance-rules.json not found at expected paths"},
+    {"id": "governance-count", "category": "governance", "status": "FAIL", "detail": "0 rules found (need ≥16)"},
+    {"id": "governance-security", "category": "governance", "status": "FAIL", "detail": "0 security rules sec-001..sec-004 found"},
+    {"id": "dashboard-running", "category": "infrastructure", "status": "PASS", "detail": "HTTP 200 on localhost:8765/health"},
+    {"id": "launchd-loaded", "category": "infrastructure", "status": "PASS", "detail": "agent-dashboard loaded in launchctl"},
+    {"id": "no-zombies", "category": "infrastructure", "status": "PASS", "detail": "0 stm-dashboard.py zombie processes"},
+    {"id": "brain-health", "category": "infrastructure", "status": "PASS", "detail": "brain-health-audit.sh exists and is executable"},
+    {"id": "eroad-brain-exists", "category": "brain-vault", "status": "PASS", "detail": "7 items in ~/eroad-brain/"},
+    {"id": "john-brain-exists", "category": "brain-vault", "status": "PASS", "detail": "6 items in ~/john-brain/"},
+    {"id": "learnings-exist", "category": "brain-vault", "status": "PASS", "detail": "~/.copilot/learnings.md exists"},
+    {"id": "brain-graph-db-exists", "category": "sql-brain", "status": "PASS", "detail": "brain-graph.db found with 918 nodes (SQL-ONLY mode active)"},
+    {"id": "brain-graph-query-script", "category": "sql-brain", "status": "PASS", "detail": "brain-graph-query.py exists at ~/.copilot/scripts/"}
+  ],
+  "summary": {
+    "total": 16,
+    "passed": 9,
+    "failed": 7,
+    "pass_rate": 56.25,
+    "sql_brain_bonus": {"total": 2, "passed": 2, "note": "SQL-ONLY mode checks — both PASS"}
+  }
+}

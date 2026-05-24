@@ -31,12 +31,26 @@ benchmarks/traces/
 - Grader model: <model-id>
 - Timestamp: <ISO 8601 UTC>
 - Duration: <seconds>
+- Run index: <N | omitted>            # only present in reliability mode (multi-run)
+- Estimated cost (USD): <0.0000>      # total executor + grader, P3
+- Executor tokens (est.): <prompt/completion/total>
+- Grader tokens (est.):   <prompt/completion/total>
+- Tool calls (heuristic): <N>
 
 ## Prompt Sent
 <exact text sent to the agent — verbatim, no edits>
 
 ## Raw Output
 <full unedited output from the agent — NO truncation>
+
+## Deterministic Checks (optional)
+<Present only if the prompt declares an `## Auto-Checks` section. Each check has a
+result PASS/FAIL with the matched (or missing) substring/pattern. The aggregate
+pass-rate is also surfaced in the weekly results JSON under `deterministic_checks`.>
+
+| Check name | Type | Result | Detail |
+|---|---|---|---|
+| <name> | must_contain_any \| must_not_contain \| regex | PASS \| FAIL | <evidence> |
 
 ## Grading Reasoning
 <grader dimension-by-dimension analysis with explicit reasoning>
@@ -51,6 +65,33 @@ benchmarks/traces/
 
 Weighted average: <calculation showing work>
 ```
+
+## Reliability Mode
+
+When `benchmark-orchestrator.py ... --reliability N` is used (N > 1), each
+category is run N times and the trace files are named `run1.md`, `run2.md`, ... per
+prompt. The weekly results JSON gains a `reliability` block per category:
+
+```json
+"reliability": {
+  "n": 3,
+  "score_mean": 88.3,
+  "score_min": 84,
+  "score_max": 92,
+  "score_stddev": 3.27,
+  "pass_at_n": 3,
+  "pass_rate": 100.0,
+  "pass_threshold": 75,
+  "per_run_scores": [92, 89, 84]
+}
+```
+
+Reliability mode is the canonical defence against grader/executor stochasticity —
+use it for tipping-point weeks where a 1–2 point delta is being interpreted as
+real progress. The `confidence_interval_90` field in the top-level results uses a
+1000-resample bootstrap (percentile method, seed=42) over all per-dimension
+scores; `significant_vs_previous` is true when the week-over-week delta exceeds
+1.5× the CI half-width.
 
 ## Validation Rules
 

@@ -85,3 +85,21 @@ public class ComplianceWebhookHandler {
 - Mass assignment: HIGH severity (arbitrary field manipulation)
 - Replay attack: MEDIUM severity (no immediate data breach but allows duplicate processing)
 - Bonus (not required): error message leaks exception details, `ignored` catch swallows errors silently
+
+## Auto-Checks
+
+```yaml
+- name: finds-hmac-bypass
+  must_contain_any: ["HMAC", "signature null", "unsigned request", "validation bypass", "signature not required"]
+  case_insensitive: true
+- name: finds-mass-assignment
+  must_contain_any: ["mass assignment", "reflection", "setAccessible", "field.set", "arbitrary field"]
+  case_insensitive: true
+- name: finds-replay
+  must_contain_any: ["replay", "nonce", "timestamp", "idempotency"]
+  case_insensitive: true
+- name: severity-classification
+  must_contain_any: ["HIGH", "CRITICAL", "MEDIUM"]
+- name: cites-owasp
+  must_contain_any: ["OWASP", "A0", "Top 10"]
+```
