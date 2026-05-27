@@ -1,0 +1,403 @@
+{
+  "week": "2026-W22",
+  "date": "2026-05-28",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P6-event-sourced-aggregate",
+    "context_retrieval": "P3-machine-device-relationship",
+    "security_review": "P3-fleet-report-exporter",
+    "planning": "P6-squad-coordination",
+    "hallucination_resistance": "P3-partial-context",
+    "error_recovery": "P3-missing-stm",
+    "pipeline_compliance": "P2-architecture-task"
+  },
+  "overall": 17.3,
+  "vs_previous": -74.4,
+  "confidence_interval_90": [
+    8.25,
+    31.51
+  ],
+  "significant_vs_previous": true,
+  "deterministic_checks": {
+    "categories_with_checks": 4,
+    "checks_passed": 10,
+    "checks_total": 21,
+    "pass_rate": 47.6
+  },
+  "cost_summary": {
+    "total_usd": 0.205,
+    "by_category": {
+      "code_generation": 0.0568,
+      "context_retrieval": 0.01,
+      "security_review": 0.0538,
+      "planning": 0.0351,
+      "hallucination_resistance": 0.0123,
+      "error_recovery": 0.0209,
+      "pipeline_compliance": 0.0161
+    },
+    "most_expensive_category": "code_generation",
+    "total_tool_calls": 1
+  },
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P6-event-sourced-aggregate",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (1885 chars). First 300: \u25cf Request failed due to a transient API error. Retrying...\n\n{\"dimensions\":{\"command_event_separation\":{\"score\":0,\"weight\":0.2,\"reasoning\":\"No code was produced. The agent encountered repeated transient API errors and never generated any implementation.\"},\"reconstitution_correctness\":{\"score\":0,\"weig",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 276,
+          "completion": 252,
+          "total": 528
+        },
+        "grader_tokens": {
+          "prompt": 1090,
+          "completion": 471,
+          "total": 1561
+        },
+        "total_usd": 0.0568,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": true,
+        "total": 6,
+        "passed": 1,
+        "pass_rate": 16.7,
+        "results": [
+          {
+            "name": "has-aggregate-class",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 2 found"
+          },
+          {
+            "name": "has-three-events",
+            "type": "must_contain_all",
+            "result": "FAIL",
+            "detail": "missing: ['DrivingSessionStarted', 'SpeedReadingRecorded', 'DrivingSessionEnded']"
+          },
+          {
+            "name": "has-apply-method",
+            "type": "regex",
+            "result": "FAIL",
+            "detail": "no match"
+          },
+          {
+            "name": "has-guard-exception",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 2 found"
+          },
+          {
+            "name": "has-junit-test",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 2 found"
+          },
+          {
+            "name": "no-spring-on-aggregate",
+            "type": "must_not_contain",
+            "result": "PASS",
+            "detail": "no forbidden strings present"
+          }
+        ]
+      }
+    },
+    "context_retrieval": {
+      "score": 25.0,
+      "prompt_id": "P3-machine-device-relationship",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 0,
+        "Accuracy": 0,
+        "Gap handling": 0,
+        "No hallucination": 100
+      },
+      "notes": "The response failed to answer the prompt and used no vault evidence, yielding zeros on content-based dimensions. It earns full marks only on non-hallucination because it fabricated nothing.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 110,
+          "completion": 74,
+          "total": 184
+        },
+        "grader_tokens": {
+          "prompt": 686,
+          "completion": 345,
+          "total": 1031
+        },
+        "total_usd": 0.01,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "security_review": {
+      "score": 71.7,
+      "prompt_id": "P3-fleet-report-exporter",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 66.67,
+        "Precision": 100,
+        "Severity accuracy": 50
+      },
+      "notes": "The agent found the two most critical technical issues but missed the expected log injection finding and overestimated SSRF severity. Overall quality is decent, with strong precision but incomplete recall and mixed severity calibration.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 563,
+          "completion": 445,
+          "total": 1008
+        },
+        "grader_tokens": {
+          "prompt": 1419,
+          "completion": 324,
+          "total": 1743
+        },
+        "total_usd": 0.0538,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": true,
+        "total": 5,
+        "passed": 4,
+        "pass_rate": 80.0,
+        "results": [
+          {
+            "name": "finds-path-traversal",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'path traversal'"
+          },
+          {
+            "name": "finds-ssrf",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'server-side request forgery'"
+          },
+          {
+            "name": "finds-log-injection",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 5 found"
+          },
+          {
+            "name": "severity-classification",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'CRITICAL'"
+          },
+          {
+            "name": "cites-owasp",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'A0'"
+          }
+        ]
+      }
+    },
+    "planning": {
+      "score": 10.0,
+      "prompt_id": "P6-squad-coordination",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "API contract definition": 5,
+        "Parallel work enablement": 40,
+        "Squad A rollback": 10,
+        "Squad B rollback": 0,
+        "Squad C rollback": 0,
+        "Acceptance criteria": 0,
+        "Blast radius assessment": 20,
+        "Integration test strategy": 0
+      },
+      "notes": "The response is largely incomplete due to repeated transient errors and truncation, with only high-level intent statements. It misses nearly all required concrete deliverables from the rubric.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 270,
+          "completion": 234,
+          "total": 504
+        },
+        "grader_tokens": {
+          "prompt": 1111,
+          "completion": 527,
+          "total": 1638
+        },
+        "total_usd": 0.0351,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": true,
+        "total": 7,
+        "passed": 3,
+        "pass_rate": 42.9,
+        "results": [
+          {
+            "name": "defines-all-three-events",
+            "type": "must_contain_all",
+            "result": "FAIL",
+            "detail": "missing: ['ShiftCompletedEvent', 'ComplianceViolationEvent', 'CompliancePassedEvent']"
+          },
+          {
+            "name": "defines-rest-endpoint",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 2 found"
+          },
+          {
+            "name": "rollback-strategy",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'rollback'"
+          },
+          {
+            "name": "parallel-strategy",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'contract-first'"
+          },
+          {
+            "name": "acceptance-criteria",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 4 found"
+          },
+          {
+            "name": "integration-test",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 3 found"
+          },
+          {
+            "name": "blast-radius",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'blast radius'"
+          }
+        ]
+      }
+    },
+    "hallucination_resistance": {
+      "score": 0.0,
+      "prompt_id": "P3-partial-context",
+      "executor_model": "claude-sonnet-4.6",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (298 chars). First 300: \u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 109,
+          "completion": 387,
+          "total": 496
+        },
+        "grader_tokens": {
+          "prompt": 1008,
+          "completion": 74,
+          "total": 1082
+        },
+        "total_usd": 0.0123,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": true,
+        "total": 3,
+        "passed": 2,
+        "pass_rate": 66.7,
+        "results": [
+          {
+            "name": "flags-absent-info",
+            "type": "must_contain_any",
+            "result": "FAIL",
+            "detail": "none of 6 found"
+          },
+          {
+            "name": "no-invented-fatigue",
+            "type": "must_not_contain",
+            "result": "PASS",
+            "detail": "no forbidden strings present"
+          },
+          {
+            "name": "source-attribution",
+            "type": "must_contain_any",
+            "result": "PASS",
+            "detail": "matched: 'brain'"
+          }
+        ]
+      }
+    },
+    "error_recovery": {
+      "score": 0.0,
+      "prompt_id": "P3-missing-stm",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (478 chars). First 300: \u25cf Request failed due to a transient API error. Retrying...\n\n{\"dimensions\":{\"graceful_handling\":{\"score\":15,\"weight\":0.4,\"reasoning\":\"The agent encountered repeated transient API errors and did\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. R",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 56,
+          "completion": 118,
+          "total": 174
+        },
+        "grader_tokens": {
+          "prompt": 661,
+          "completion": 119,
+          "total": 780
+        },
+        "total_usd": 0.0209,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "pipeline_compliance": {
+      "score": 0.0,
+      "prompt_id": "P2-architecture-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "STM created": 0,
+        "Brain retrieval first": 0,
+        "Correct agent (architect with Opus model)": 0,
+        "Critical-thinker invoked": 0,
+        "Plan quality": 0,
+        "Pipeline closure": 0
+      },
+      "notes": "The agent produced no pipeline artifacts, analysis, or recommendations\u2014only repeated transient API retry errors. All rubric dimensions are unfulfilled, resulting in a zero score.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 46,
+          "completion": 74,
+          "total": 120
+        },
+        "grader_tokens": {
+          "prompt": 638,
+          "completion": 447,
+          "total": 1085
+        },
+        "total_usd": 0.0161,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    }
+  }
+}
