@@ -150,8 +150,8 @@ def test_apply_memory_flag_on_unmanaged():
         check("unmanaged A: combined ≈ 20", approx(out[0]["combined_score"], 20.0),
               f"got {out[0]['combined_score']}")
         check("unmanaged B: combined ≈ 5", approx(out[1]["combined_score"], 5.0))
-        check("effective_strength = 1.0 for both",
-              all(h["effective_strength"] == 1.0 for h in out))
+        check("effective_strength NOT attached for unmanaged",
+              all("effective_strength" not in h for h in out))
         check("title untouched", all(h["title"] in ("A", "B") for h in out))
         n_log = conn.execute("SELECT COUNT(*) FROM node_access_log "
                              "WHERE node_id LIKE '__test__/%'").fetchone()[0]
