@@ -287,14 +287,18 @@ This is the most important part. For every learning identified, determine the co
 
 #### Domain Mapping
 
-Use this to determine which `Domain_<slug>` a service belongs to:
+Use this to determine which domain a service belongs to. Query the graph (the `Brain/Departments` content is indexed there):
 
 ```bash
-# Check the Brain/Departments structure to find domain hierarchy
-ls "$BRAIN/Brain/Departments/"
+# Find which department node references a service
+python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --vault eroad-brain --query "<service-name> Departments" \
+  --max-results 5 --compact
 
-# Find which domain folder contains a service
-grep -r --include="*.md" -l "<service-name>" "$BRAIN/Brain/Departments/" 2>/dev/null
+# Or traverse from a known department node to see its services
+python3 ~/.copilot/scripts/brain-graph-query.py traverse \
+  --vault eroad-brain --start "Brain/Departments/Safety" \
+  --depth 2 --fetch-content
 ```
 
 Known domain slugs from brain:
