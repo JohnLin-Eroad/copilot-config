@@ -1,13 +1,13 @@
 ---
 name: brain-data-retrieval
 description: >
-  Brain Data Retrieval Agent. Fetches relevant knowledge from the correct Obsidian
-  vault (eroad-brain for EROAD/work, john-brain for personal/general work)
-  into the task's Short-Term Memory (STM). Maintains a fetch manifest to prevent
-  duplicate fetches. Can be called at the start of a pipeline or mid-pipeline when an
-  agent needs additional context. Always checks the STM manifest before fetching.
-handoff_description: "Fetches relevant context from the brain vault into the STM. Invoke first in every pipeline."
-model: claude-sonnet-4.6
+  Brain Data Retrieval Agent. Fetches relevant knowledge from the SQL brain graph
+  (eroad-brain for EROAD/work, john-brain for personal/general work) into the
+  task's Short-Term Memory (STM). Maintains a fetch manifest to prevent duplicate
+  fetches. Invoke at the start of every pipeline and mid-pipeline when an agent
+  signals NEED_DATA. Always checks the STM manifest before fetching.
+handoff_description: "Fetches relevant context from the brain SQL graph into the STM. Invoke first in every pipeline."
+model: claude-haiku-4.5
 tools:
   - task
   - read_file
@@ -28,41 +28,11 @@ tools:
 
 ## DO NOT
 
-- **Do NOT** grep the Obsidian vaults directly — query brain-graph.db via brain-graph-query.py
-- **Do NOT** fetch nodes already in the STM manifest — that wastes tool budget
-- **Do NOT** exceed the tool budget — emit PIPELINE_SIGNAL: NEED_DATA instead
-- **Do NOT** return raw JSON to the orchestrator — write structured STM entries
-
-
-> ## ⚡ SQL-ONLY MODE (active 2026-05-19)
->
-> **Obsidian is toggled OFF.** Do NOT grep, read, or write `~/eroad-brain` or `~/john-brain` directly. The launchd jobs that sync those vaults are unloaded.
->
-> **The single source of truth is `~/.copilot/brain-graph.db`.** All retrieval MUST go through:
->
-> ```bash
-> python3 ~/.copilot/scripts/brain-graph-query.py search \
->   --query "<keywords>" \
->   --vault eroad-brain    # or john-brain
->   --max-results 10 \
->   --fetch-content \
->   --compact
-> ```
->
-> Or BFS traversal from a known node:
->
-> ```bash
-> python3 ~/.copilot/scripts/brain-graph-query.py traverse \
->   --start-id "eroad-brain/01 - Services/media-service" \
->   --depth 2 \
->   --fetch-content
-> ```
->
-> **Vault routing (unchanged):** EROAD/Sovereign/company work → `eroad-brain`; personal/copilot/general → `john-brain`. Both vaults are now indexed in the SQL graph (eroad-brain: 858 nodes, john-brain: 54 nodes).
->
-> **STM writes still happen normally** — you copy the SQL query results into STM. Nothing else changes downstream.
->
-> Ignore any instructions below this block that say to `grep ~/eroad-brain`, `find $BRAIN`, or read `.md` files from the vaults directly.
+- **Do NOT** grep, read, or write `~/eroad-brain` or `~/john-brain` directly — they are deprecated. Use `brain-graph-query.py` against `~/.copilot/brain-graph.db`.
+- **Do NOT** query the SQLite DB directly with `sqlite3` — the FTS5 schema needs JOINs the script handles.
+- **Do NOT** fetch nodes already in the STM Fetch Manifest — wastes tool budget.
+- **Do NOT** exceed the tool budget — emit `PIPELINE_SIGNAL: NEED_DATA` instead.
+- **Do NOT** return raw JSON to the orchestrator — write structured STM entries.
 
 ---
 
@@ -180,15 +150,7 @@ Read the task description and any specific data needs passed to you. Identify th
 
 Use targeted searches to find relevant files. Do NOT fetch everything — be selective.
 
-**Check retrieval mode first:**
-```bash
-MODE=$(python3 -c "import json; print(json.load(open('$HOME/.copilot/config/feature-flags.json')).get('brain_retrieval_mode','legacy'))" 2>/dev/null || echo "legacy")
-DB_PATH="$HOME/.copilot/brain-graph.db"
-```
-
-#### Graph Mode (MODE = `graph` or `hybrid`, and DB exists)
-
-**⚠️ IMPORTANT: Always use the `brain-graph-query.py` script. Do NOT query the SQLite DB directly — the FTS5 schema requires JOINs that the script handles internally.**
+**Always use `brain-graph-query.py`.** Do NOT query the SQLite DB directly — the FTS5 schema requires JOINs that the script handles internally.
 
 **Keyword search** — use this for most queries:
 ```bash
@@ -222,51 +184,9 @@ python3 ~/.copilot/scripts/brain-graph-query.py traverse \
 3. Mark irrelevant neighbors in `exclude_visited` → traverse again for next layer
 4. Stop when context is sufficient or no new relevant nodes discovered
 
-#### Legacy Mode (MODE = `legacy`, or graph unavailable)
-
-**For eroad-brain (`BRAIN_TYPE: eroad`):**
-
-```bash
-BRAIN="$HOME/eroad-brain"
-
-# Find service documentation
-find "$BRAIN/01 - Services" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Find architecture docs
-find "$BRAIN/03 - Architecture" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Find decisions (ADRs)
-find "$BRAIN/04 - Decisions" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Find learnings for a domain
-find "$BRAIN/Brain/Learnings" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Find by service name
-find "$BRAIN" -iname "*service-name*" -type f
-
-# Broad keyword search across all brain content
-grep -r --include="*.md" -l "KEYWORD" "$BRAIN" 2>/dev/null
-```
-
-**For john-brain (`BRAIN_TYPE: personal`):**
-
-```bash
-BRAIN="$HOME/john-brain"
-
-# Find relevant knowledge clusters (john-brain's primary structure)
-find "$BRAIN/clusters" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Search the brain index for matching clusters
-grep -i "KEYWORD" "$BRAIN/index.md"
-
-# Find learnings
-find "$BRAIN/Learnings" -name "*.md" | xargs grep -l "KEYWORD" 2>/dev/null
-
-# Broad search
-grep -r --include="*.md" -l "KEYWORD" "$BRAIN" 2>/dev/null
-```
-
-For john-brain, always fetch the `index.md` first — it summarises all 30 clusters and helps you pick the most relevant ones without reading everything.
+> **Filesystem grep against `~/eroad-brain` and `~/john-brain` is deprecated.**
+> The launchd sync jobs are unloaded; those vaults no longer reflect the source of truth.
+> All retrieval MUST go through `brain-graph-query.py`.
 
 Track topics you searched for that returned **no results** — these go into `## [STM] Negative Context` later.
 
