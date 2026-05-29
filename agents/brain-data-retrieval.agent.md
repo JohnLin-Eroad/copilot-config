@@ -230,24 +230,30 @@ grep -n "^#\|KEYWORD1\|KEYWORD2" "$BRAIN/01 - Services/some-service.md"
 
 For each **passing** candidate (score ≥ 2, not already in fetch manifest):
 
-1. If file ≤ 150 lines: write full content
-2. If file > 150 lines: write compressed extract (headings + relevant lines)
-3. Append to `## [STM] Brain Data`
-4. Add the file path to `## [STM] Fetch Manifest`
+1. Fetch content via `brain-graph-query.py search ... --fetch-content --compact` (already returns content in the search results).
+2. If a node's content exceeds 150 lines, compress: keep frontmatter/title, headings, and paragraphs containing task keywords. Add a note like `<!-- Compressed: original N lines → M extracted -->`.
+3. Append to `## [STM] Brain Data` with the source node id from the graph.
+4. Add the node id to `## [STM] Fetch Manifest`.
 
 ```bash
-# Append a fetched document to STM
+# Example: search → write best result into STM
+RESULT=$(python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --vault eroad --query "replay-service" --max-results 1 --fetch-content --compact)
+
+NODE_ID=$(echo "$RESULT" | jq -r '.results[0].id')
+CONTENT=$(echo "$RESULT" | jq -r '.results[0].content')
+
 cat >> "$STM_PATH" << EOF
 
-### Source: Brain/01 - Services/replay-service.md
-<!-- Fetched: $(date -u +%Y-%m-%dT%H:%M:%SZ) | Score: 4/4 | Lines: 87 -->
-$(cat "$BRAIN/01 - Services/replay-service.md")
+### Source: ${NODE_ID}
+<!-- Fetched: $(date -u +%Y-%m-%dT%H:%M:%SZ) | Score: 4/4 -->
+${CONTENT}
 
 ---
 EOF
 
 # Update the fetch manifest
-echo "- \`01 - Services/replay-service.md\` — $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$STM_PATH"
+echo "- \`${NODE_ID}\` — $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$STM_PATH"
 ```
 
 ### Step 4.5 — Write Negative Context
@@ -295,18 +301,20 @@ After fetching, append a summary to the STM `## [STM] Retrieval Log` section:
 
 ## What to Fetch
 
-Prioritise in this order:
+Prioritise in this order (search the graph by these domain types or keyword themes):
 
-| Priority | What | Where |
+| Priority | What | Graph hint |
 |---|---|---|
-| 1 | Service documentation for repos mentioned in the task | `$BRAIN/01 - Services/` |
-| 2 | Domain learnings for the domain those services belong to | `$BRAIN/Brain/Learnings/Domain_<slug>/` |
-| 3 | Architecture docs relevant to the task | `$BRAIN/03 - Architecture/` |
-| 4 | ADRs relevant to patterns being changed | `$BRAIN/04 - Decisions/` |
-| 5 | Project-level learnings for the specific service | `$BRAIN/Brain/Learnings/Project_Level/` |
-| 6 | Global learnings (always fetch once per task) | `$BRAIN/Brain/Learnings/Global/Global Learnings.md` |
-| 7 | Copilot global learnings | `~/.copilot/learnings.md` |
-| 8 | Repo-level learnings | `<repo>/.github/learnings.md` |
+| 1 | Service documentation for repos mentioned in the task | search by service name; nodes in `eroad-brain/01 - Services/` |
+| 2 | Domain learnings for the domain those services belong to | search by domain slug; nodes in `Learnings/Domain_*` |
+| 3 | Architecture docs relevant to the task | search; nodes in `03 - Architecture/` |
+| 4 | ADRs relevant to patterns being changed | search; nodes in `04 - Decisions/` |
+| 5 | Project-level learnings for the specific service | search; nodes in `Learnings/Project_Level/` |
+| 6 | Global learnings (always fetch once per task) | search `Global Learnings` |
+| 7 | Copilot global learnings | `~/.copilot/learnings.md` (still file-based — read directly) |
+| 8 | Repo-level learnings | `<repo>/.github/learnings.md` (still file-based — read directly) |
+
+Items 7–8 remain file-based; the graph only mirrors the EROAD and personal vaults.
 
 ---
 
