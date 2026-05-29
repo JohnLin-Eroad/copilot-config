@@ -90,17 +90,12 @@ bash ~/.copilot/scripts/brain-manifest.sh absent "$MANIFEST_PATH" "topic not in 
 
 **On subsequent invocations (mid-pipeline NEED_DATA):** read the manifest stats first. Skip all previously-fetched files and previously-searched queries. Only do new work.
 
-## Brain Selection
+## Vault Selection
 
 Read the `BRAIN_TYPE` from the STM Task Brief (written by the Orchestrator):
 
-```bash
-# If BRAIN_TYPE: eroad → use eroad-brain (EROAD services, Sovereign, company work)
-BRAIN="$HOME/eroad-brain"
-
-# If BRAIN_TYPE: personal → use john-brain (copilot config, personal projects, general)
-BRAIN="$HOME/john-brain"
-```
+- `BRAIN_TYPE: eroad` → query with `--vault eroad-brain` (EROAD services, Sovereign, company work)
+- `BRAIN_TYPE: personal` → query with `--vault john-brain` (copilot config, personal projects, general)
 
 **If BRAIN_TYPE is not set in the STM**, infer it from the task:
 - Mentions EROAD, Sovereign, a company service, RUCUS, NZ transport → `eroad-brain`
@@ -110,7 +105,7 @@ BRAIN="$HOME/john-brain"
 Write your selection into the STM before fetching:
 ```
 BRAIN_SELECTED: eroad | personal
-BRAIN_PATH: /Users/johnlin/eroad-brain | /Users/johnlin/john-brain
+BRAIN_VAULT: eroad-brain | john-brain
 ```
 
 ## Short-Term Memory (STM) Location
@@ -213,18 +208,12 @@ Some brain content becomes misleading when outdated. For files covering **dynami
 
 **Static topic files are exempt** from degradation: architecture decisions (ADRs), onboarding docs, glossaries, historical context, stable domain model notes.
 
-**Size cap — compress large files:** If a file exceeds 150 lines, do NOT dump the full content into STM. Instead:
-1. Read the full file
+**Size cap — compress large nodes:** If a node's content exceeds 150 lines, do NOT dump it whole into STM. Instead:
+1. Read the full content from the graph result
 2. Extract and write only: the frontmatter/title, section headings, and any paragraphs containing task keywords
-3. Add a note: `<!-- Compressed: original N lines → M lines extracted. Full file at <path> -->`
+3. Add a note: `<!-- Compressed: original N lines → M lines extracted. Full node: <node_id> -->`
 
-```bash
-# Count lines before deciding to compress
-wc -l "$BRAIN/01 - Services/some-service.md"
-
-# Extract headings + keyword-containing lines from a large file
-grep -n "^#\|KEYWORD1\|KEYWORD2" "$BRAIN/01 - Services/some-service.md"
-```
+The `--compact` flag on `brain-graph-query.py` does most of this for you; only manually compress if `--compact` output is still too large.
 
 ### Step 4 — Fetch and Write to STM
 
