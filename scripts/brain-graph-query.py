@@ -37,6 +37,10 @@ try:
 except ImportError:
     HAS_NETWORKX = False
 
+# Memory/decay helpers (Phase 2). No-op when BRAIN_DECAY_ENABLED != "1".
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import brain_graph_memory as bgm  # noqa: E402
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -812,6 +816,11 @@ def tier1_query(
     # Gap analysis
     gaps = gap_analysis(conn, vault, all_results)
 
+    # Phase 2: memory blend + access log (no-op unless BRAIN_DECAY_ENABLED=1)
+    all_results = bgm.apply_memory(
+        conn, all_results, source="search", query_hash=bgm.hash_query(raw_query)
+    )
+
     return {
         "results": all_results,
         "gap_analysis": gaps,
@@ -846,6 +855,11 @@ def tier2_query(
 
     hits = sorted(hits, key=lambda h: h["combined_score"], reverse=True)[:max_results]
     high_score_count = sum(1 for h in hits if h["bm25_score"] >= BM25_LOW_CONFIDENCE_THRESHOLD)
+
+    # Phase 2: memory blend + access log (no-op unless BRAIN_DECAY_ENABLED=1)
+    hits = bgm.apply_memory(
+        conn, hits, source="search", query_hash=bgm.hash_query(raw_query)
+    )
 
     return {
         "results": hits,
@@ -1012,7 +1026,14 @@ def fetch_content(result_ids: list[str], db_path: Path = DEFAULT_DB) -> dict[str
             f"SELECT id, content FROM nodes WHERE id IN ({placeholders})",
             result_ids,
         ).fetchall()
-        return {r[0]: r[1] for r in rows}
+        found = {r[0]: r[1] for r in rows}
+        # Phase 2: log fetch accesses (no-op unless BRAIN_DECAY_ENABLED=1)
+        if bgm.is_enabled():
+            try:
+                bgm.log_access(conn, list(found.keys()), source="fetch")
+            except Exception:
+                pass
+        return found
     finally:
         conn.close()
 
