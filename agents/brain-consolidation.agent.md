@@ -420,9 +420,11 @@ Background housekeeping (decay + access-log pruning) is handled by `brain-sleep.
 ```
 PIPELINE_SIGNAL: DONE
 BRAIN_CONSOLIDATION: COMPLETE
-DOCUMENTS_WRITTEN: <count>
+NODES_UPSERTED: <count>
+NODES_SUPERSEDED: <count>
 LEARNINGS_ADDED: <count>
-SESSION_LOG: $BRAIN/06 - AI Agent Outputs/<date>-<slug>/session-log.md
+SESSION_LOG_NODE: eroad-brain/06 - AI Agent Outputs/<date>-<slug>
+```
 BRAIN_PUSHED: true
 ```
 
