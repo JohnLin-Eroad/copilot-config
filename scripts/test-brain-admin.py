@@ -49,9 +49,12 @@ def _seed(c: sqlite3.Connection) -> None:
 
 
 def _cleanup(c: sqlite3.Connection) -> None:
+    # Delete memory + access rows for ALL test nodes first (FK: node_memory.superseded_by)
     for nid in (TA, TB, TC):
         c.execute("DELETE FROM node_memory WHERE node_id=?", (nid,))
+        c.execute("DELETE FROM node_memory WHERE superseded_by=?", (nid,))
         c.execute("DELETE FROM node_access_log WHERE node_id=?", (nid,))
+    for nid in (TA, TB, TC):
         c.execute("DELETE FROM nodes WHERE id=?", (nid,))
     c.commit()
 
