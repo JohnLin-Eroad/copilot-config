@@ -38,6 +38,12 @@ BLEND_BASE = 0.5                 # final = bm25 * (BLEND_BASE + (1-BLEND_BASE) *
 BLEND_SLOPE = 0.5
 DEFAULT_HALF_LIFE = 7.0
 MAX_HALF_LIFE = 180.0
+HALF_LIFE_GROWTH = 1.05          # successful retrieval extends half-life by 5%
+BUMPS = {                         # added to *decayed* strength on access
+    "search":   0.05,
+    "traverse": 0.05,
+    "fetch":    0.20,
+}
 FEATURE_FLAG_ENV = "BRAIN_DECAY_ENABLED"
 
 
@@ -150,6 +156,65 @@ def hash_query(raw_query: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Reinforcement (Phase 3)
+# ---------------------------------------------------------------------------
+
+def reinforce(
+    conn: sqlite3.Connection,
+    node_ids: Iterable[str],
+    source: str,
+    now: datetime | None = None,
+) -> int:
+    """Bump strength + extend half-life for each MANAGED node accessed.
+
+    Behaviour:
+      * No-op when flag is off.
+      * Unmanaged nodes (no node_memory row) are NOT auto-created — silently skipped.
+      * Bump applied to *decayed* strength (not raw stored value), so stale
+        nodes don't bounce straight back to 1.0 on a single hit.
+      * Strength capped at 1.0, half-life capped at MAX_HALF_LIFE.
+      * Updates last_retrieved_at + retrieval_count + updated_at.
+
+    Returns number of rows updated.
+    """
+    if not is_enabled():
+        return 0
+    ids = [n for n in node_ids if n]
+    if not ids:
+        return 0
+    bump = BUMPS.get(source)
+    if bump is None:
+        raise ValueError(f"invalid source: {source}")
+
+    rows = _fetch_memory_rows(conn, ids)
+    if not rows:
+        return 0
+
+    now = now or datetime.now(timezone.utc)
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    updates = []
+    for nid, (strength, hld, last, _sup) in rows.items():
+        decayed = effective_strength(strength, hld, last, now=now)
+        new_strength = min(1.0, decayed + bump)
+        new_half_life = min(MAX_HALF_LIFE, (hld or DEFAULT_HALF_LIFE) * HALF_LIFE_GROWTH)
+        updates.append((new_strength, new_half_life, now_str, nid))
+
+    conn.executemany(
+        "UPDATE node_memory SET "
+        "  strength = ?, "
+        "  half_life_days = ?, "
+        "  last_retrieved_at = ?, "
+        "  retrieval_count = retrieval_count + 1, "
+        "  updated_at = datetime('now') "
+        "WHERE node_id = ?",
+        updates,
+    )
+    conn.commit()
+    return len(updates)
+
+
+# ---------------------------------------------------------------------------
 # Top-level integration: rerank + log
 # ---------------------------------------------------------------------------
 
@@ -200,5 +265,11 @@ def apply_memory(
         except sqlite3.Error:
             # Logging must never break retrieval.
             pass
+
+    # Reinforce managed nodes (no-op when flag off, or for unmanaged nodes)
+    try:
+        reinforce(conn, ids, source, now=now)
+    except sqlite3.Error:
+        pass
 
     return hits
