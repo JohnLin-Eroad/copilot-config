@@ -208,10 +208,15 @@ def reinforce(
     now_str = now.strftime("%Y-%m-%d %H:%M:%S")
 
     updates = []
-    for nid, (strength, hld, last, _sup) in rows.items():
-        decayed = effective_strength(strength, hld, last, now=now)
+    for nid, m in rows.items():
+        decayed = effective_strength(
+            m["strength"], m["half_life_days"], m["last_retrieved_at"], now=now
+        )
         new_strength = min(1.0, decayed + bump)
-        new_half_life = min(MAX_HALF_LIFE, (hld or DEFAULT_HALF_LIFE) * HALF_LIFE_GROWTH)
+        new_half_life = min(
+            MAX_HALF_LIFE,
+            (m["half_life_days"] or DEFAULT_HALF_LIFE) * HALF_LIFE_GROWTH,
+        )
         updates.append((new_strength, new_half_life, now_str, nid))
 
     conn.executemany(
@@ -239,15 +244,19 @@ def apply_memory(
     query_hash: str | None = None,
     log: bool = True,
     now: datetime | None = None,
+    resort: bool = True,
 ) -> list[dict]:
     """No-op when feature flag is off. Otherwise:
       1. LEFT JOIN node_memory for every hit
-      2. Compute effective_strength + supersedes flag
-      3. Blend into combined_score (preserve original as bm25_score)
-      4. Re-sort by new combined_score
-      5. Log access (batched)
+      2. For MANAGED nodes only: attach effective_strength, confidence,
+         retrieval_count, superseded_by; blend bm25 into combined_score.
+      3. Unmanaged nodes are left untouched (combined_score stays = bm25 + bonus,
+         no memory fields added — keeps output clean for the common case).
+      4. Re-sort by combined_score (only when resort=True; traverse passes False
+         to preserve its edge-weight ordering).
+      5. Log access + reinforce managed nodes.
 
-    Mutates `hits` in place and returns the re-sorted list.
+    Mutates `hits` in place and returns the list.
     """
     if not is_enabled() or not hits:
         return hits
@@ -257,21 +266,24 @@ def apply_memory(
 
     for h in hits:
         nid = h.get("id")
-        row = mem.get(nid)
-        if row is None:
-            strength, hld, last, supersededby = None, None, None, None
-        else:
-            strength, hld, last, supersededby = row
-        eff = effective_strength(strength, hld, last, now=now)
-        is_sup = supersededby is not None
+        m = mem.get(nid)
+        if m is None:
+            # Unmanaged: do not attach any memory fields.
+            continue
+        eff = effective_strength(
+            m["strength"], m["half_life_days"], m["last_retrieved_at"], now=now
+        )
+        is_sup = m["superseded_by"] is not None
         h["effective_strength"] = round(eff, 4)
-        h["superseded_by"] = supersededby
+        h["superseded_by"] = m["superseded_by"]
+        h["confidence"] = m["confidence"]
+        h["retrieval_count"] = m["retrieval_count"]
         bm25 = h.get("bm25_score", h.get("combined_score", 0.0))
         graph_bonus = h.get("graph_bonus", 0.0)
-        # Apply blend to bm25 portion only; graph_bonus is structural, not memory-based.
         h["combined_score"] = round(blend_score(bm25, eff, is_sup) + graph_bonus, 4)
 
-    hits.sort(key=lambda x: x["combined_score"], reverse=True)
+    if resort:
+        hits.sort(key=lambda x: x.get("combined_score", 0.0), reverse=True)
 
     if log and ids:
         try:
