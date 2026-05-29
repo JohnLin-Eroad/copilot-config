@@ -401,15 +401,17 @@ Written to: `06 - AI Agent Outputs/<date>-<task-slug>/session-log.md`
 
 ---
 
-## Step 7 — Push Brain to GitHub
+## Step 7 — Brain Persistence
 
-After all writes and the consolidation report are complete, push the brain vault to GitHub:
+The brain graph is at `~/.copilot/brain-graph.db` — a single SQLite file. Writes are immediate; there's nothing to push.
+
+**Optional backup** (if `brain-graph-backup.sh` exists):
 
 ```bash
-bash ~/.copilot/scripts/brain-git-push.sh "chore: brain consolidation — <task-slug> — $(date +%Y-%m-%d)"
+[ -x ~/.copilot/scripts/brain-graph-backup.sh ] && bash ~/.copilot/scripts/brain-graph-backup.sh || true
 ```
 
-This is always the **final step**. It is a no-op if nothing changed (clean vault).
+Background housekeeping (decay + access-log pruning) is handled by `brain-sleep.py` on a launchd schedule — **do not invoke it here**.
 
 ---
 
