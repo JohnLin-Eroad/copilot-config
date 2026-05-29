@@ -201,41 +201,40 @@ Categorise everything new into buckets:
 
 ---
 
-## Step 3 — Validate Against Existing Brain
+## Step 3 — Dedup Against Existing Brain (SQL graph)
 
-Before writing **anything**, check for existing content to avoid duplication:
+**Always FTS-search before writing.** The vault directories are no longer authoritative.
 
 ```bash
-# Check for existing service doc
-find "$BRAIN/01 - Services" -iname "*<service-name>*" -type f
+# 1. Search by likely keywords from the new knowledge
+python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --vault eroad-brain --query "KEYWORDS" --max-results 5 \
+  --fetch-content --compact
 
-# Check for existing architecture doc
-grep -r --include="*.md" -l "TOPIC_KEYWORD" "$BRAIN/03 - Architecture"
-
-# Check existing ADR numbers
-ls "$BRAIN/04 - Decisions/" | sort
-
-# Check existing learnings for this domain
-cat "$BRAIN/Brain/Learnings/Domain_<slug>/Learnings - <Domain>.md"
+# 2. If a candidate looks like the same topic, inspect it
+python3 ~/.copilot/scripts/brain-graph-admin.py inspect --node-id "<id>"
 ```
 
-**Rules:**
-- If a brain note already exists → **update it** (append a new dated section, never overwrite)
-- If it doesn't exist → create it from the correct template (see brain-sync skill)
-- If a learning is already captured with the same substance → **skip it** (don't duplicate)
-- Mark superseded content with `> **Superseded on YYYY-MM-DD:** reason`
+**Decision tree:**
+- Hit with substantially overlapping content → **update existing node** (re-upsert with appended dated section) then `mark-fresh` to reinforce
+- Hit but the new knowledge **contradicts** or **replaces** it → upsert the new node, then `decide --winner NEW --supersedes OLD`
+- No relevant hit → safe to insert a brand-new node, then `mark-confidence --level {verified|observed|inferred}`
+- Same substance already captured → **skip** the write
+
+Log: `Dedup check: {N} learnings skipped (already present), {M} written, {S} superseded`
 
 ---
 
-## Deduplication Check (run before every write)
+## Deduplication Check (runs before every write)
 
-Before appending any learning to a brain file:
-1. `grep -i "{first 5 words of the learning}" {target file}` 
-2. If a semantically equivalent entry already exists, **skip** the write — do not duplicate
-3. If the existing entry is outdated or wrong, **update it** rather than appending a new one
-4. Only write if the learning is genuinely new
+Before upserting any node or appending any learning:
 
-Log: `Dedup check: {N} learnings skipped (already present), {M} written`
+1. Run `brain-graph-query.py search` with the most distinctive 3–5 keywords
+2. If `score > 0.6` on any hit and the rel_path/title overlaps semantically, treat as a duplicate
+3. If duplicate is **identical in substance** → skip
+4. If duplicate is **outdated/wrong** → upsert new + `decide --supersedes`
+5. If duplicate is **complementary** → update via re-upsert (append dated section)
+6. Only insert a fresh node when no relevant hit exists
 
 ---
 
