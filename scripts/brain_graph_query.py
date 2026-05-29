@@ -744,14 +744,16 @@ def traverse(
         all_neighbors.sort(key=lambda x: (-x["edge_weight"], x["depth"]))
         results = all_neighbors[:max_results]
 
-        # Phase 2: log traversal accesses (no-op unless BRAIN_DECAY_ENABLED=1)
+        # Phase 2+4: enrich results with memory fields, log access, reinforce.
+        # resort=False so caller's edge-weight ordering is preserved.
         if bgm.is_enabled():
             try:
-                bgm.log_access(
+                bgm.apply_memory(
                     conn,
-                    [r["id"] for r in results if "id" in r],
+                    results,
                     source="traverse",
                     query_hash=bgm.hash_query(f"traverse:{start_id}"),
+                    resort=False,
                 )
             except Exception:
                 pass
