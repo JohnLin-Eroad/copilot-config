@@ -115,7 +115,7 @@ def test_managed_gets_memory_fields():
 
         h = hits[0]
         check("effective_strength surfaced", "effective_strength" in h, h.get("effective_strength"))
-        check("confidence surfaced", h.get("confidence") == "decided", h.get("confidence"))
+        check("confidence surfaced", h.get("confidence") == "verified", h.get("confidence"))
         # retrieval_count is the PRE-reinforce value (what user sees reflects state before this hit)
         check("retrieval_count surfaced (pre-reinforce)", h.get("retrieval_count") == 3, h.get("retrieval_count"))
         check("superseded_by surfaced (null)", h.get("superseded_by") is None)
