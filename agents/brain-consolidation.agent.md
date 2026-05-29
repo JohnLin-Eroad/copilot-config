@@ -30,50 +30,100 @@ tools:
 ## DO NOT
 
 - **Do NOT** write `.md` files into ~/eroad-brain or ~/john-brain — SQL-ONLY MODE is active
-- **Do NOT** skip the duplicate-check before inserting a new node — search first
+- **Do NOT** skip the duplicate-check before inserting a new node — search FTS first via `brain-graph-query.py search`
 - **Do NOT** consolidate without reading the STM in full
 - **Do NOT** propagate a project-level learning to global without genuine cross-domain relevance
+- **Do NOT** write raw `INSERT INTO node_memory` SQL — always use `brain-graph-admin.py`
+- **Do NOT** use `grep -r` / `find` on the vault directories — they are no longer authoritative; query the graph
 
+---
 
-> ## ⚡ SQL-ONLY MODE (active 2026-05-19)
+> ## ⚡ SQL-ONLY MODE — Operating Manual
 >
-> **Obsidian is toggled OFF.** The brain is now a SQLite graph at `~/.copilot/brain-graph.db` (tables: `nodes`, `edges`, `aliases`, `nodes_fts`).
+> The brain is the SQLite graph at `~/.copilot/brain-graph.db` (tables: `nodes`, `edges`, `aliases`, `nodes_fts`, `node_memory`, `node_access_log`).
 >
-> **Write-back protocol (replaces all `.md` file creation below):**
+> ### Tools you use (in this order)
 >
-> 1. Compose the knowledge as a markdown blob (frontmatter + body) — same content shape as before.
-> 2. Pick a node id: `<vault>/<folder>/<kebab-case-title>` where vault is `eroad-brain` or `john-brain`.
-> 3. Insert directly into the graph:
+> 1. **Search before writing** — `brain-graph-query.py search` (FTS5 over the graph)
+> 2. **Upsert content** — `brain-upsert-node.sh` (helper) or direct SQL via the snippet below
+> 3. **Manage memory metadata** — `brain-graph-admin.py` (mark-confidence, decide, inspect, list-stale, mark-fresh)
+> 4. **Housekeeping** — `brain-sleep.py` is run by launchd, not you
 >
->    ```bash
->    python3 - <<'PY'
->    import sqlite3, hashlib, datetime, pathlib
->    DB = pathlib.Path.home() / ".copilot/brain-graph.db"
->    node_id   = "eroad-brain/Learnings/<title>"
->    vault     = "eroad-brain"
->    rel_path  = "Learnings/<title>.md"
->    basename  = "<title>"
->    title     = "<Title>"
->    content   = """---\ntitle: ...\ntags: [...]\ndate: 2026-05-19\n---\n# ...\n"""
->    domain    = "learning"   # or service|domain_model|architecture|decision|ai_output
->    now = datetime.datetime.utcnow().isoformat() + "+00:00"
->    h = hashlib.sha256(content.encode()).hexdigest()
->    con = sqlite3.connect(DB)
->    con.execute("""INSERT INTO nodes(id,vault,rel_path,basename,title,content,content_hash,size_bytes,modified_at,domain,subdomain,indexed_at,tombstone)
->                   VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)
->                   ON CONFLICT(id) DO UPDATE SET content=excluded.content, content_hash=excluded.content_hash,
->                       size_bytes=excluded.size_bytes, modified_at=excluded.modified_at, indexed_at=excluded.indexed_at, tombstone=0""",
->                (node_id, vault, rel_path, basename, title, content, h, len(content), now, domain, "", now))
->    con.commit(); con.close()
->    PY
->    ```
+> ### Dedup check (replaces all `grep -r`/`find` patterns below)
 >
-> 4. For wiki-link edges to related notes, also `INSERT OR IGNORE INTO edges(source_id, target_id, edge_type, weight) VALUES (?, ?, 'wiki_link', 1.0)`.
-> 5. **Do NOT write `.md` files to `~/eroad-brain` or `~/john-brain`.** Those directories are no longer authoritative.
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-query.py search \
+>   --vault eroad-brain --query "KEYWORDS FROM YOUR LEARNING" \
+>   --max-results 5 --compact
+> ```
 >
-> `.github/learnings.md` repo-local writes are still allowed and unchanged.
+> - **≥1 hit with high overlap** → update existing node (re-upsert content with appended dated section) and run `brain-graph-admin.py mark-fresh --node-id <id>` to reinforce it
+> - **0 relevant hits** → safe to insert a new node
 >
-> Ignore any instructions below this block that say to write `.md` files into the Obsidian vault directories.
+> ### Node upsert (replaces the legacy heredoc)
+>
+> Use the helper if it exists, otherwise inline this minimal upsert:
+>
+> ```bash
+> python3 - "$NODE_ID" "$VAULT" "$REL_PATH" "$BASENAME" "$TITLE" "$DOMAIN" "$CONTENT" <<'PY'
+> import sys, sqlite3, hashlib, datetime, pathlib
+> node_id, vault, rel_path, basename, title, domain, content = sys.argv[1:8]
+> DB = pathlib.Path.home() / ".copilot/brain-graph.db"
+> now = datetime.datetime.utcnow().isoformat() + "+00:00"
+> h = hashlib.sha256(content.encode()).hexdigest()
+> con = sqlite3.connect(DB)
+> con.execute("""INSERT INTO nodes(id,vault,rel_path,basename,title,content,content_hash,size_bytes,modified_at,domain,subdomain,indexed_at,tombstone)
+>                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)
+>                ON CONFLICT(id) DO UPDATE SET content=excluded.content,
+>                    content_hash=excluded.content_hash, size_bytes=excluded.size_bytes,
+>                    modified_at=excluded.modified_at, indexed_at=excluded.indexed_at, tombstone=0""",
+>             (node_id, vault, rel_path, basename, title, content, h, len(content), now, domain, "", now))
+> con.commit(); con.close()
+> print(f"upserted {node_id}")
+> PY
+> ```
+>
+> Wiki-link edges (still useful for traversal):
+> `INSERT OR IGNORE INTO edges(source_id, target_id, edge_type, weight) VALUES (?, ?, 'wiki_link', 1.0)`
+>
+> ### Memory metadata (NEW — always use the admin CLI)
+>
+> After upserting a node, classify the knowledge so the decay system can rank it:
+>
+> ```bash
+> # First-class verified knowledge (decisions, ADRs, validated patterns)
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level verified
+>
+> # Observed but not formally validated (session findings, scratchpad notes)
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level observed
+>
+> # Inferred / speculative
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level inferred
+> ```
+>
+> Replacement / contradiction → use `decide`:
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py decide \
+>   --winner "$NEW_NODE_ID" --supersedes "$OLD_NODE_ID" --note "reason"
+> ```
+>
+> Inspect a node's full state:
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py inspect --node-id "$NODE_ID"
+> ```
+>
+> Triage stale knowledge (informational; `brain-sleep` does this automatically):
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py list-stale --limit 20
+> ```
+>
+> `.github/learnings.md` repo-local writes via `add-learning.sh` are unchanged.
 
 ---
 
