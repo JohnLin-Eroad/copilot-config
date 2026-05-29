@@ -342,18 +342,21 @@ bash ~/.copilot/scripts/add-learning.sh --global "Cross-repo pattern"
 
 ---
 
-## Step 5 — Write the Session Log to Brain
+## Step 5 — Write the Session Log Node
 
-Write the final session log to the brain:
+Compose the session log as markdown and upsert as a node (no filesystem writes):
 
 ```bash
-SESSION_LOG_DIR="$BRAIN/06 - AI Agent Outputs/$(date +%Y-%m-%d)-<task-slug>"
-mkdir -p "$SESSION_LOG_DIR"
+NODE_ID="eroad-brain/06 - AI Agent Outputs/$(date +%Y-%m-%d)-<task-slug>"
+# ... build $CONTENT with full pipeline summary, links, learnings table ...
+# upsert via the snippet at the top of this doc, then:
+python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+  --node-id "$NODE_ID" --level observed
 ```
 
 The session log format is defined in the `brain-sync` skill. Include:
 - Full pipeline summary table
-- Brain notes written (with wiki-links)
+- Nodes written (with their IDs and the edges added)
 - Learnings added (at which level)
 - Links to Jira, PRs, Confluence
 
