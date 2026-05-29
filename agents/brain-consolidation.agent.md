@@ -425,8 +425,6 @@ NODES_SUPERSEDED: <count>
 LEARNINGS_ADDED: <count>
 SESSION_LOG_NODE: eroad-brain/06 - AI Agent Outputs/<date>-<slug>
 ```
-BRAIN_PUSHED: true
-```
 
 ## When Stuck
 
