@@ -65,12 +65,45 @@ def sync_skills() -> None:
             sync_file(src, dst_dir / skill_dir.name / src.name)
 
 
+SCRIPT_EXTENSIONS = ("*.py", "*.sh", "*.md", "*.sql")
+
+
 def sync_scripts() -> None:
     src_dir = COPILOT_DIR / "scripts"
     dst_dir = REPO_DIR / "scripts"
     dst_dir.mkdir(parents=True, exist_ok=True)
-    for src in src_dir.glob("*.py"):
+    current: set[str] = set()
+    for pattern in SCRIPT_EXTENSIONS:
+        for src in src_dir.glob(pattern):
+            if src.name.endswith(".bak") or ".bak-" in src.name:
+                continue
+            current.add(src.name)
+            sync_file(src, dst_dir / src.name)
+    # Prune scripts removed from source (only files with extensions we manage)
+    for existing in dst_dir.iterdir():
+        if not existing.is_file():
+            continue
+        if not any(existing.match(p) for p in SCRIPT_EXTENSIONS):
+            continue
+        if existing.name not in current:
+            existing.unlink()
+
+
+def sync_launch_agents() -> None:
+    """Sync our managed launchd plists from ~/Library/LaunchAgents."""
+    src_dir = Path.home() / "Library" / "LaunchAgents"
+    dst_dir = REPO_DIR / "LaunchAgents"
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    managed_prefixes = ("com.johnlin.", "com.eroad.")
+    current: set[str] = set()
+    for src in src_dir.glob("*.plist"):
+        if not src.name.startswith(managed_prefixes):
+            continue
+        current.add(src.name)
         sync_file(src, dst_dir / src.name)
+    for existing in dst_dir.glob("*.plist"):
+        if existing.name not in current:
+            existing.unlink()
 
 
 def sync_mcp_config() -> None:
