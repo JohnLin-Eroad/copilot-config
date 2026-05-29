@@ -1039,10 +1039,11 @@ def fetch_content(result_ids: list[str], db_path: Path = DEFAULT_DB) -> dict[str
             result_ids,
         ).fetchall()
         found = {r[0]: r[1] for r in rows}
-        # Phase 2: log fetch accesses (no-op unless BRAIN_DECAY_ENABLED=1)
+        # Phase 2: log fetch accesses; Phase 3: reinforce (both no-op unless flag on)
         if bgm.is_enabled():
             try:
                 bgm.log_access(conn, list(found.keys()), source="fetch")
+                bgm.reinforce(conn, list(found.keys()), source="fetch")
             except Exception:
                 pass
         return found
