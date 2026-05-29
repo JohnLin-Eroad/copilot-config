@@ -115,17 +115,31 @@ def _parse_ts(ts: str) -> datetime:
 
 def _fetch_memory_rows(
     conn: sqlite3.Connection, node_ids: list[str]
-) -> dict[str, tuple]:
-    """Return {node_id: (strength, half_life_days, last_retrieved_at, superseded_by)}."""
+) -> dict[str, dict]:
+    """Return {node_id: {strength, half_life_days, last_retrieved_at,
+    superseded_by, confidence, retrieval_count}} for MANAGED nodes only.
+    Unmanaged nodes are absent from the dict.
+    """
     if not node_ids:
         return {}
     placeholders = ",".join("?" for _ in node_ids)
     rows = conn.execute(
-        f"SELECT node_id, strength, half_life_days, last_retrieved_at, superseded_by "
+        f"SELECT node_id, strength, half_life_days, last_retrieved_at, "
+        f"       superseded_by, confidence, retrieval_count "
         f"FROM node_memory WHERE node_id IN ({placeholders})",
         node_ids,
     ).fetchall()
-    return {r[0]: (r[1], r[2], r[3], r[4]) for r in rows}
+    return {
+        r[0]: {
+            "strength": r[1],
+            "half_life_days": r[2],
+            "last_retrieved_at": r[3],
+            "superseded_by": r[4],
+            "confidence": r[5],
+            "retrieval_count": r[6],
+        }
+        for r in rows
+    }
 
 
 def log_access(
