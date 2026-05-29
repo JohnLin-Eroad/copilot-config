@@ -104,8 +104,10 @@ def main() -> int:
     print("\nRound-trip + cascade")
     try:
         cur.execute(
-            "INSERT OR IGNORE INTO nodes (id, vault, path, basename, title, content, frontmatter, mtime) "
-            "VALUES (?, 'john-brain', ?, 'phase1-test.md', 'phase1-test', '', '{}', strftime('%s','now'))",
+            "INSERT OR IGNORE INTO nodes "
+            "(id, vault, rel_path, basename, title, content, content_hash, modified_at, indexed_at) "
+            "VALUES (?, 'john-brain', ?, 'phase1-test.md', 'phase1-test', '', "
+            "'deadbeef', datetime('now'), datetime('now'))",
             (TEST_NODE_ID, f"{TEST_NODE_ID}.md"),
         )
         cur.execute(
