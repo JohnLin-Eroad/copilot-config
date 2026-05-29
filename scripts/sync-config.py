@@ -130,6 +130,7 @@ def main() -> None:
     sync_agents()
     sync_skills()
     sync_scripts()
+    sync_launch_agents()
     sync_mcp_config()
 
     # Stage everything
