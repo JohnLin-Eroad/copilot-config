@@ -743,7 +743,19 @@ def traverse(
         # Sort by edge weight (strongest connections first), then by depth (closer first)
         all_neighbors.sort(key=lambda x: (-x["edge_weight"], x["depth"]))
         results = all_neighbors[:max_results]
-        
+
+        # Phase 2: log traversal accesses (no-op unless BRAIN_DECAY_ENABLED=1)
+        if bgm.is_enabled():
+            try:
+                bgm.log_access(
+                    conn,
+                    [r["id"] for r in results if "id" in r],
+                    source="traverse",
+                    query_hash=bgm.hash_query(f"traverse:{start_id}"),
+                )
+            except Exception:
+                pass
+
         return {
             "start_node": {"id": start_id, "rel_path": start_path, "title": start_title, "domain": start_domain},
             "results": results,
