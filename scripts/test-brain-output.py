@@ -105,7 +105,7 @@ def test_managed_gets_memory_fields():
             "INSERT INTO node_memory "
             "(node_id, strength, half_life_days, confidence, retrieval_count, "
             " last_retrieved_at) "
-            "VALUES (?, 0.8, 7.0, 'decided', 3, datetime('now'))",
+            "VALUES (?, 0.8, 7.0, 'verified', 3, datetime('now'))",
             (TA,),
         )
         c.commit()
@@ -229,7 +229,7 @@ def test_flag_off_no_fields_added():
         _cleanup(c); _seed_nodes(c)
         c.execute(
             "INSERT INTO node_memory (node_id, strength, half_life_days, confidence) "
-            "VALUES (?, 0.8, 7.0, 'decided')", (TA,))
+            "VALUES (?, 0.8, 7.0, 'verified')", (TA,))
         c.commit()
 
         os.environ["BRAIN_DECAY_ENABLED"] = "0"
