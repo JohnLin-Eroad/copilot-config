@@ -1,102 +1,51 @@
 ---
 name: brain-sync
 description: >
-  Invoke at the START of every task to look up relevant context from the Obsidian
-  knowledge vault (the Brain), and at the END of every task to persist new knowledge.
-  The Brain is the single source of truth for all institutional knowledge about EROAD's
+  Invoke at the START of every task to look up relevant context from the brain
+  SQL graph, and at the END of every task to persist new knowledge. The brain is
+  the single source of truth for all institutional knowledge about EROAD's
   systems, services, and decisions.
 ---
 
 # Brain Sync — SQL Graph Integration
 
-> ## ⚡ SQL-ONLY MODE (active 2026-05-19)
->
-> **Obsidian vaults are toggled OFF as a knowledge source.** The single source of truth is now `~/.copilot/brain-graph.db` (SQLite). The `obsidian-sync` and `brain-repo-sync` launchd jobs have been unloaded.
->
-> ### Lookup (replaces "grep the vault")
->
-> ```bash
-> # FTS search across the graph
-> python3 ~/.copilot/scripts/brain-graph-query.py search \
->   --query "KEYWORDS" --vault eroad-brain --max-results 10 --fetch-content --compact
->
-> # BFS traversal from a known node
-> python3 ~/.copilot/scripts/brain-graph-query.py traverse \
->   --start-id "eroad-brain/01 - Services/media-service" --depth 2 --fetch-content
-> ```
->
-> Vaults available in the graph: `eroad-brain` (858 nodes), `john-brain` (54 nodes).
->
-> ### Write-back (replaces creating `.md` files)
->
-> See `brain-consolidation.agent.md` for the SQL upsert protocol. **Do not write `.md` files into `~/eroad-brain` or `~/john-brain`** — they are no longer authoritative.
->
-> Everything below this block describing `grep -r "$BRAIN"`, file-based templates, wiki-link `.md` cross-references, etc. is retained for reference but is **superseded**. Use the SQL graph.
+The single source of truth is `~/.copilot/brain-graph.db` (SQLite, FTS5-indexed). Obsidian vaults (`~/eroad-brain`, `~/john-brain`) are no longer authoritative and their sync jobs are unloaded — **do not grep, read, or write `.md` files in those vaults**.
 
----
+Vaults available in the graph: `eroad-brain` (858 nodes), `john-brain` (54 nodes).
 
-# Brain Sync — Obsidian Vault Integration (LEGACY, superseded by SQL-Only Mode above)
+## When to use
 
-## Vault Location
+- **Start of every task** — fetch relevant context before specialist work begins.
+- **Mid-task** — when an agent emits `PIPELINE_SIGNAL: NEED_DATA`.
+- **End of every task** — write back learnings, decisions, and new entities.
 
-```
-~/eroad-brain        # EROAD/work context  ($BRAIN)
-~/john-brain         # Personal/general context
+## Lookup
+
+```bash
+# FTS keyword search (use first for most queries)
+python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --query "KEYWORDS" --vault eroad-brain --max-results 10 --fetch-content --compact
+
+# BFS traversal from a known node (use when you have an entry point)
+python3 ~/.copilot/scripts/brain-graph-query.py traverse \
+  --start-id "eroad-brain/01 - Services/media-service" --depth 2 --fetch-content
 ```
 
----
+Vault routing:
+- EROAD/Sovereign/company/services → `eroad-brain`
+- Copilot config / personal / general → `john-brain`
 
-## When to Use
+## Write-back
 
-- **START of every task** — search the Brain for relevant context before doing any work
-- **END of every task** — write new knowledge back to the Brain
+Use SQL upserts into the `nodes` and `edges` tables. See `brain-consolidation.agent.md` for the full protocol. Never write `.md` files into the vaults.
 
----
+## STM-first rule
 
-## Knowledge Lookup — 3-Step Escalation
-
-1. **Search the Brain** — `grep -r --include="*.md" -l "KEYWORD" "$BRAIN"` — read any relevant notes fully
-2. **Ask another agent** — if Brain doesn't have what you need, signal the Orchestrator to delegate to a specialist
-3. **Ask the user** — only after steps 1-2 are exhausted; explain what you searched for and why you couldn't find it
-
----
-
-## Core Write-Back Principles
-
-- **No duplicates** — check if a note exists before creating a new one; update existing notes with dated sections
-- **Use templates** — always start from `$BRAIN/Templates/<Type>.md` when creating new notes
-- **YAML frontmatter required** — every note needs `title`, `tags`, `date` at minimum
-- **Append-only** — never delete content; mark superseded sections with a blockquote
-- **Cross-link** — use `[[wiki-link]]` syntax to connect related notes
-
----
+Before invoking brain-sync, check the STM Fetch Manifest. If the data is already there, skip. If you need data that is NOT in the STM, emit `PIPELINE_SIGNAL: NEED_DATA` with the specific topics so the orchestrator can route to `brain-data-retrieval`.
 
 ## Gotchas
 
-- **Always search before creating** — duplicate notes are the #1 brain pollution problem. `find "$BRAIN" -name "*keyword*"` first.
-- **Check STM before searching the Brain** — the data may already be fetched. Don't waste tool calls on redundant lookups.
-- **Never delete content** — if something is wrong, mark it superseded with a dated blockquote. Append-only vault.
-- **Don't forget YAML frontmatter** — notes without `title`, `tags`, `date` break Obsidian's graph and search index.
-- **Use kebab-case filenames only** — `payment-service.md` not `PaymentService.md`. Obsidian wiki-links are case-sensitive.
-- **Don't use `~` in wiki-links** — use relative Obsidian syntax: `[[01 - Services/payment-service]]` not absolute paths.
-- **Route to the correct vault** — `~/eroad-brain` for EROAD/work, `~/john-brain` for personal/general. Wrong vault = lost knowledge.
-
----
-
-## STM Integration
-
-Before doing brain lookups, **check the STM first** — the data may already be there. If you need brain data not in the STM, emit `PIPELINE_SIGNAL: NEED_DATA` with the topics you need.
-
----
-
-## Progressive Loading
-
-When ready to execute brain operations:
-```bash
-cat ~/.copilot/skills/brain-sync/GUIDE.md     # Search commands, write-back rules, STM protocol
-```
-
-For session log templates and folder routing:
-```bash
-cat ~/.copilot/skills/brain-sync/DETAIL.md    # Folder structure, templates, session log format
-```
+- **Always use `brain-graph-query.py`** — never query the SQLite DB directly. The FTS5 schema needs JOINs the script handles internally.
+- **Route to the correct vault** — wrong vault = lost knowledge.
+- **Do not duplicate nodes** — search first, then upsert. The graph's value comes from connectedness, not volume.
+- **Per-repo `.github/learnings.md`** is unchanged — that is a separate, local learnings store and is still file-based.
