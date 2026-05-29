@@ -240,23 +240,10 @@ Before upserting any node or appending any learning:
 
 ## Step 4 — Write Brain Updates
 
-### 4a. Service/Architecture/Decision Documents
+### 4a. Knowledge Nodes (Services / Architecture / Decisions / Runbooks)
 
-Use the correct templates:
+Compose the markdown blob in memory with YAML frontmatter, then upsert via the snippet at the top of this doc. **There are no template files to read** — embed the frontmatter directly:
 
-```bash
-# Check available templates
-ls "$BRAIN/Templates/"
-
-# Use a template
-cat "$BRAIN/Templates/Service.md"
-cat "$BRAIN/Templates/Architecture.md"
-cat "$BRAIN/Templates/Decision.md"
-cat "$BRAIN/Templates/Runbook.md"
-cat "$BRAIN/Templates/Knowledge.md"
-```
-
-Every note MUST have YAML frontmatter:
 ```yaml
 ---
 title: "Descriptive Title"
@@ -267,11 +254,22 @@ date: "YYYY-MM-DD"
 ---
 ```
 
-Use Obsidian wiki-links to cross-reference related notes:
-```markdown
-See also: [[01 - Services/replay-service]]
-Related: [[04 - Decisions/adr-007-event-driven-provisioning]]
+**Node-id convention:** `<vault>/<folder>/<kebab-case-title>` e.g.
+- `eroad-brain/01 - Services/replay-service`
+- `eroad-brain/04 - Decisions/adr-015-stm-pattern`
+- `john-brain/Learnings/Copilot/brain-decay-rollout`
+
+**Cross-references → edges, not wiki-link text:** after upserting a node, add edges to related nodes:
+
+```bash
+sqlite3 ~/.copilot/brain-graph.db <<SQL
+INSERT OR IGNORE INTO edges(source_id, target_id, edge_type, weight) VALUES
+  ('$NEW_NODE_ID', 'eroad-brain/01 - Services/replay-service', 'wiki_link', 1.0),
+  ('$NEW_NODE_ID', 'eroad-brain/04 - Decisions/adr-007-event-driven-provisioning', 'wiki_link', 1.0);
+SQL
 ```
+
+**Then classify the node:** after upsert + edges, always run `brain-graph-admin.py mark-confidence` so the decay system can rank it (see "Memory metadata" at top).
 
 ### 4b. Learnings — Three-Level Write + Upward Propagation
 
