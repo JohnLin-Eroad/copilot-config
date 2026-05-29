@@ -12,7 +12,10 @@ echo "[$(date)] 👀 Watching Copilot config and sessions for changes..."
 
 # --latency 2: batch all events within a 2-second window (natural debounce)
 # -o: output one line per batch (event count), not per-file paths
+# --exclude '\.git/': prevent feedback loop (git push touches .git → would re-trigger)
 "$FSWATCH" --latency 2 -o \
+    --exclude '\.git/' \
+    --exclude '\.DS_Store' \
     "$COPILOT_DIR/agents" \
     "$COPILOT_DIR/skills" \
     "$COPILOT_DIR/scripts" \
