@@ -15,6 +15,18 @@ tools:
 
 # Brain Repo Sync Agent
 
+## Tools
+
+- `task`
+
+## DO NOT
+
+- **Do NOT** delete vault notes for repos that still exist — tombstone, never destroy
+- **Do NOT** overwrite human-edited sections of an existing note without merging
+- **Do NOT** run a full sync when an incremental sync would suffice
+- **Do NOT** skip the YAML frontmatter on auto-generated notes
+
+
 ## Purpose
 
 Keep the `eroad-brain` Obsidian vault in sync with the actual state of EROAD's

@@ -537,8 +537,8 @@ class WorkflowPoller:
     - Adaptive polling: 2s active, 10s idle
     """
 
-    ACTIVE_INTERVAL_S = 2.0     # any workflow changed recently
-    IDLE_INTERVAL_S = 10.0      # no changes in last 60s
+    ACTIVE_INTERVAL_S = 1.0     # any workflow changed recently
+    IDLE_INTERVAL_S = 5.0       # no changes in last 60s
     FORCE_REPARSE_S = 30.0      # bypass fast-path every 30s
     IDLE_THRESHOLD_S = 60.0     # no change for this long → idle mode
 
@@ -877,6 +877,79 @@ def parse_stm_meta(content: str) -> dict:
     return meta
 
 
+
+def _reconcile_dag_with_stm(dag: dict, agent_latest: dict) -> dict:
+    """Reconcile DAG node statuses with STM agent activity entries.
+
+    The DAG JSON is updated by the orchestrator via pipeline-dag.sh, but there
+    can be timing gaps where the STM activity already shows an agent as
+    complete while the DAG file still says 'pending' or 'running'.  This
+    function merges STM-derived statuses into the DAG so the dashboard nodes
+    light up correctly.
+
+    Matching strategy (mirrors the frontend findAgentEntry logic):
+      1. Exact node.id match in parenthesised agent name: "developer (dev-01)"
+      2. Case-insensitive match on node.agent == STM agent type
+      3. STM agent name contains node.id
+      4. node.agent contains STM agent name
+    """
+    stm_status_map = {
+        "complete":    "done",
+        "in_progress": "running",
+        "starting":    "running",
+        "failed":      "failed",
+        "blocked":     "pending",
+        "idle":        None,
+    }
+
+    def _find_stm_entry(node):
+        nid = node.get("id", "").lower()
+        nagent = node.get("agent", "").lower()
+        # 1. Parenthesised ID match: STM key "developer (dev-01)" -> node id "dev-01"
+        for key, entry in agent_latest.items():
+            m = re.search(r"\(([^)]+)\)", key)
+            if m and m.group(1).lower() == nid:
+                return entry
+        # 2. Case-insensitive exact match on agent type
+        matches = [(k, e) for k, e in agent_latest.items() if k.lower() == nagent or k.lower().startswith(nagent)]
+        if len(matches) == 1:
+            return matches[0][1]
+        # 3. STM agent name contains node id
+        for key, entry in agent_latest.items():
+            if nid and nid in key.lower():
+                return entry
+        # 4. Node agent contains STM agent name
+        for key, entry in agent_latest.items():
+            if nagent and key.lower() in nagent:
+                return entry
+        return None
+
+    for node in dag.get("nodes", []):
+        entry = _find_stm_entry(node)
+        if not entry:
+            continue
+        stm_status = entry.get("status", "")
+        dag_target = stm_status_map.get(stm_status)
+        if dag_target is None:
+            continue
+        current = node.get("status", "pending")
+        # Only promote forward - never regress a done/failed node
+        if current in ("done", "failed", "skipped"):
+            continue
+        # Don't downgrade running to pending
+        if current == "running" and dag_target == "pending":
+            continue
+        node["status"] = dag_target
+        ts = entry.get("timestamp")
+        if dag_target in ("running", "done") and not node.get("started_at") and ts:
+            node["started_at"] = ts
+        if dag_target == "done" and not node.get("completed_at") and ts:
+            node["completed_at"] = ts
+        if dag_target == "done":
+            node["_stm_reconciled"] = True
+
+    return dag
+
 def _build_dashboard_data(stm_path: Path, content: str) -> dict:
     """Build dashboard payload from pre-read content (avoids double-read in refresh loop)."""
     entries = parse_stm_entries(content)
@@ -913,6 +986,19 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
     for e in timeline_raw:
         e["is_latest"] = (e["timestamp"] == latest_ts_per_agent.get(e["agent"]))
 
+    # Read pipeline DAG if present (lives alongside STM)
+    dag = None
+    dag_path = stm_path.parent / "pipeline-dag.json"
+    if dag_path.exists():
+        try:
+            dag = json.loads(dag_path.read_text(encoding="utf-8"))
+        except Exception:
+            dag = None
+
+    # Reconcile DAG node statuses with STM agent activity
+    if dag and dag.get("nodes"):
+        dag = _reconcile_dag_with_stm(dag, agent_latest)
+
     return {
         "stm_path":    str(stm_path),
         "stm_name":    re.sub(r"^\d{4}[-\s]\d{2}[-\s]\d{2}[-\s]", "", stm_path.parent.name.replace("-", " ")).title(),
@@ -921,6 +1007,7 @@ def _build_dashboard_data(stm_path: Path, content: str) -> dict:
         "timeline":    timeline_raw,
         "entry_count": len(entries),
         "updated_at":  datetime.now(timezone.utc).isoformat(),
+        "dag":         dag,
     }
 
 
@@ -1003,9 +1090,61 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .section-label{font-size:0.7rem;text-transform:uppercase;letter-spacing:.08em;
   color:var(--text3);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)}
 
+/* ── Pipeline summary banner ── */
+#pipeline-summary{display:none;margin-bottom:16px;padding:14px 18px;border-radius:12px;
+  background:#111827;border:1px solid var(--border);font-size:0.82rem;line-height:1.55}
+#pipeline-summary.visible{display:block}
+#pipeline-summary.done{border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.06)}
+#pipeline-summary.running{border-color:rgba(108,142,247,0.4);background:rgba(108,142,247,0.06)}
+#pipeline-summary.failed{border-color:rgba(248,113,113,0.4);background:rgba(248,113,113,0.06)}
+#pipeline-summary .ps-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+#pipeline-summary .ps-title{color:#e2e8f0;font-weight:600;font-size:0.9rem}
+#pipeline-summary .ps-badge{font-size:0.7rem;padding:2px 10px;border-radius:99px;font-weight:500}
+#pipeline-summary .ps-stats{display:flex;gap:16px;flex-wrap:wrap}
+#pipeline-summary .ps-stat{color:#94a3b8;font-size:0.76rem}
+#pipeline-summary .ps-stat b{color:#cbd5e1;font-weight:600}
+
 /* ── Pipeline diagram ── */
 #pipeline-wrap{position:relative;overflow-x:auto;margin-bottom:24px}
 #pipeline-svg{display:block;min-height:240px}
+
+/* ── DAG Node Tooltip (hover) ── */
+#dag-tooltip{position:fixed;z-index:9999;pointer-events:none;
+  background:#151b2b;border:1px solid rgba(108,142,247,0.35);border-radius:10px;
+  padding:10px 14px;max-width:340px;font-size:0.78rem;line-height:1.45;
+  color:#94a3b8;box-shadow:0 8px 24px rgba(0,0,0,0.55);display:none;
+  backdrop-filter:blur(8px)}
+#dag-tooltip .tt-agent{color:#e2e8f0;font-weight:600;font-size:0.85rem;margin-bottom:4px}
+#dag-tooltip .tt-status{font-size:0.72rem;padding:2px 8px;border-radius:99px;display:inline-block;margin-bottom:6px}
+#dag-tooltip .tt-findings{color:#cbd5e1;white-space:pre-wrap;max-height:120px;overflow:hidden;text-overflow:ellipsis}
+#dag-tooltip .tt-meta{color:#475569;font-size:0.7rem;margin-top:6px}
+
+/* ── DAG Node Detail Modal (click) ── */
+#dag-modal-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.6);
+  display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+#dag-modal-overlay.visible{display:flex}
+#dag-modal{background:#0f1420;border:1px solid rgba(108,142,247,0.3);border-radius:14px;
+  padding:0;width:min(580px,90vw);max-height:80vh;overflow:hidden;
+  box-shadow:0 16px 48px rgba(0,0,0,0.7)}
+#dag-modal .modal-header{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px;border-bottom:1px solid var(--border);background:#111827}
+#dag-modal .modal-header h3{margin:0;font-size:1rem;color:#e2e8f0;font-weight:600}
+#dag-modal .modal-close{background:none;border:none;color:#64748b;font-size:1.3rem;
+  cursor:pointer;padding:4px 8px;border-radius:6px;transition:color .2s}
+#dag-modal .modal-close:hover{color:#e2e8f0}
+#dag-modal .modal-body{padding:16px 20px;overflow-y:auto;max-height:calc(80vh - 60px)}
+#dag-modal .detail-row{display:flex;gap:10px;margin-bottom:10px;align-items:baseline}
+#dag-modal .detail-label{color:#475569;font-size:0.72rem;text-transform:uppercase;
+  letter-spacing:.06em;min-width:70px;flex-shrink:0}
+#dag-modal .detail-value{color:#cbd5e1;font-size:0.82rem;line-height:1.5}
+#dag-modal .detail-value.findings{white-space:pre-wrap;background:#0a0d14;padding:10px 12px;
+  border-radius:8px;border:1px solid #1e2d45;font-family:'SF Mono',monospace;font-size:0.76rem;
+  max-height:240px;overflow-y:auto;width:100%}
+#dag-modal .detail-value .badge{display:inline-block;padding:2px 8px;border-radius:99px;
+  font-size:0.7rem;margin-right:6px}
+#dag-modal .files-list{list-style:none;padding:0;margin:0}
+#dag-modal .files-list li{color:#6c8ef7;font-family:'SF Mono',monospace;font-size:0.76rem;
+  padding:2px 0}
 
 /* ── Agent cards ── */
 .agent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:24px}
@@ -1051,6 +1190,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .superseded-badge{font-size:0.62rem;padding:1px 5px;border-radius:3px;
   background:rgba(100,116,139,0.15);color:var(--text3);margin-left:6px;vertical-align:middle}
 @keyframes slide-in{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 .tl-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px}
 .tl-content{flex:1;min-width:0}
 .tl-agent{font-size:0.78rem;font-weight:600;color:var(--text)}
@@ -1159,8 +1299,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
     <!-- Pipeline SVG diagram -->
     <div class="section-label" style="margin-bottom:12px">Pipeline Flow</div>
-    <div id="pipeline-wrap">
+    <div id="pipeline-summary"></div>
+    <div id="pipeline-wrap" style="position:relative">
       <svg id="pipeline-svg" width="100%" height="240"></svg>
+      <div id="pipeline-click-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:5"></div>
+    </div>
+    <!-- DAG hover tooltip -->
+    <div id="dag-tooltip"></div>
+    <!-- DAG click detail modal -->
+    <div id="dag-modal-overlay" onclick="if(event.target===this)this.classList.remove('visible')">
+      <div id="dag-modal">
+        <div class="modal-header">
+          <h3 id="modal-title">Agent Detail</h3>
+          <button class="modal-close" onclick="document.getElementById('dag-modal-overlay').classList.remove('visible')">&times;</button>
+        </div>
+        <div class="modal-body" id="modal-body"></div>
+      </div>
     </div>
 
     <!-- Agent cards -->
@@ -1258,7 +1412,8 @@ function relTime(isoStr) {
 }
 
 // ── Pipeline diagram — multi-row stage layout ──────────────────────────────────
-// Each named pipeline stage gets its own row; parallel agents spread horizontally.
+// When a DAG is present, uses actual dependencies for layout and edges.
+// Falls back to hardcoded stages when no DAG exists.
 function pipelineStage(name) {
   if (name === "orchestrator")                    return 0;
   if (name === "brain-data-retrieval")            return 1;
@@ -1274,18 +1429,87 @@ const STAGE_LABELS = {
   3: "INTEGRATE",   4: "RECONCILE", 5: "CONSOLIDATE"
 };
 
+// ── Pipeline summary banner ──
+function updatePipelineSummary(dag) {
+  const el = document.getElementById('pipeline-summary');
+  if (!el || !dag || !dag.nodes || dag.nodes.length === 0) {
+    if (el) el.classList.remove('visible');
+    return;
+  }
+  const nodes = dag.nodes;
+  const total = nodes.length;
+  const done = nodes.filter(n => n.status === 'done').length;
+  const running = nodes.filter(n => n.status === 'running').length;
+  const failed = nodes.filter(n => n.status === 'failed').length;
+  const skipped = nodes.filter(n => n.status === 'skipped').length;
+  const pending = nodes.filter(n => n.status === 'pending').length;
+
+  const allDone = done + skipped === total;
+  const hasFailed = failed > 0;
+  const pipelineStatus = hasFailed ? 'failed' : allDone ? 'done' : 'running';
+  const pct = Math.round((done + skipped) / total * 100);
+
+  // Compute total pipeline duration
+  const starts = nodes.filter(n => n.started_at).map(n => new Date(n.started_at).getTime());
+  const ends = nodes.filter(n => n.completed_at).map(n => new Date(n.completed_at).getTime());
+  const pipelineStart = starts.length > 0 ? Math.min(...starts) : null;
+  const pipelineEnd = allDone && ends.length > 0 ? Math.max(...ends) : null;
+  const elapsed = pipelineStart ? Math.round(((pipelineEnd || Date.now()) - pipelineStart) / 1000) : 0;
+  const durStr = elapsed >= 60 ? `${Math.floor(elapsed/60)}m ${elapsed%60}s` : `${elapsed}s`;
+
+  const statusEmoji = hasFailed ? '❌' : allDone ? '✅' : '⏳';
+  const statusLabel = hasFailed ? 'Failed' : allDone ? 'Complete' : 'Running';
+  const statusColor = hasFailed ? '#f87171' : allDone ? '#34d399' : '#6c8ef7';
+
+  el.className = 'visible ' + pipelineStatus;
+  el.innerHTML = `
+    <div class="ps-header">
+      <span class="ps-title">${statusEmoji} Pipeline ${statusLabel}</span>
+      <span class="ps-badge" style="background:${statusColor}22;color:${statusColor};border:1px solid ${statusColor}44">${pct}% complete</span>
+    </div>
+    <div class="ps-stats">
+      <span class="ps-stat"><b>${total}</b> agents</span>
+      <span class="ps-stat"><b style="color:#34d399">${done}</b> done</span>
+      ${running > 0 ? `<span class="ps-stat"><b style="color:#6c8ef7">${running}</b> running</span>` : ''}
+      ${pending > 0 ? `<span class="ps-stat"><b style="color:#475569">${pending}</b> pending</span>` : ''}
+      ${failed > 0 ? `<span class="ps-stat"><b style="color:#f87171">${failed}</b> failed</span>` : ''}
+      ${skipped > 0 ? `<span class="ps-stat"><b style="color:#64748b">${skipped}</b> skipped</span>` : ''}
+      <span class="ps-stat">⏱ <b>${durStr}</b></span>
+      ${allDone ? `<span class="ps-stat">🏁 finished</span>` : ''}
+    </div>
+    ${!allDone && total > 0 ? `<div style="background:#1e2d45;height:4px;border-radius:2px;margin-top:10px;overflow:hidden">
+      <div style="background:${statusColor};height:100%;width:${pct}%;border-radius:2px;transition:width 0.5s"></div>
+    </div>` : ''}
+  `;
+}
+
 function drawPipeline(agents, timeline) {
   const svg = document.getElementById("pipeline-svg");
-  if (!agents || agents.length === 0) {
-    svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+  const dagData = window.__latestData?.dag;
+
+  // DAG takes priority — render even with empty agents array
+  if (dagData && dagData.nodes && dagData.nodes.length > 0) {
+    updatePipelineSummary(dagData);
+    const W = svg.clientWidth || 900;
+    drawPipelineFromDag(svg, dagData, agents || [], W, 24, 110, 40);
+    // Visual state: green glow when pipeline complete
+    const wrap = document.getElementById('pipeline-wrap');
+    const allDone = dagData.nodes.every(n => n.status === 'done' || n.status === 'skipped');
+    const hasFailed = dagData.nodes.some(n => n.status === 'failed');
+    wrap.style.border = allDone ? '1px solid rgba(52,211,153,0.25)' :
+                         hasFailed ? '1px solid rgba(248,113,113,0.25)' : '1px solid transparent';
+    wrap.style.borderRadius = '12px';
+    wrap.style.padding = '8px';
     return;
   }
 
-  const W       = svg.clientWidth || 900;
-  const R       = 24;
-  const ROW_H   = 100;
-  const TOP_PAD = 40;
+  if (!agents || agents.length === 0) {
+    svg.innerHTML = '<text x="50%" y="120" text-anchor="middle" fill="#334155" font-size="13">No agents yet</text>';
+    document.getElementById('pipeline-summary').classList.remove('visible');
+    return;
+  }
 
+  // ── Legacy hardcoded stage layout (fallback) ───────────────────────
   // Collect unique agent names in timeline order; always include orchestrator first
   const seen = new Set();
   const agentNames = [];
@@ -1410,6 +1634,430 @@ function drawPipeline(agents, timeline) {
 
   svg.innerHTML = html;
 }
+
+// ── DAG-based pipeline renderer ──────────────────────────────────────────────
+function drawPipelineFromDag(svg, dag, agents, W, R, ROW_H, TOP_PAD) {
+  const nodes = dag.nodes;
+
+  // Compute depth of each node (longest path from root)
+  const depthMap = {};
+  function getDepth(nodeId) {
+    if (depthMap[nodeId] !== undefined) return depthMap[nodeId];
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.deps || node.deps.length === 0) {
+      depthMap[nodeId] = 0;
+      return 0;
+    }
+    const maxParent = Math.max(...node.deps.map(d => getDepth(d)));
+    depthMap[nodeId] = maxParent + 1;
+    return depthMap[nodeId];
+  }
+  nodes.forEach(n => getDepth(n.id));
+
+  // Group by depth layer
+  const layers = {};
+  nodes.forEach(n => {
+    const d = depthMap[n.id];
+    if (!layers[d]) layers[d] = [];
+    layers[d].push(n);
+  });
+  const layerKeys = Object.keys(layers).map(Number).sort((a, b) => a - b);
+
+  // Compute (x, y) positions
+  const pos = {};
+  layerKeys.forEach((layer, rowIdx) => {
+    const nodesInLayer = layers[layer];
+    const rowY = TOP_PAD + rowIdx * ROW_H;
+    const maxGap = Math.min(130, (W - 120) / Math.max(nodesInLayer.length, 1));
+    const totalW = maxGap * (nodesInLayer.length - 1);
+    const startX = W / 2 - totalW / 2;
+    nodesInLayer.forEach((n, i) => {
+      pos[n.id] = { x: startX + i * maxGap, y: rowY };
+    });
+  });
+
+  const maxY = Math.max(...Object.values(pos).map(p => p.y));
+  const H = maxY + R + 38;
+  svg.setAttribute("height", H);
+
+  // DAG status → dashboard status mapping
+  function dagStatus(node) {
+    if (node.status === "done")    return "complete";
+    if (node.status === "running") return "in_progress";
+    if (node.status === "failed")  return "failed";
+    if (node.status === "skipped") return "complete";
+    return "idle";
+  }
+
+  let html = `<defs>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arr"       viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#475569"/></marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#34d399"/></marker>
+    <marker id="arr-blue"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#6c8ef7"/></marker>
+    <marker id="arr-red"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 Z" fill="#f87171"/></marker>
+  </defs>`;
+
+  // Layer separator lines with labels
+  layerKeys.forEach(layer => {
+    const nodesInLayer = layers[layer];
+    const rowY = pos[nodesInLayer[0].id].y;
+    const label = nodesInLayer.length === 1 ? nodesInLayer[0].label.toUpperCase() : `LAYER ${layer}`;
+    html += `<line x1="0" y1="${rowY}" x2="${W}" y2="${rowY}" stroke="#1e2d45" stroke-width="1" opacity="0.35" stroke-dasharray="3 4" pointer-events="none"/>`;
+    html += `<text x="6" y="${rowY - 5}" font-size="7" fill="#334155" font-family="system-ui,monospace" letter-spacing="1" pointer-events="none">${label}</text>`;
+  });
+
+  // Edges based on ACTUAL dependencies — progressive reveal
+  nodes.forEach(node => {
+    if (!node.deps) return;
+    node.deps.forEach(depId => {
+      const fromPos = pos[depId];
+      const toPos   = pos[node.id];
+      if (!fromPos || !toPos) return;
+
+      const fromNode = nodes.find(n => n.id === depId);
+      const fromStatus = fromNode ? fromNode.status : "pending";
+      const toStatus   = node.status;
+
+      const fromDone   = fromStatus === "done" || fromStatus === "skipped";
+      const fromActive = fromStatus === "running";
+      const toActive   = toStatus === "running";
+      const toDone     = toStatus === "done" || toStatus === "skipped";
+      const toFailed   = toStatus === "failed";
+
+      // Progressive reveal: hide edge if BOTH endpoints are pending (untouched)
+      const fromTouched = fromDone || fromActive;
+      const toTouched   = toDone || toActive || toFailed;
+      if (!fromTouched && !toTouched) return;
+
+      const bothDone = fromDone && toDone;
+      const active   = toActive;
+
+      const col    = toFailed  ? "#f87171"
+                   : active    ? agentColor(node.agent)
+                   : bothDone  ? "#34d399"
+                   : fromDone  ? "#6c8ef7"
+                   :             "#475569";
+      const op     = active    ? 0.95
+                   : bothDone  ? 0.75
+                   : fromDone  ? 0.5
+                   :             0.3;
+      const sw     = active    ? 2.5
+                   : bothDone  ? 2
+                   : fromDone  ? 1.8
+                   :             1.2;
+      const mid    = (fromPos.y + toPos.y) / 2;
+      const marker = toFailed ? "arr-red" : active ? "arr-blue" : fromDone ? "arr-green" : "arr";
+
+      html += `<path d="M${fromPos.x},${fromPos.y+R} C${fromPos.x},${mid} ${toPos.x},${mid} ${toPos.x},${toPos.y-R}"
+        fill="none" stroke="${col}" stroke-width="${sw}" opacity="${op}" pointer-events="none"
+        marker-end="url(#${marker})" stroke-dasharray="${active ? '6 3' : bothDone ? '0' : fromDone ? '0' : '4 4'}">
+        ${active ? `<animate attributeName="stroke-dashoffset" values="0;-18" dur="1.2s" repeatCount="indefinite"/>` : ''}
+      </path>`;
+    });
+  });
+
+  // Node renderer — adds data attributes for hover/click
+  function dagNodeHtml(node, x, y) {
+    const name    = node.agent;
+    const status  = dagStatus(node);
+    const entry   = agents.find(a => a.agent === name);
+    const col     = agentColor(name);
+    const sm      = statusMeta(status);
+    const isActive  = status === "in_progress" || status === "starting";
+    const isDone    = status === "complete";
+    const isSkipped = node.status === "skipped";
+    const isFailed  = status === "failed";
+    const fill    = isActive  ? `rgba(${hexToRgb(col)},0.18)` :
+                    isDone    ? `rgba(52,211,153,0.1)` :
+                    isFailed  ? `rgba(248,113,113,0.1)` : "#111827";
+    const stroke  = isActive  ? col : isDone ? "#34d399" : isFailed ? "#f87171" : "#1e2d45";
+    const label   = (node.label || name).replace(/-/g, " ");
+    const isPending = !isActive && !isDone && !isFailed && !isSkipped;
+    const opacity = isSkipped ? "0.35" : isPending ? "0.45" : "1";
+
+    let g = `<g class="dag-node" data-node-id="${node.id}" opacity="${opacity}" style="cursor:pointer" pointer-events="all"
+      onmouseover="window.__dagShowTooltip(event, '${node.id}')"
+      onmouseout="window.__dagHideTooltip()"
+      onclick="window.__dagShowModal('${node.id}')">`;
+    if (isActive) {
+      g += `<circle cx="${x}" cy="${y}" r="${R+4}" fill="none" stroke="${col}" stroke-width="1" opacity="0.3" pointer-events="none">
+        <animate attributeName="r" values="${R+2};${R+10};${R+2}" dur="1.8s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.4;0;0.4" dur="1.8s" repeatCount="indefinite"/>
+      </circle>`;
+    }
+    // Invisible larger hit target — use near-transparent fill (fill="none" is unreliable for pointer-events in some browsers)
+    g += `<circle cx="${x}" cy="${y}" r="${R+10}" fill="rgba(0,0,0,0.001)" class="dag-hit-target"/>`;
+    g += `<circle cx="${x}" cy="${y}" r="${R}" fill="${fill}" stroke="${stroke}"
+      stroke-width="${isActive ? 2.5 : 1.5}" ${isActive ? 'filter="url(#glow)"' : ''}
+      ${isSkipped ? 'stroke-dasharray="4 3"' : ''}/>`;
+    g += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" font-size="13" pointer-events="none">${agentEmoji(name)}</text>`;
+    g += `<text x="${x}" y="${y+R+14}" text-anchor="middle" font-size="9" pointer-events="none"
+      fill="${isActive ? col : isDone ? '#34d399' : isFailed ? '#f87171' : '#64748b'}"
+      font-family="system-ui,sans-serif">${label}</text>`;
+    const dotColor = sm.color;
+    g += `<circle cx="${x+R-5}" cy="${y-R+5}" r="5" fill="${dotColor}" stroke="#0a0d14" stroke-width="1.5" pointer-events="none">
+      ${isActive ? `<animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite"/>` : ''}
+    </circle>`;
+    // Duration label for completed nodes
+    if (isDone && node.started_at && node.completed_at) {
+      const dur = Math.round((new Date(node.completed_at) - new Date(node.started_at)) / 1000);
+      const durLabel = dur >= 60 ? `${Math.floor(dur/60)}m${dur%60}s` : `${dur}s`;
+      g += `<text x="${x}" y="${y+R+25}" text-anchor="middle" font-size="7.5" pointer-events="none"
+        fill="#475569" font-family="'SF Mono',monospace">${durLabel}</text>`;
+    } else if (isActive && node.started_at) {
+      const elapsed = Math.round((Date.now() - new Date(node.started_at).getTime()) / 1000);
+      const elLabel = elapsed >= 60 ? `${Math.floor(elapsed/60)}m${elapsed%60}s…` : `${elapsed}s…`;
+      g += `<text x="${x}" y="${y+R+25}" text-anchor="middle" font-size="7.5" pointer-events="none"
+        fill="#6c8ef7" font-family="'SF Mono',monospace">${elLabel}</text>`;
+    }
+    g += `</g>`;
+    return g;
+  }
+
+  // Draw nodes
+  for (let i = layerKeys.length - 1; i >= 0; i--) {
+    for (const node of layers[layerKeys[i]]) {
+      const p = pos[node.id];
+      html += dagNodeHtml(node, p.x, p.y);
+    }
+  }
+
+  svg.innerHTML = html;
+
+  // ── Attach hover + click handlers to rendered nodes ──
+  // Smart agent matching: STM uses "developer (dev-01)" but DAG has id="dev-01" agent="developer"
+  function findAgentEntry(node) {
+    if (!agents || agents.length === 0) return null;
+    const nId = node.id.toLowerCase();
+    const nAgent = node.agent.toLowerCase();
+    // 1. Exact match by node.id in parentheses: "developer (dev-01)" or "security" etc.
+    let entry = agents.find(a => {
+      const m = a.agent.match(/\(([^)]+)\)/);
+      return m && m[1].toLowerCase() === nId;
+    });
+    if (entry) return entry;
+    // 2. Case-insensitive match on agent type (works when only one of that type, e.g., "architect")
+    const sameType = agents.filter(a => {
+      const aLow = a.agent.toLowerCase();
+      return aLow === nAgent || aLow.startsWith(nAgent);
+    });
+    if (sameType.length === 1) return sameType[0];
+    // 3. Match by unit field if present
+    entry = agents.find(a => a.unit && a.unit.toLowerCase() === nId);
+    if (entry) return entry;
+    // 4. Match where agent name contains the node id (case-insensitive)
+    entry = agents.find(a => a.agent.toLowerCase().includes(nId));
+    if (entry) return entry;
+    // 5. Match where node agent contains agent name
+    entry = agents.find(a => nAgent.includes(a.agent.toLowerCase()));
+    if (entry) return entry;
+    return null;
+  }
+
+  window.__dagNodeMeta = {};
+  nodes.forEach(node => {
+    window.__dagNodeMeta[node.id] = { node, entry: findAgentEntry(node) };
+  });
+
+  // ── HTML click overlay: positioned divs on top of SVG for reliable click handling ──
+  // SVG inline event handlers and addEventListener on <g> are unreliable across browsers.
+  // HTML divs with pointer-events are guaranteed to work.
+  const overlay = document.getElementById('pipeline-click-overlay');
+  if (overlay) {
+    overlay.style.height = svg.getAttribute('height') + 'px';
+    let overlayHtml = '';
+    const hitR = R + 12; // slightly larger than node radius for easy clicking
+    nodes.forEach(node => {
+      const p = pos[node.id];
+      if (!p) return;
+      overlayHtml += `<div class="dag-click-target" data-nid="${node.id}"
+        style="position:absolute;left:${p.x - hitR}px;top:${p.y - hitR}px;
+        width:${hitR*2}px;height:${hitR*2}px;border-radius:50%;
+        pointer-events:all;cursor:pointer;z-index:6"
+        title="${(node.label||node.agent).replace(/-/g,' ')}"></div>`;
+    });
+    overlay.innerHTML = overlayHtml;
+    overlay.querySelectorAll('.dag-click-target').forEach(div => {
+      const nid = div.getAttribute('data-nid');
+      div.addEventListener('click', function(e) {
+        e.stopPropagation();
+        window.__dagShowModal(nid);
+      });
+      div.addEventListener('mouseover', function(e) {
+        window.__dagShowTooltip(e, nid);
+      });
+      div.addEventListener('mouseout', function() {
+        window.__dagHideTooltip();
+      });
+    });
+  }
+
+}
+
+// ── Global handlers for DAG node hover/click — called via inline SVG attributes ──
+// (Inline handlers survive innerHTML replacement; no event delegation needed)
+window.__dagShowTooltip = function(evt, nodeId) {
+  const meta = window.__dagNodeMeta?.[nodeId];
+  if (!meta) return;
+  const tt = document.getElementById('dag-tooltip');
+  const n = meta.node;
+  const a = meta.entry;
+  const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
+  const sCol = statusColors[n.status] || '#475569';
+  let html = `<div class="tt-agent">${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}</div>`;
+  html += `<span class="tt-status" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span>`;
+  if (a && a.findings) {
+    const preview = a.findings.length > 180 ? a.findings.slice(0,180) + '…' : a.findings;
+    html += `<div class="tt-findings">${preview}</div>`;
+  } else if (n.status === 'pending') {
+    const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+    html += `<div class="tt-findings" style="color:#475569">${desc || 'Waiting for dependencies…'}</div>`;
+  } else if (n.status === 'running') {
+    const desc = n.description ? n.description.slice(0,120) + (n.description.length > 120 ? '…' : '') : '';
+    html += `<div class="tt-findings" style="color:#6c8ef7">${desc || 'Agent is working…'}</div>`;
+  } else if (n.status === 'done' && !a) {
+    html += `<div class="tt-findings" style="color:#34d399">✅ Completed</div>`;
+  }
+  if (a && a.model) {
+    html += `<div class="tt-meta">Model: ${a.model}</div>`;
+  }
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  // Position near the node
+  const g = evt.currentTarget;
+  const rect = g.getBoundingClientRect();
+  tt.style.left = Math.min(rect.left + rect.width/2 - 150, window.innerWidth - 360) + 'px';
+  tt.style.top  = (rect.bottom + 10) + 'px';
+};
+
+window.__dagHideTooltip = function() {
+  document.getElementById('dag-tooltip').style.display = 'none';
+};
+
+window.__dagShowModal = function(nodeId) {
+  const meta = window.__dagNodeMeta?.[nodeId];
+  if (!meta) return;
+  document.getElementById('dag-tooltip').style.display = 'none';
+  const n = meta.node;
+  const a = meta.entry;
+  const statusColors = {done:'#34d399',running:'#6c8ef7',failed:'#f87171',skipped:'#64748b',pending:'#334155'};
+  const sCol = statusColors[n.status] || '#475569';
+
+  document.getElementById('modal-title').innerHTML =
+    `${agentEmoji(n.agent)} ${(n.label||n.agent).replace(/-/g,' ')}`;
+
+  let body = '';
+
+  // Status badge
+  body += `<div class="detail-row"><span class="detail-label">Status</span>
+    <span class="detail-value"><span class="badge" style="background:${sCol}22;color:${sCol};border:1px solid ${sCol}44">${n.status}</span></span></div>`;
+
+  // Agent type
+  body += `<div class="detail-row"><span class="detail-label">Agent</span>
+    <span class="detail-value">${n.agent}</span></div>`;
+
+  // Model
+  if (a && a.model) {
+    body += `<div class="detail-row"><span class="detail-label">Model</span>
+      <span class="detail-value">${a.model}</span></div>`;
+  }
+
+  // Tool usage
+  if (a && (a.tool_used || a.tool_max)) {
+    const used = a.tool_used || 0;
+    const max  = a.tool_max || '?';
+    const pct  = a.tool_max ? Math.round(used/a.tool_max*100) : 0;
+    const barCol = pct > 75 ? '#f87171' : pct > 50 ? '#fbbf24' : '#34d399';
+    body += `<div class="detail-row"><span class="detail-label">Tools</span>
+      <span class="detail-value">${used}/${max} calls
+        <div style="background:#1e2d45;height:4px;border-radius:2px;width:120px;margin-top:4px">
+          <div style="background:${barCol};height:4px;border-radius:2px;width:${pct}%"></div>
+        </div>
+      </span></div>`;
+  }
+
+  // Dependencies
+  if (n.deps && n.deps.length > 0) {
+    body += `<div class="detail-row"><span class="detail-label">Depends</span>
+      <span class="detail-value">${n.deps.map(d => `<span class="badge" style="background:#1e2d45;color:#64748b">${d}</span>`).join(' ')}</span></div>`;
+  }
+
+  // Timing
+  if (n.started_at) {
+    body += `<div class="detail-row"><span class="detail-label">Started</span>
+      <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.started_at).toLocaleTimeString()}</span></div>`;
+  }
+  if (n.completed_at) {
+    body += `<div class="detail-row"><span class="detail-label">Finished</span>
+      <span class="detail-value" style="font-family:'SF Mono',monospace;font-size:0.74rem">${new Date(n.completed_at).toLocaleTimeString()}</span></div>`;
+  }
+  if (n.started_at && n.completed_at) {
+    const dur = Math.round((new Date(n.completed_at) - new Date(n.started_at)) / 1000);
+    body += `<div class="detail-row"><span class="detail-label">Duration</span>
+      <span class="detail-value">${dur}s</span></div>`;
+  }
+
+  // Findings (main content)
+  if (a && a.findings) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Findings</span>
+      <span class="detail-value findings">${a.findings}</span></div>`;
+  } else if (n.status === 'pending') {
+    const desc = n.description || '';
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Status</span>
+      <span class="detail-value findings" style="color:#334155">⏳ Waiting for dependencies to complete…</span></div>`;
+    if (desc) {
+      body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Task Brief</span>
+        <span class="detail-value findings" style="color:#64748b">${desc}</span></div>`;
+    }
+  } else if (n.status === 'running') {
+    const desc = n.description || '';
+    const elapsed = n.started_at ? Math.round((Date.now() - new Date(n.started_at).getTime()) / 1000) : 0;
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Live Status</span>
+      <span class="detail-value findings" style="color:#6c8ef7">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="display:inline-block;width:8px;height:8px;background:#6c8ef7;border-radius:50%;animation:pulse 1.2s infinite"></span>
+          Agent is working… ${elapsed > 0 ? '(' + elapsed + 's elapsed)' : ''}
+        </div>
+        ${desc ? '<div style="color:#94a3b8;margin-top:4px;padding-top:8px;border-top:1px solid #1e2d45"><strong style="color:#64748b;font-size:0.7rem;text-transform:uppercase">Task Brief:</strong><br/>' + desc + '</div>' : ''}
+      </span></div>`;
+  } else if (n.status === 'done' && !a) {
+    const desc = n.description || 'Completed successfully';
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Output</span>
+      <span class="detail-value findings" style="color:#34d399">✅ ${desc}</span></div>`;
+  }
+
+  // Decisions
+  if (a && a.decisions) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Decisions</span>
+      <span class="detail-value findings" style="border-color:#fbbf2433">${a.decisions}</span></div>`;
+  }
+
+  // Files
+  if (a && a.files && a.files.length > 0) {
+    const fileList = Array.isArray(a.files) ? a.files : a.files.split(/,\s*/);
+    const fileItems = fileList.map(f => `<li>📄 ${f.trim()}</li>`).join('');
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Files</span>
+      <ul class="files-list">${fileItems}</ul></div>`;
+  }
+
+  // Next step
+  if (a && a.next) {
+    body += `<div class="detail-row"><span class="detail-label">Next</span>
+      <span class="detail-value" style="color:#fbbf24">${a.next}</span></div>`;
+  }
+
+  // Failed reason
+  if (n.failed_reason) {
+    body += `<div class="detail-row" style="flex-direction:column;gap:4px"><span class="detail-label">Error</span>
+      <span class="detail-value findings" style="color:#f87171;border-color:#f8717133">${n.failed_reason}</span></div>`;
+  }
+
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('dag-modal-overlay').classList.add('visible');
+};
 
 function hexToRgb(hex) {
   const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -1871,7 +2519,7 @@ async function fetchStatus() {
     // Always render tabs first — even if selected data is empty
     renderTabBar(workflows, v2.active_workflow_id, v2.selected_workflow_id);
 
-    if (!data || !data.agents || data.agents.length === 0) {
+    if (!data || (!data.agents?.length && !data.dag)) {
       // No data for selected workflow
       errorCount++;
       if (errorCount >= 5 || !lastGoodData) {
@@ -1896,6 +2544,7 @@ async function fetchStatus() {
     document.getElementById("conn-dot").style.boxShadow  = "0 0 6px #34d399";
 
     const scrollPos = saveScrollPositions();
+    window.__latestData = data;
     renderStats(data);
     renderStmSections(data);
     drawPipeline(data.agents, data.timeline);
@@ -1911,7 +2560,27 @@ async function fetchStatus() {
 }
 
 fetchStatus();
-setInterval(fetchStatus, 2000);
+setInterval(fetchStatus, 1000);
+
+// On first load, auto-select the active workflow (most recent)
+(async function autoSelectActive() {
+  try {
+    const r = await fetch("/api/v2/status");
+    if (!r.ok) return;
+    const v2 = await r.json();
+    if (v2.active_workflow_id && v2.active_workflow_id !== v2.selected_workflow_id) {
+      await fetch("/api/v2/select/" + v2.active_workflow_id);
+      fetchStatus();
+    }
+  } catch(e) {}
+})();
+
+// Close modal on Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('dag-modal-overlay').classList.remove('visible');
+  }
+});
 </script>
 </body>
 </html>
@@ -2065,6 +2734,16 @@ class AgentDashboardHandler(http.server.BaseHTTPRequestHandler):
                 "entry_count": len(wf.entries),
                 "updated_at":  datetime.now(timezone.utc).isoformat(),
             }
+            # Attach DAG if present, reconciled with STM activity
+            dag_path = wf.identity.directory / "pipeline-dag.json"
+            if dag_path.exists():
+                try:
+                    dag = json.loads(dag_path.read_text(encoding="utf-8"))
+                    if dag and dag.get("nodes"):
+                        dag = _reconcile_dag_with_stm(dag, agent_latest)
+                    selected_data["dag"] = dag
+                except Exception:
+                    selected_data["dag"] = None
 
         payload = {
             "active_workflow_id":   state.active_workflow_id,
