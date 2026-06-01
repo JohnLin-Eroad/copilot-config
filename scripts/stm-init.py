@@ -105,9 +105,13 @@ def main():
         print("Usage: stm-init.py <task-description> [--port PORT]", file=sys.stderr)
         sys.exit(1)
 
-    # Parse optional --port flag
+    # Parse optional flags
     args = sys.argv[1:]
     port_override = None
+    no_open = False
+    if "--no-open" in args:
+        no_open = True
+        args = [a for a in args if a != "--no-open"]
     if "--port" in args:
         idx = args.index("--port")
         try:
@@ -246,10 +250,11 @@ Classification:
         time.sleep(0.5)
 
     if dashboard_up:
-        subprocess.Popen(
-            ["open", f"http://localhost:{AGENT_DASHBOARD_PORT}"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        )
+        if not no_open:
+            subprocess.Popen(
+                ["open", f"http://localhost:{AGENT_DASHBOARD_PORT}"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
     else:
         # Fallback: launch the old per-task STM dashboard if agent-dashboard isn't available
         BASE_PORT = 7700
