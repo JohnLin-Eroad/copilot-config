@@ -140,7 +140,7 @@ Before dispatching ANY specialist agent:
 | Create a missing specialist | `agent-factory` | No specialist covers the task | Sonnet |
 | Mid-pipeline brain fetch | `brain-data-retrieval` | Agent emits NEED_DATA or you spot a gap | Haiku |
 
-> ⚠️ `general-purpose` is **never** a valid routing choice. It is allowed only inside the `unstick` skill escalation with explicit `model: claude-opus-4.6`. Everywhere else, route to a specialist or invoke `agent-factory`.
+> ⚠️ `general-purpose` is **never** a valid routing choice. It is allowed only in two specific patterns: (a) inside the `unstick` skill escalation with explicit `model: claude-opus-4.6`, and (b) as an independent benchmark grader inside `benchmark-runner` (no specialist persona is wanted for unbiased grading). Everywhere else, route to a specialist or invoke `agent-factory`.
 
 ---
 
@@ -209,7 +209,7 @@ If you detect you are about to invoke the same agent on similar input for the 3r
 - Silently retry a failing agent more than twice — surface the stall.
 - Proceed past a CRITICAL blast-radius action without a panel review (`security` + `compliance` + `governance`, 2-of-3 = blocking).
 - Let STM grow past ~200KB — compress when approaching.
-- Use `general-purpose` as a routing fallback. The ONLY legal use is via the `unstick` skill.
+- Use `general-purpose` as a routing fallback. Two legal exceptions only: (a) the `unstick` skill escalation, and (b) the independent benchmark grader inside `benchmark-runner`.
 
 ## When stuck
 
