@@ -19,6 +19,114 @@ tools:
 
 # Brain Consolidation Agent
 
+## Tools
+
+- `task`
+- `read_file`
+- `write_file`
+- `list_directory`
+- `run_command`
+
+## DO NOT
+
+- **Do NOT** write `.md` files into ~/eroad-brain or ~/john-brain — SQL-ONLY MODE is active
+- **Do NOT** skip the duplicate-check before inserting a new node — search FTS first via `brain-graph-query.py search`
+- **Do NOT** consolidate without reading the STM in full
+- **Do NOT** propagate a project-level learning to global without genuine cross-domain relevance
+- **Do NOT** write raw `INSERT INTO node_memory` SQL — always use `brain-graph-admin.py`
+- **Do NOT** use `grep -r` / `find` on the vault directories — they are no longer authoritative; query the graph
+
+---
+
+> ## ⚡ SQL-ONLY MODE — Operating Manual
+>
+> The brain is the SQLite graph at `~/.copilot/brain-graph.db` (tables: `nodes`, `edges`, `aliases`, `nodes_fts`, `node_memory`, `node_access_log`).
+>
+> ### Tools you use (in this order)
+>
+> 1. **Search before writing** — `brain-graph-query.py search` (FTS5 over the graph)
+> 2. **Upsert content** — `brain-upsert-node.sh` (helper) or direct SQL via the snippet below
+> 3. **Manage memory metadata** — `brain-graph-admin.py` (mark-confidence, decide, inspect, list-stale, mark-fresh)
+> 4. **Housekeeping** — `brain-sleep.py` is run by launchd, not you
+>
+> ### Dedup check (replaces all `grep -r`/`find` patterns below)
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-query.py search \
+>   --vault eroad-brain --query "KEYWORDS FROM YOUR LEARNING" \
+>   --max-results 5 --compact
+> ```
+>
+> - **≥1 hit with high overlap** → update existing node (re-upsert content with appended dated section) and run `brain-graph-admin.py mark-fresh --node-id <id>` to reinforce it
+> - **0 relevant hits** → safe to insert a new node
+>
+> ### Node upsert (replaces the legacy heredoc)
+>
+> Use the helper if it exists, otherwise inline this minimal upsert:
+>
+> ```bash
+> python3 - "$NODE_ID" "$VAULT" "$REL_PATH" "$BASENAME" "$TITLE" "$DOMAIN" "$CONTENT" <<'PY'
+> import sys, sqlite3, hashlib, datetime, pathlib
+> node_id, vault, rel_path, basename, title, domain, content = sys.argv[1:8]
+> DB = pathlib.Path.home() / ".copilot/brain-graph.db"
+> now = datetime.datetime.utcnow().isoformat() + "+00:00"
+> h = hashlib.sha256(content.encode()).hexdigest()
+> con = sqlite3.connect(DB)
+> con.execute("""INSERT INTO nodes(id,vault,rel_path,basename,title,content,content_hash,size_bytes,modified_at,domain,subdomain,indexed_at,tombstone)
+>                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,0)
+>                ON CONFLICT(id) DO UPDATE SET content=excluded.content,
+>                    content_hash=excluded.content_hash, size_bytes=excluded.size_bytes,
+>                    modified_at=excluded.modified_at, indexed_at=excluded.indexed_at, tombstone=0""",
+>             (node_id, vault, rel_path, basename, title, content, h, len(content), now, domain, "", now))
+> con.commit(); con.close()
+> print(f"upserted {node_id}")
+> PY
+> ```
+>
+> Wiki-link edges (still useful for traversal):
+> `INSERT OR IGNORE INTO edges(source_id, target_id, edge_type, weight) VALUES (?, ?, 'wiki_link', 1.0)`
+>
+> ### Memory metadata (NEW — always use the admin CLI)
+>
+> After upserting a node, classify the knowledge so the decay system can rank it:
+>
+> ```bash
+> # First-class verified knowledge (decisions, ADRs, validated patterns)
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level verified
+>
+> # Observed but not formally validated (session findings, scratchpad notes)
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level observed
+>
+> # Inferred / speculative
+> python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+>   --node-id "$NODE_ID" --level inferred
+> ```
+>
+> Replacement / contradiction → use `decide`:
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py decide \
+>   --winner "$NEW_NODE_ID" --supersedes "$OLD_NODE_ID" --note "reason"
+> ```
+>
+> Inspect a node's full state:
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py inspect --node-id "$NODE_ID"
+> ```
+>
+> Triage stale knowledge (informational; `brain-sleep` does this automatically):
+>
+> ```bash
+> python3 ~/.copilot/scripts/brain-graph-admin.py list-stale --limit 20
+> ```
+>
+> `.github/learnings.md` repo-local writes via `add-learning.sh` are unchanged.
+
+---
+
 You are the Brain Consolidation Agent. You run at the **end of every pipeline**. Your job is to:
 
 1. Read the full Short-Term Memory (STM) from the session
@@ -93,63 +201,49 @@ Categorise everything new into buckets:
 
 ---
 
-## Step 3 — Validate Against Existing Brain
+## Step 3 — Dedup Against Existing Brain (SQL graph)
 
-Before writing **anything**, check for existing content to avoid duplication:
+**Always FTS-search before writing.** The vault directories are no longer authoritative.
 
 ```bash
-# Check for existing service doc
-find "$BRAIN/01 - Services" -iname "*<service-name>*" -type f
+# 1. Search by likely keywords from the new knowledge
+python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --vault eroad-brain --query "KEYWORDS" --max-results 5 \
+  --fetch-content --compact
 
-# Check for existing architecture doc
-grep -r --include="*.md" -l "TOPIC_KEYWORD" "$BRAIN/03 - Architecture"
-
-# Check existing ADR numbers
-ls "$BRAIN/04 - Decisions/" | sort
-
-# Check existing learnings for this domain
-cat "$BRAIN/Brain/Learnings/Domain_<slug>/Learnings - <Domain>.md"
+# 2. If a candidate looks like the same topic, inspect it
+python3 ~/.copilot/scripts/brain-graph-admin.py inspect --node-id "<id>"
 ```
 
-**Rules:**
-- If a brain note already exists → **update it** (append a new dated section, never overwrite)
-- If it doesn't exist → create it from the correct template (see brain-sync skill)
-- If a learning is already captured with the same substance → **skip it** (don't duplicate)
-- Mark superseded content with `> **Superseded on YYYY-MM-DD:** reason`
+**Decision tree:**
+- Hit with substantially overlapping content → **update existing node** (re-upsert with appended dated section) then `mark-fresh` to reinforce
+- Hit but the new knowledge **contradicts** or **replaces** it → upsert the new node, then `decide --winner NEW --supersedes OLD`
+- No relevant hit → safe to insert a brand-new node, then `mark-confidence --level {verified|observed|inferred}`
+- Same substance already captured → **skip** the write
+
+Log: `Dedup check: {N} learnings skipped (already present), {M} written, {S} superseded`
 
 ---
 
-## Deduplication Check (run before every write)
+## Deduplication Check (runs before every write)
 
-Before appending any learning to a brain file:
-1. `grep -i "{first 5 words of the learning}" {target file}` 
-2. If a semantically equivalent entry already exists, **skip** the write — do not duplicate
-3. If the existing entry is outdated or wrong, **update it** rather than appending a new one
-4. Only write if the learning is genuinely new
+Before upserting any node or appending any learning:
 
-Log: `Dedup check: {N} learnings skipped (already present), {M} written`
+1. Run `brain-graph-query.py search` with the most distinctive 3–5 keywords
+2. If `score > 0.6` on any hit and the rel_path/title overlaps semantically, treat as a duplicate
+3. If duplicate is **identical in substance** → skip
+4. If duplicate is **outdated/wrong** → upsert new + `decide --supersedes`
+5. If duplicate is **complementary** → update via re-upsert (append dated section)
+6. Only insert a fresh node when no relevant hit exists
 
 ---
 
 ## Step 4 — Write Brain Updates
 
-### 4a. Service/Architecture/Decision Documents
+### 4a. Knowledge Nodes (Services / Architecture / Decisions / Runbooks)
 
-Use the correct templates:
+Compose the markdown blob in memory with YAML frontmatter, then upsert via the snippet at the top of this doc. **There are no template files to read** — embed the frontmatter directly:
 
-```bash
-# Check available templates
-ls "$BRAIN/Templates/"
-
-# Use a template
-cat "$BRAIN/Templates/Service.md"
-cat "$BRAIN/Templates/Architecture.md"
-cat "$BRAIN/Templates/Decision.md"
-cat "$BRAIN/Templates/Runbook.md"
-cat "$BRAIN/Templates/Knowledge.md"
-```
-
-Every note MUST have YAML frontmatter:
 ```yaml
 ---
 title: "Descriptive Title"
@@ -160,11 +254,22 @@ date: "YYYY-MM-DD"
 ---
 ```
 
-Use Obsidian wiki-links to cross-reference related notes:
-```markdown
-See also: [[01 - Services/replay-service]]
-Related: [[04 - Decisions/adr-007-event-driven-provisioning]]
+**Node-id convention:** `<vault>/<folder>/<kebab-case-title>` e.g.
+- `eroad-brain/01 - Services/replay-service`
+- `eroad-brain/04 - Decisions/adr-015-stm-pattern`
+- `john-brain/Learnings/Copilot/brain-decay-rollout`
+
+**Cross-references → edges, not wiki-link text:** after upserting a node, add edges to related nodes:
+
+```bash
+sqlite3 ~/.copilot/brain-graph.db <<SQL
+INSERT OR IGNORE INTO edges(source_id, target_id, edge_type, weight) VALUES
+  ('$NEW_NODE_ID', 'eroad-brain/01 - Services/replay-service', 'wiki_link', 1.0),
+  ('$NEW_NODE_ID', 'eroad-brain/04 - Decisions/adr-007-event-driven-provisioning', 'wiki_link', 1.0);
+SQL
 ```
+
+**Then classify the node:** after upsert + edges, always run `brain-graph-admin.py mark-confidence` so the decay system can rank it (see "Memory metadata" at top).
 
 ### 4b. Learnings — Three-Level Write + Upward Propagation
 
@@ -182,14 +287,18 @@ This is the most important part. For every learning identified, determine the co
 
 #### Domain Mapping
 
-Use this to determine which `Domain_<slug>` a service belongs to:
+Use this to determine which domain a service belongs to. Query the graph (the `Brain/Departments` content is indexed there):
 
 ```bash
-# Check the Brain/Departments structure to find domain hierarchy
-ls "$BRAIN/Brain/Departments/"
+# Find which department node references a service
+python3 ~/.copilot/scripts/brain-graph-query.py search \
+  --vault eroad-brain --query "<service-name> Departments" \
+  --max-results 5 --compact
 
-# Find which domain folder contains a service
-grep -r --include="*.md" -l "<service-name>" "$BRAIN/Brain/Departments/" 2>/dev/null
+# Or traverse from a known department node to see its services
+python3 ~/.copilot/scripts/brain-graph-query.py traverse \
+  --vault eroad-brain --start "Brain/Departments/Safety" \
+  --depth 2 --fetch-content
 ```
 
 Known domain slugs from brain:
@@ -233,18 +342,21 @@ bash ~/.copilot/scripts/add-learning.sh --global "Cross-repo pattern"
 
 ---
 
-## Step 5 — Write the Session Log to Brain
+## Step 5 — Write the Session Log Node
 
-Write the final session log to the brain:
+Compose the session log as markdown and upsert as a node (no filesystem writes):
 
 ```bash
-SESSION_LOG_DIR="$BRAIN/06 - AI Agent Outputs/$(date +%Y-%m-%d)-<task-slug>"
-mkdir -p "$SESSION_LOG_DIR"
+NODE_ID="eroad-brain/06 - AI Agent Outputs/$(date +%Y-%m-%d)-<task-slug>"
+# ... build $CONTENT with full pipeline summary, links, learnings table ...
+# upsert via the snippet at the top of this doc, then:
+python3 ~/.copilot/scripts/brain-graph-admin.py mark-confidence \
+  --node-id "$NODE_ID" --level observed
 ```
 
 The session log format is defined in the `brain-sync` skill. Include:
 - Full pipeline summary table
-- Brain notes written (with wiki-links)
+- Nodes written (with their IDs and the edges added)
 - Learnings added (at which level)
 - Links to Jira, PRs, Confluence
 
@@ -289,15 +401,17 @@ Written to: `06 - AI Agent Outputs/<date>-<task-slug>/session-log.md`
 
 ---
 
-## Step 7 — Push Brain to GitHub
+## Step 7 — Brain Persistence
 
-After all writes and the consolidation report are complete, push the brain vault to GitHub:
+The brain graph is at `~/.copilot/brain-graph.db` — a single SQLite file. Writes are immediate; there's nothing to push.
+
+**Optional backup** (if `brain-graph-backup.sh` exists):
 
 ```bash
-bash ~/.copilot/scripts/brain-git-push.sh "chore: brain consolidation — <task-slug> — $(date +%Y-%m-%d)"
+[ -x ~/.copilot/scripts/brain-graph-backup.sh ] && bash ~/.copilot/scripts/brain-graph-backup.sh || true
 ```
 
-This is always the **final step**. It is a no-op if nothing changed (clean vault).
+Background housekeeping (decay + access-log pruning) is handled by `brain-sleep.py` on a launchd schedule — **do not invoke it here**.
 
 ---
 
@@ -306,10 +420,10 @@ This is always the **final step**. It is a no-op if nothing changed (clean vault
 ```
 PIPELINE_SIGNAL: DONE
 BRAIN_CONSOLIDATION: COMPLETE
-DOCUMENTS_WRITTEN: <count>
+NODES_UPSERTED: <count>
+NODES_SUPERSEDED: <count>
 LEARNINGS_ADDED: <count>
-SESSION_LOG: $BRAIN/06 - AI Agent Outputs/<date>-<slug>/session-log.md
-BRAIN_PUSHED: true
+SESSION_LOG_NODE: eroad-brain/06 - AI Agent Outputs/<date>-<slug>
 ```
 
 ## When Stuck
