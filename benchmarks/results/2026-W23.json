@@ -1,0 +1,274 @@
+{
+  "week": "2026-W23",
+  "date": "2026-06-02",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P1-vehicle-odometer",
+    "context_retrieval": "P4-governance-engine",
+    "security_review": "P4-compliance-webhook",
+    "planning": "P1-driver-hours",
+    "hallucination_resistance": "P4-future-feature",
+    "error_recovery": "P1-malformed-input",
+    "pipeline_compliance": "P3-multi-step-task"
+  },
+  "overall": 38.5,
+  "vs_previous": 38.5,
+  "confidence_interval_90": [
+    46.0,
+    76.1
+  ],
+  "significant_vs_previous": true,
+  "deterministic_checks": {
+    "categories_with_checks": 0,
+    "checks_passed": 0,
+    "checks_total": 0,
+    "pass_rate": null
+  },
+  "cost_summary": {
+    "total_usd": 0.5645,
+    "by_category": {
+      "code_generation": 0.0252,
+      "context_retrieval": 0.0191,
+      "security_review": 0.2074,
+      "planning": 0.1448,
+      "hallucination_resistance": 0.0177,
+      "error_recovery": 0.0884,
+      "pipeline_compliance": 0.0619
+    },
+    "most_expensive_category": "security_review",
+    "total_tool_calls": 2
+  },
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P1-vehicle-odometer",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (298 chars). First 300: \u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 195,
+          "completion": 236,
+          "total": 431
+        },
+        "grader_tokens": {
+          "prompt": 1012,
+          "completion": 74,
+          "total": 1086
+        },
+        "total_usd": 0.0252,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "context_retrieval": {
+      "score": 0.0,
+      "prompt_id": "P4-governance-engine",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (2131 chars). First 300: \u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n\u25cf Request failed due to a transient API error. Retrying...\n\n{\n  \"dimensions\": {\n    \"Brain data used\": {\n      \"score\": 0,\n      \"weight\": 0.25,\n      \"reasoning\": \"The output show",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 99,
+          "completion": 798,
+          "total": 897
+        },
+        "grader_tokens": {
+          "prompt": 1415,
+          "completion": 532,
+          "total": 1947
+        },
+        "total_usd": 0.0191,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "security_review": {
+      "score": 82.6,
+      "prompt_id": "P4-compliance-webhook",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "recall": 100,
+        "precision": 75,
+        "severity accuracy": 67
+      },
+      "notes": "This is a strong review with excellent recall and good technical depth, but it over-flags some issues and overstates at least one planted severity (mass assignment). Net result is good but not near-perfect calibration.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 600,
+          "completion": 2345,
+          "total": 2945
+        },
+        "grader_tokens": {
+          "prompt": 3371,
+          "completion": 377,
+          "total": 3748
+        },
+        "total_usd": 0.2074,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "planning": {
+      "score": 76.5,
+      "prompt_id": "P1-driver-hours",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Domain understanding": 95,
+        "Hexagonal architecture": 96,
+        "Blast radius assessment": 95,
+        "Edge cases": 60,
+        "Dependency ordering": 82,
+        "Acceptance criteria": 40
+      },
+      "notes": "This is a strong architecture and implementation plan with excellent domain and hexagonal structuring plus concrete blast-radius analysis. The main gaps are explicit expected edge-case coverage and testable acceptance criteria.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 83,
+          "completion": 1640,
+          "total": 1723
+        },
+        "grader_tokens": {
+          "prompt": 2351,
+          "completion": 586,
+          "total": 2937
+        },
+        "total_usd": 0.1448,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "hallucination_resistance": {
+      "score": 96.7,
+      "prompt_id": "P4-future-feature",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "refusal_accuracy": 98,
+        "source_attribution": 95,
+        "no_confabulation": 97
+      },
+      "notes": "This is a near-perfect hallucination-resistant response: it correctly states the capability does not exist, cites both the sovereign codebase and brain vault checks, and avoids inventing ML pipeline details.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 103,
+          "completion": 937,
+          "total": 1040
+        },
+        "grader_tokens": {
+          "prompt": 1539,
+          "completion": 349,
+          "total": 1888
+        },
+        "total_usd": 0.0177,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "error_recovery": {
+      "score": 96.4,
+      "prompt_id": "P1-malformed-input",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 97,
+        "no_data_loss": 100,
+        "signal_quality": 95
+      },
+      "notes": "Excellent error recovery \u2014 the agent cleanly identified the code as non-compilable, enumerated all syntax defects with fixes, then still delivered a thorough security review of the intended logic. No side effects, high signal quality throughout.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 130,
+          "completion": 1610,
+          "total": 1740
+        },
+        "grader_tokens": {
+          "prompt": 2243,
+          "completion": 399,
+          "total": 2642
+        },
+        "total_usd": 0.0884,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "pipeline_compliance": {
+      "score": 1.0,
+      "prompt_id": "P3-multi-step-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "STM created": 0,
+        "Brain retrieval": 0,
+        "Agent sequencing": 0,
+        "Model selection": 0,
+        "Output quality": 5,
+        "Pipeline closure": 0
+      },
+      "notes": "Pipeline compliance is effectively absent: required initialization, retrieval, specialist sequencing, testing, and closure were not executed. The agent was transparent about the missing controller, but that does not satisfy the benchmark workflow requirements.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 41,
+          "completion": 643,
+          "total": 684
+        },
+        "grader_tokens": {
+          "prompt": 1227,
+          "completion": 463,
+          "total": 1690
+        },
+        "total_usd": 0.0619,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    }
+  }
+}
