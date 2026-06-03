@@ -436,6 +436,9 @@ def render_report(stats: dict, week: str | None = None) -> str:
         main_t = agg["main_session_tokens_heuristic"]
         total_t = agg["total_tokens_estimated"]
         sessions = agg.get("session_count", 0)
+        credits = agg.get("total_credits", 0)
+        cost = agg.get("total_cost_usd", 0)
+        upc = agg.get("usd_per_credit", 0.04)
 
         lines.append(f"  SESSIONS: {sessions}")
         lines.append("")
@@ -444,16 +447,25 @@ def render_report(stats: dict, week: str | None = None) -> str:
         lines.append(f"    Main session (heuristic):{fmt_tokens(main_t):>10}  ⚠ estimated via compaction events")
         lines.append(f"    Total estimated:         {fmt_tokens(total_t):>10}")
         lines.append("")
+        lines.append(f"  AI CREDITS  (rate: ${upc:.3f}/credit)")
+        lines.append(f"    Premium credits used:    {credits:>10,.1f}")
+        lines.append(f"    Cost incurred (USD):     ${cost:>9,.2f}")
+        if sessions:
+            lines.append(f"    Avg per session:         {credits/sessions:>10,.1f} credits  / ${cost/sessions:.3f}")
+        lines.append("")
 
         # Model distribution
         lines.append(f"  MODEL DISTRIBUTION (sub-agents)")
-        by_model = sorted(agg["by_model"].items(), key=lambda x: -x[1]["tokens"])
+        by_model = sorted(agg["by_model"].items(), key=lambda x: -x[1].get("credits", 0))
         for model, mv in by_model:
             pct = mv["token_pct"]
             bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
             calls = mv["calls"]
             avg_d = fmt_duration(mv.get("avg_duration_ms", 0))
-            lines.append(f"    {model:<25} {bar} {pct:5.1f}%  ({calls} calls, avg {avg_d})")
+            mult = mv.get("multiplier", 1.0)
+            cr = mv.get("credits", 0)
+            usd = mv.get("cost_usd", 0)
+            lines.append(f"    {model:<25} {bar} {pct:5.1f}%  ({calls} calls × {mult:g} = {cr:,.1f} cr / ${usd:,.2f}, avg {avg_d})")
         lines.append("")
 
         # Top agents
