@@ -55,26 +55,25 @@ def main():
     new_lbl = new.get("generated_at", "now")
     print(f"\nDIFF  baseline: {old_lbl}\n      current:  {new_lbl}\n")
 
-    for scope in ("all_time", "weeks"):
-        if scope == "weeks":
-            continue  # weeks change; comparing all-time is the meaningful trend
-        o = old.get(scope, old)
-        n = new.get(scope, new)
+    for scope in ("all_time",):
+        o = old.get(scope, {})
+        n = new.get(scope, {})
         print(f"── {scope.upper().replace('_',' ')} ──")
-        diff_section("sessions",          get(o, "sessions"),                      get(n, "sessions"))
-        diff_section("tokens (subagent)", get(o, "tokens", "subagent_exact"),      get(n, "tokens", "subagent_exact"))
-        diff_section("tokens (main est)", get(o, "tokens", "main_heuristic"),      get(n, "tokens", "main_heuristic"))
-        diff_section("tokens (TOTAL)",    get(o, "tokens", "total_estimated"),     get(n, "tokens", "total_estimated"))
-        # tool totals
-        o_tools = sum(get(o, "tools", default={}).values()) if isinstance(get(o, "tools", default={}), dict) else 0
-        n_tools = sum(get(n, "tools", default={}).values()) if isinstance(get(n, "tools", default={}), dict) else 0
-        diff_section("total tool calls",  o_tools, n_tools)
-        # per-session normalisation (the real efficiency metric)
-        os_, ns_ = max(get(o, "sessions"), 1), max(get(n, "sessions"), 1)
-        ot = get(o, "tokens", "total_estimated")
-        nt = get(n, "tokens", "total_estimated")
-        diff_section("avg tokens/session", ot // os_, nt // ns_)
-        diff_section("avg tool calls/session", o_tools // os_, n_tools // ns_)
+        diff_section("sessions",          get(o, "session_count"),                  get(n, "session_count"))
+        diff_section("tokens (subagent)", get(o, "subagent_tokens"),                get(n, "subagent_tokens"))
+        diff_section("tokens (main est)", get(o, "main_session_tokens_heuristic"),  get(n, "main_session_tokens_heuristic"))
+        diff_section("tokens (TOTAL)",    get(o, "total_tokens_estimated"),         get(n, "total_tokens_estimated"))
+        diff_section("total tool calls",  get(o, "total_tool_calls"),               get(n, "total_tool_calls"))
+        diff_section("subagent calls",    get(o, "total_subagent_calls"),           get(n, "total_subagent_calls"))
+        os_ = max(get(o, "session_count"), 1)
+        ns_ = max(get(n, "session_count"), 1)
+        ot  = get(o, "total_tokens_estimated")
+        nt  = get(n, "total_tokens_estimated")
+        otc = get(o, "total_tool_calls")
+        ntc = get(n, "total_tool_calls")
+        print("  ── per-session averages (the real efficiency signal) ──")
+        diff_section("avg tokens/session",     ot // os_,   nt // ns_)
+        diff_section("avg tool calls/session", otc // os_,  ntc // ns_)
         print()
 
     print("(✓ = decrease / improvement, ⚠ = increase, · = no change)")
