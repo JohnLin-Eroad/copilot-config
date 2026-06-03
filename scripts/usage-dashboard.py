@@ -169,6 +169,37 @@ def build_html(stats: dict) -> str:
 
     # ── HTML helpers ─────────────────────────────────────────────────────────
 
+    def cost_table_rows() -> str:
+        rows = []
+        all_models = sorted(at.get("by_model", {}).items(),
+                            key=lambda x: -x[1].get("cost_usd", 0))
+        total_usd = max(total_cost_usd, 0.0001)
+        for name, mv in all_models:
+            calls = mv.get("calls", 0)
+            if calls == 0:
+                continue
+            mult = mv.get("multiplier", 1.0)
+            credits = mv.get("credits", 0)
+            cost = mv.get("cost_usd", 0)
+            tokens = mv.get("tokens", 0)
+            pct_cost = (cost / total_usd) * 100
+            badge = ""
+            if name == "unknown":
+                badge = ' <span class="badge badge-yellow">unattributed</span>'
+            mult_cell = f'{mult:g}×' if mult else '<span style="color:#10b981">free</span>'
+            rows.append(f"""<tr>
+              <td style="font-family:monospace;font-size:12px">{name}{badge}</td>
+              <td style="text-align:right">{calls}</td>
+              <td style="text-align:right">{mult_cell}</td>
+              <td style="text-align:right">{credits:,.1f}</td>
+              <td style="text-align:right"><strong>${cost:,.2f}</strong></td>
+              <td style="text-align:right">{pct_cost:.1f}%</td>
+              <td style="text-align:right;color:#94a3b8">{fmt_tokens(tokens)}</td>
+            </tr>""")
+        if not rows:
+            rows.append('<tr><td colspan="7" style="text-align:center;color:#475569">no model data</td></tr>')
+        return "\n".join(rows)
+
     def agent_table_rows() -> str:
         rows = []
         for name, av in agent_rows_all:
