@@ -493,6 +493,7 @@ def build_html(stats: dict) -> str:
               <th style="text-align:right">Tokens</th>
               <th style="text-align:right">Avg Duration</th>
               <th style="text-align:right">Failures</th>
+              <th style="text-align:right">Cancelled</th>
               <th style="text-align:right">Success Rate</th>
             </tr>
           </thead>
