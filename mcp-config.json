@@ -2,16 +2,11 @@
   "_comment": "All MCP servers disabled 2026-06-03 for token optimization (~15-20k tok/session saved). Historic usage was ~zero. To re-enable a server, move its config from _disabled back to mcpServers. Original config backed up to mcp-config.json.bak-*.",
   "mcpServers": {},
   "_disabled": {
-    "atlassian": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.atlassian.com/v1/mcp"
-      ]
-    },
     "figma": {
       "command": "npx",
-      "args": ["figma-mcp"],
+      "args": [
+        "figma-mcp"
+      ],
       "env": {
         "FIGMA_ACCESS_TOKEN": "YOUR_FIGMA_ACCESS_TOKEN"
       }
@@ -37,9 +32,19 @@
         "/Users/johnlin/.copilot/mcp-oauth-config/slack.json"
       ]
     },
+    "atlassian": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.atlassian.com/v1/mcp"
+      ]
+    },
     "notion": {
       "command": "npx",
-      "args": ["-y", "@notionhq/notion-mcp-server"],
+      "args": [
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
       "env": {
         "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer YOUR_NOTION_TOKEN\", \"Notion-Version\": \"2022-06-28\"}"
       }
