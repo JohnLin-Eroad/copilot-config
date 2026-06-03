@@ -33,6 +33,23 @@ from pathlib import Path
 SESSIONS_DIR = Path.home() / ".copilot" / "session-state"
 STATS_FILE = Path.home() / ".copilot" / "logs" / "usage-stats.json"
 REPORT_FILE = Path.home() / ".copilot" / "logs" / "usage-stats-report.txt"
+PRICING_FILE = Path.home() / ".copilot" / "credit-pricing.json"
+
+
+def load_pricing() -> dict:
+    """Load credit multipliers + USD-per-credit. Returns sane defaults if file missing."""
+    if PRICING_FILE.exists():
+        try:
+            return json.loads(PRICING_FILE.read_text())
+        except Exception as e:
+            print(f"warn: bad {PRICING_FILE}: {e}", file=sys.stderr)
+    return {"usd_per_credit": 0.04, "default_multiplier": 1.0, "multipliers": {}}
+
+
+def credits_for_model(pricing: dict, model: str, calls: int) -> float:
+    """1 call = 1 premium request × multiplier. Returns AI credits consumed."""
+    mult = pricing.get("multipliers", {}).get(model, pricing.get("default_multiplier", 1.0))
+    return calls * mult
 
 
 def iso_to_week(ts: str) -> str:
