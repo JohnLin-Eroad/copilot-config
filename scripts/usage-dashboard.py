@@ -401,6 +401,31 @@ def build_html(stats: dict) -> str:
     </div>
   </div>
 
+  <!-- ══════════════ COST BREAKDOWN ══════════════ -->
+  <div class="section-header">💰 Cost Breakdown — by Model</div>
+  <div class="panel" style="margin-bottom:20px;overflow:auto">
+    <div style="display:flex;gap:20px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <div><strong>Total:</strong> {total_credits:,.1f} credits · <strong>${total_cost_usd:,.2f}</strong></div>
+      <div style="color:#94a3b8">Rate: ${usd_per_credit:.3f}/credit · {sessions} sessions · ${avg_cost_per_session:.3f} avg/session</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th style="text-align:right">Calls</th>
+          <th style="text-align:right">Multiplier</th>
+          <th style="text-align:right">Credits</th>
+          <th style="text-align:right">Cost (USD)</th>
+          <th style="text-align:right">% of $</th>
+          <th style="text-align:right">Tokens</th>
+        </tr>
+      </thead>
+      <tbody>
+        {cost_table_rows()}
+      </tbody>
+    </table>
+  </div>
+
   <!-- ══════════════ AGENTS ══════════════ -->
   <div class="section-header">Agents — {len(all_agents)} defined · {len(invoked_agents)} invoked</div>
 
