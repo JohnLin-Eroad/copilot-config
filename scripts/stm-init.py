@@ -172,15 +172,13 @@ task: "{slug}"
 created: "{created_iso}"
 ---
 
-# Short-Term Memory — {slug}
+# STM — {slug}
 
-This file is the shared in-session context for all agents working on this task.
-**Do not delete sections. Only append.**
+Shared in-session context. Append only; do not delete sections.
 
 ---
 
 ## [STM] Task Brief
-<!-- Written by Orchestrator at task start -->
 
 Task: {task_desc}
 
@@ -202,8 +200,7 @@ Classification:
 ---
 
 ## [STM] Negative Context
-<!-- Topics searched in brain but NOT found. All agents: do NOT speculate on these. -->
-<!-- Raise PIPELINE_SIGNAL: NEED_DATA if any listed topic is critical to your work. -->
+<!-- Brain searches that returned nothing. No speculation on these topics — raise NEED_DATA. -->
 
 ---
 
