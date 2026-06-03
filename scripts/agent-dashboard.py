@@ -340,7 +340,7 @@ class WorkflowRegistry:
                 pass
 
         # 2. Newest-mtime fallback (only within freshness window)
-        cutoff = time.time() - DISCOVERY_WINDOW_H * 3600
+        cutoff = time.time() - self.DISCOVERY_WINDOW_H * 3600
         best_dir: Optional[Path] = None
         best_mtime: float = 0.0
         try:
