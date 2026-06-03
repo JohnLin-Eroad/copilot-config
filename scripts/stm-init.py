@@ -213,6 +213,9 @@ def main():
     date_str = datetime.now().strftime("%Y-%m-%d")
     created_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    # Heuristic classification — agent should verify/correct via write-stm.sh
+    cls = classify_prompt(task_desc)
+
     # Housekeeping: prune old STM directories (>7 days)
     try:
         _prune_old_stm_dirs()
