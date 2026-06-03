@@ -100,6 +100,93 @@ def slugify(text: str) -> str:
     return text[:40]
 
 
+# ── Heuristic classifier ──────────────────────────────────────────────────
+# Goal: provide a sensible default Classification block so the dashboard isn't
+# empty when an orchestrator skips step 2. The agent can overwrite these later
+# via write-stm.sh — values here are best-guess from the user's prompt text.
+
+EROAD_KEYWORDS = (
+    "eroad", "sovereign", "rucus", "media-service", "media service",
+    "nz-au", "drp-", "ehb-", "tpr-", "vehiclecontroller", "media_service",
+    "transport", "ezeta", "ezt", "vehicle-service",
+)
+PERSONAL_KEYWORDS = (
+    "copilot", ".copilot", "agent dashboard", "stm", "brain-graph",
+    "obsidian", "benchmark", "ai-learning", "session-state", "orchestration",
+    "agent factory", "skill", "hook",
+)
+ARCH_KEYWORDS = ("architecture", "design", "adr", "refactor", "redesign", "decompose")
+DOC_KEYWORDS = ("document", "readme", "spec", "confluence", "write up", "summary")
+RESEARCH_KEYWORDS = ("research", "investigate", "explore", "analyse", "analyze", "look into", "find out")
+DISCOVERY_KEYWORDS = ("map", "inventory", "what is in", "discover", "list all")
+OPS_KEYWORDS = ("deploy", "rollout", "rollback", "migration", "infra", "ci/cd", "pipeline run")
+CODE_KEYWORDS = (
+    "fix", "implement", "add ", "build ", "write ", "create ", "patch",
+    "update ", "modify", "change", "refactor", "tackle", "apply",
+    "edit", "bug", "wire ", "extend ", "ticket", "do this",
+)
+HIGH_BLAST_KEYWORDS = ("production", "prod ", "schema", "drop ", "force push", "delete table", "shared branch")
+MEDIUM_BLAST_KEYWORDS = ("migration", "api break", "across services", "multiple repos", "deploy", "infra")
+QUESTION_PREFIXES = ("what ", "why ", "how ", "when ", "where ", "is there", "are there", "can ", "could ", "should ", "?")
+
+
+def classify_prompt(text: str) -> dict:
+    """Best-effort heuristic classification. Returns dict with Domain/Type/Blast/Pipeline/BRAIN_TYPE."""
+    t = text.lower().strip()
+
+    # Domain
+    domain = "personal"
+    if any(k in t for k in EROAD_KEYWORDS):
+        domain = "eroad"
+    elif any(k in t for k in PERSONAL_KEYWORDS):
+        domain = "personal"
+
+    # Type
+    if t.endswith("?") or any(t.startswith(p) for p in QUESTION_PREFIXES):
+        ttype = "question"
+    elif any(k in t for k in ARCH_KEYWORDS):
+        ttype = "architecture"
+    elif any(k in t for k in DOC_KEYWORDS):
+        ttype = "documentation"
+    elif any(k in t for k in DISCOVERY_KEYWORDS):
+        ttype = "discovery"
+    elif any(k in t for k in RESEARCH_KEYWORDS):
+        ttype = "research"
+    elif any(k in t for k in OPS_KEYWORDS):
+        ttype = "ops"
+    elif any(k in t for k in CODE_KEYWORDS):
+        ttype = "code-change"
+    else:
+        ttype = "general"
+
+    # Blast radius — conservative default
+    if any(k in t for k in HIGH_BLAST_KEYWORDS):
+        blast = "HIGH"
+    elif any(k in t for k in MEDIUM_BLAST_KEYWORDS):
+        blast = "MEDIUM"
+    elif ttype in ("question", "research", "discovery", "documentation"):
+        blast = "LOW"
+    else:
+        blast = "MEDIUM"
+
+    # Pipeline
+    if ttype == "question" or blast == "LOW" and domain == "personal":
+        pipeline = "minimal"
+    elif domain == "eroad" and blast in ("HIGH", "CRITICAL"):
+        pipeline = "full-transformation"
+    else:
+        pipeline = "standard"
+
+    return {
+        "Domain": domain,
+        "Type": ttype,
+        "Blast": blast,
+        "Pipeline": pipeline,
+        "BRAIN_TYPE": domain,  # mirrors Domain by convention
+        "_auto": True,
+    }
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: stm-init.py <task-description> [--port PORT]", file=sys.stderr)
