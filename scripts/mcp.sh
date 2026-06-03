@@ -31,12 +31,20 @@ write_atomic() {
 case "$cmd" in
   list|status)
     echo "Enabled MCP servers:"
-    jq -r '.mcpServers | keys[]? | "  ✓ \(.)"' "$CFG"
-    [[ $(jq '.mcpServers | length' "$CFG") -eq 0 ]] && echo "  (none)"
+    enabled_count=$(jq '.mcpServers | length' "$CFG")
+    if [[ "$enabled_count" -eq 0 ]]; then
+      echo "  (none)"
+    else
+      jq -r '.mcpServers | keys[] | "  ✓ \(.)"' "$CFG"
+    fi
     echo
     echo "Disabled MCP servers:"
-    jq -r '._disabled | keys[]? | "  ✗ \(.)"' "$CFG"
-    [[ $(jq '._disabled | length' "$CFG") -eq 0 ]] && echo "  (none)"
+    disabled_count=$(jq '._disabled | length' "$CFG")
+    if [[ "$disabled_count" -eq 0 ]]; then
+      echo "  (none)"
+    else
+      jq -r '._disabled | keys[] | "  ✗ \(.)"' "$CFG"
+    fi
     ;;
 
   enable)
