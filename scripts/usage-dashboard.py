@@ -342,6 +342,16 @@ def build_html(stats: dict) -> str:
       <div class="value">{fmt_tokens(total_tok)}</div>
       <div class="sub">{fmt_tokens(sub_tok)} exact + {fmt_tokens(main_tok)} heuristic</div>
     </div>
+    <div class="card green">
+      <div class="label">💰 Total Cost (USD)</div>
+      <div class="value">${total_cost_usd:,.2f}</div>
+      <div class="sub">${avg_cost_per_session:.3f} / session · @ ${usd_per_credit:.3f}/credit</div>
+    </div>
+    <div class="card accent">
+      <div class="label">AI Credits Used</div>
+      <div class="value">{total_credits:,.1f}</div>
+      <div class="sub">{avg_credits_per_session:.2f} avg / session</div>
+    </div>
     <div class="card">
       <div class="label">Sessions</div>
       <div class="value">{sessions}</div>
