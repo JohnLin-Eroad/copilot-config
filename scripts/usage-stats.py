@@ -64,6 +64,8 @@ def iso_to_week(ts: str) -> str:
 def categorise_error(msg: str) -> str:
     """Map an error message to a short category label."""
     m = msg.lower()
+    if "aborterror" in m or "operation was aborted" in m or "request was aborted" in m or "aborted by user" in m:
+        return "cancelled"
     if "goaway" in m or "connection" in m:
         return "connection_error"
     if "timed out" in m or "timeout" in m:
