@@ -358,6 +358,9 @@ def finalize_aggregate(agg: dict, pricing: dict | None = None) -> dict:
 
     agg["total_tokens_estimated"] = total_sub_tokens + agg["main_session_tokens_heuristic"]
     agg["total_agent_failures"] = total_failures
+    agg["total_credits"]  = round(total_credits, 2)
+    agg["total_cost_usd"] = round(total_credits * usd_per_credit, 4)
+    agg["usd_per_credit"] = usd_per_credit
     return agg
 
 
