@@ -272,12 +272,12 @@ Shared in-session context. Append only; do not delete sections.
 
 Task: {task_desc}
 
-Classification:
-  Domain:     —
-  Type:       —
-  Blast:      —
-  Pipeline:   —
-  BRAIN_TYPE: —
+Classification: (auto-classified by stm-init heuristic — orchestrator should verify/correct)
+  Domain:     {cls['Domain']}
+  Type:       {cls['Type']}
+  Blast:      {cls['Blast']}
+  Pipeline:   {cls['Pipeline']}
+  BRAIN_TYPE: {cls['BRAIN_TYPE']}
 {digest_section}
 ---
 
