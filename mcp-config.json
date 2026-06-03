@@ -1,5 +1,7 @@
 {
-  "mcpServers": {
+  "_comment": "All MCP servers disabled 2026-06-03 for token optimization (~15-20k tok/session saved). Historic usage was ~zero. To re-enable a server, move its config from _disabled back to mcpServers. Original config backed up to mcp-config.json.bak-*.",
+  "mcpServers": {},
+  "_disabled": {
     "atlassian": {
       "command": "npx",
       "args": [
