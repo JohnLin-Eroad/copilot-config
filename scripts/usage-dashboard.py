@@ -206,10 +206,11 @@ def build_html(stats: dict) -> str:
             calls = av.get("calls", 0)
             tokens = av.get("tokens", 0)
             failures = av.get("failure_count", agent_failures.get(name, {}).get("count", 0))
+            cancelled = av.get("cancelled_count", agent_failures.get(name, {}).get("cancelled_count", 0))
             success_rate = av.get("success_rate", 100.0 if calls == 0 else None)
             avg_dur = av.get("avg_duration_ms", 0)
 
-            if calls == 0 and failures == 0:
+            if calls == 0 and failures == 0 and cancelled == 0:
                 calls_cell = '<span style="color:#475569">—</span>'
                 tokens_cell = '<span style="color:#475569">—</span>'
                 dur_cell = '<span style="color:#475569">—</span>'
@@ -231,6 +232,10 @@ def build_html(stats: dict) -> str:
                 row_style = ''
 
             fail_cell = f'<span style="color:#ef4444;font-weight:600">{failures}</span>' if failures > 0 else '<span style="color:#475569">0</span>'
+            cancel_cell = (
+                f'<span class="badge badge-yellow" title="User-cancelled / aborted (excluded from success rate)">{cancelled}</span>'
+                if cancelled > 0 else '<span style="color:#475569">0</span>'
+            )
 
             rows.append(f"""<tr {row_style}>
               <td style="font-family:monospace;font-size:12px">{name}</td>
@@ -238,6 +243,7 @@ def build_html(stats: dict) -> str:
               <td style="text-align:right">{tokens_cell}</td>
               <td style="text-align:right">{dur_cell}</td>
               <td style="text-align:right">{fail_cell}</td>
+              <td style="text-align:right">{cancel_cell}</td>
               <td style="text-align:right">{rate_cell}</td>
             </tr>""")
         return "\n".join(rows)
