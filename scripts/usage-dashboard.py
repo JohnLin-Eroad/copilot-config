@@ -157,6 +157,13 @@ def build_html(stats: dict) -> str:
     top_model   = model_labels[0] if model_labels else "—"
     top_model_pct = f"{models_sorted[0][1]['token_pct']}%" if models_sorted else "—"
 
+    # Credits + USD cost (added with credit-pricing model)
+    total_credits  = at.get("total_credits", 0)
+    total_cost_usd = at.get("total_cost_usd", 0)
+    usd_per_credit = at.get("usd_per_credit", 0.04)
+    avg_credits_per_session = (total_credits / sessions) if sessions else 0
+    avg_cost_per_session    = (total_cost_usd / sessions) if sessions else 0
+
     # JSON blobs for JS
     def j(x): return json.dumps(x)
 
