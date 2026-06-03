@@ -321,14 +321,21 @@ def empty_aggregate() -> dict:
     }
 
 
-def finalize_aggregate(agg: dict) -> dict:
-    """Add derived fields (percentages, averages) to an aggregate."""
+def finalize_aggregate(agg: dict, pricing: dict | None = None) -> dict:
+    """Add derived fields (percentages, averages, credits, USD) to an aggregate."""
     total_sub_tokens = agg["subagent_tokens"]
+    pricing = pricing or load_pricing()
+    usd_per_credit = float(pricing.get("usd_per_credit", 0.04))
 
-    # Model percentages (based on sub-agent tokens)
+    # Model percentages + credits (based on sub-agent calls × multiplier)
+    total_credits = 0.0
     for m, mv in agg["by_model"].items():
         mv["token_pct"] = round(mv["tokens"] / total_sub_tokens * 100, 1) if total_sub_tokens else 0
         mv["avg_duration_ms"] = round(mv["total_duration_ms"] / mv["calls"]) if mv["calls"] else 0
+        mv["multiplier"] = pricing.get("multipliers", {}).get(m, pricing.get("default_multiplier", 1.0))
+        mv["credits"] = round(credits_for_model(pricing, m, mv["calls"]), 2)
+        mv["cost_usd"] = round(mv["credits"] * usd_per_credit, 4)
+        total_credits += mv["credits"]
 
     # Agent averages + failure rate
     total_failures = sum(fv["count"] for fv in agg["agent_failures"].values())
