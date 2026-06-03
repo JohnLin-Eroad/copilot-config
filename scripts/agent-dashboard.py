@@ -322,21 +322,42 @@ class WorkflowRegistry:
     # ── Internal helpers (no locking — caller holds lock or uses try/except) ──
 
     def _resolve_active_dir(self) -> Optional[Path]:
-        """Resolve .active symlink with containment check."""
+        """Resolve active STM dir: .active symlink → newest-mtime fallback.
+
+        Mirrors module-level _resolve_active_stm() fallback chain so per-workflow
+        is_active flags stay consistent with /health endpoint.
+        """
+        # 1. .active symlink with containment check
         active_link = self._stm_dir / ".active"
-        if not active_link.is_symlink():
-            return None
+        if active_link.is_symlink():
+            try:
+                target = active_link.resolve()
+                stm_real = self._stm_dir.resolve()
+                if str(target).startswith(str(stm_real) + os.sep):
+                    if target.is_dir() and (target / STM_FILENAME).exists():
+                        return target
+            except OSError:
+                pass
+
+        # 2. Newest-mtime fallback (only within freshness window)
+        cutoff = time.time() - DISCOVERY_WINDOW_H * 3600
+        best_dir: Optional[Path] = None
+        best_mtime: float = 0.0
         try:
-            target = active_link.resolve()
-            # Containment check — must be under STM_DIR
-            stm_real = self._stm_dir.resolve()
-            if not str(target).startswith(str(stm_real) + os.sep):
-                return None
-            if target.is_dir() and (target / STM_FILENAME).exists():
-                return target
+            for entry in self._stm_dir.iterdir():
+                if not entry.is_dir() or entry.name.startswith("."):
+                    continue
+                stm_file = entry / STM_FILENAME
+                try:
+                    st = stm_file.stat()
+                    if st.st_mtime >= cutoff and st.st_mtime > best_mtime:
+                        best_mtime = st.st_mtime
+                        best_dir = entry
+                except OSError:
+                    continue
         except OSError:
-            pass
-        return None
+            return None
+        return best_dir
 
     def _read_dashboard_id(self, d: Path) -> str:
         """Read .dashboard-id sidecar. Returns '' if missing/invalid."""
