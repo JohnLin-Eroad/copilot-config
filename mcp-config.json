@@ -7,6 +7,13 @@
         "mcp-remote",
         "https://mcp.atlassian.com/v1/mcp"
       ]
+    },
+    "datadog": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=all"
+      ]
     }
   },
   "_disabled": {
