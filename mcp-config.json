@@ -9,11 +9,8 @@
       ]
     },
     "datadog": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=all"
-      ]
+      "type": "http",
+      "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=all"
     }
   },
   "_disabled": {
