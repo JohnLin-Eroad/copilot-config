@@ -33,6 +33,23 @@ from pathlib import Path
 SESSIONS_DIR = Path.home() / ".copilot" / "session-state"
 STATS_FILE = Path.home() / ".copilot" / "logs" / "usage-stats.json"
 REPORT_FILE = Path.home() / ".copilot" / "logs" / "usage-stats-report.txt"
+PRICING_FILE = Path.home() / ".copilot" / "credit-pricing.json"
+
+
+def load_pricing() -> dict:
+    """Load credit multipliers + USD-per-credit. Returns sane defaults if file missing."""
+    if PRICING_FILE.exists():
+        try:
+            return json.loads(PRICING_FILE.read_text())
+        except Exception as e:
+            print(f"warn: bad {PRICING_FILE}: {e}", file=sys.stderr)
+    return {"usd_per_credit": 0.04, "default_multiplier": 1.0, "multipliers": {}}
+
+
+def credits_for_model(pricing: dict, model: str, calls: int) -> float:
+    """1 call = 1 premium request × multiplier. Returns AI credits consumed."""
+    mult = pricing.get("multipliers", {}).get(model, pricing.get("default_multiplier", 1.0))
+    return calls * mult
 
 
 def iso_to_week(ts: str) -> str:
@@ -47,6 +64,8 @@ def iso_to_week(ts: str) -> str:
 def categorise_error(msg: str) -> str:
     """Map an error message to a short category label."""
     m = msg.lower()
+    if "aborterror" in m or "operation was aborted" in m or "request was aborted" in m or "aborted by user" in m:
+        return "cancelled"
     if "goaway" in m or "connection" in m:
         return "connection_error"
     if "timed out" in m or "timeout" in m:
@@ -304,36 +323,61 @@ def empty_aggregate() -> dict:
     }
 
 
-def finalize_aggregate(agg: dict) -> dict:
-    """Add derived fields (percentages, averages) to an aggregate."""
+def finalize_aggregate(agg: dict, pricing: dict | None = None) -> dict:
+    """Add derived fields (percentages, averages, credits, USD) to an aggregate."""
     total_sub_tokens = agg["subagent_tokens"]
+    pricing = pricing or load_pricing()
+    usd_per_credit = float(pricing.get("usd_per_credit", 0.04))
 
-    # Model percentages (based on sub-agent tokens)
+    # Model percentages + credits (based on sub-agent calls × multiplier)
+    total_credits = 0.0
     for m, mv in agg["by_model"].items():
         mv["token_pct"] = round(mv["tokens"] / total_sub_tokens * 100, 1) if total_sub_tokens else 0
         mv["avg_duration_ms"] = round(mv["total_duration_ms"] / mv["calls"]) if mv["calls"] else 0
+        mv["multiplier"] = pricing.get("multipliers", {}).get(m, pricing.get("default_multiplier", 1.0))
+        mv["credits"] = round(credits_for_model(pricing, m, mv["calls"]), 2)
+        mv["cost_usd"] = round(mv["credits"] * usd_per_credit, 4)
+        total_credits += mv["credits"]
 
-    # Agent averages + failure rate
-    total_failures = sum(fv["count"] for fv in agg["agent_failures"].values())
+    # Agent averages + failure rate (cancellations excluded from denominator)
+    total_failures = 0
+    total_cancellations = 0
+    for fv in agg["agent_failures"].values():
+        cancelled = sum(1 for e in fv.get("errors", []) if e.get("category") == "cancelled")
+        fv["cancelled_count"] = cancelled
+        fv["real_failure_count"] = fv["count"] - cancelled
+        total_failures += fv["real_failure_count"]
+        total_cancellations += cancelled
+
     for a, av in agg["agents"].items():
         av["avg_tokens"] = round(av["tokens"] / av["calls"]) if av["calls"] else 0
         av["avg_duration_ms"] = round(av["total_duration_ms"] / av["calls"]) if av["calls"] else 0
-        failures = agg["agent_failures"].get(a, {}).get("count", 0)
+        fv = agg["agent_failures"].get(a, {})
+        failures = fv.get("real_failure_count", fv.get("count", 0))
+        cancelled = fv.get("cancelled_count", 0)
         total_attempts = av["calls"] + failures
         av["failure_count"] = failures
+        av["cancelled_count"] = cancelled
         av["success_rate"] = round(av["calls"] / total_attempts * 100, 1) if total_attempts else 100.0
 
     # Standalone failure entries (agents that only failed, never completed)
     for a, fv in agg["agent_failures"].items():
         if a not in agg["agents"]:
+            real = fv.get("real_failure_count", fv["count"])
             agg["agents"][a] = {
                 "calls": 0, "tokens": 0, "total_duration_ms": 0,
                 "avg_tokens": 0, "avg_duration_ms": 0,
-                "failure_count": fv["count"], "success_rate": 0.0,
+                "failure_count": real,
+                "cancelled_count": fv.get("cancelled_count", 0),
+                "success_rate": 0.0 if real > 0 else 100.0,
             }
 
     agg["total_tokens_estimated"] = total_sub_tokens + agg["main_session_tokens_heuristic"]
     agg["total_agent_failures"] = total_failures
+    agg["total_agent_cancellations"] = total_cancellations
+    agg["total_credits"]  = round(total_credits, 2)
+    agg["total_cost_usd"] = round(total_credits * usd_per_credit, 4)
+    agg["usd_per_credit"] = usd_per_credit
     return agg
 
 
@@ -409,6 +453,9 @@ def render_report(stats: dict, week: str | None = None) -> str:
         main_t = agg["main_session_tokens_heuristic"]
         total_t = agg["total_tokens_estimated"]
         sessions = agg.get("session_count", 0)
+        credits = agg.get("total_credits", 0)
+        cost = agg.get("total_cost_usd", 0)
+        upc = agg.get("usd_per_credit", 0.04)
 
         lines.append(f"  SESSIONS: {sessions}")
         lines.append("")
@@ -417,16 +464,25 @@ def render_report(stats: dict, week: str | None = None) -> str:
         lines.append(f"    Main session (heuristic):{fmt_tokens(main_t):>10}  ⚠ estimated via compaction events")
         lines.append(f"    Total estimated:         {fmt_tokens(total_t):>10}")
         lines.append("")
+        lines.append(f"  AI CREDITS  (rate: ${upc:.3f}/credit)")
+        lines.append(f"    Premium credits used:    {credits:>10,.1f}")
+        lines.append(f"    Cost incurred (USD):     ${cost:>9,.2f}")
+        if sessions:
+            lines.append(f"    Avg per session:         {credits/sessions:>10,.1f} credits  / ${cost/sessions:.3f}")
+        lines.append("")
 
         # Model distribution
         lines.append(f"  MODEL DISTRIBUTION (sub-agents)")
-        by_model = sorted(agg["by_model"].items(), key=lambda x: -x[1]["tokens"])
+        by_model = sorted(agg["by_model"].items(), key=lambda x: -x[1].get("credits", 0))
         for model, mv in by_model:
             pct = mv["token_pct"]
             bar = "█" * int(pct / 5) + "░" * (20 - int(pct / 5))
             calls = mv["calls"]
             avg_d = fmt_duration(mv.get("avg_duration_ms", 0))
-            lines.append(f"    {model:<25} {bar} {pct:5.1f}%  ({calls} calls, avg {avg_d})")
+            mult = mv.get("multiplier", 1.0)
+            cr = mv.get("credits", 0)
+            usd = mv.get("cost_usd", 0)
+            lines.append(f"    {model:<25} {bar} {pct:5.1f}%  ({calls} calls × {mult:g} = {cr:,.1f} cr / ${usd:,.2f}, avg {avg_d})")
         lines.append("")
 
         # Top agents
