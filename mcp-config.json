@@ -11,6 +11,13 @@
     "datadog": {
       "type": "http",
       "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=all"
+    },
+    "sumologic": {
+      "command": "bash",
+      "args": [
+        "-c",
+        "set -a; source \"$HOME/.copilot/.sumo.env\"; set +a; exec npx -y @getguru/sumologic-mcp"
+      ]
     }
   },
   "_disabled": {
