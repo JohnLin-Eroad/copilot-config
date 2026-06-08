@@ -37,10 +37,11 @@ TOOL_CALLS: 0/100   CONTEXT: ~<N>k tokens   MODEL: claude-opus-4.7
 
 ## 🚨 Start of every task — 4 steps
 
-The `userPromptSubmitted` hook auto-creates the STM and injects `STM_PATH` into your context for the **first non-trivial prompt** of the session. Do NOT call `stm-init.py` yourself.
+The `userPromptSubmitted` hook auto-creates the STM, **pre-fills Classification with a heuristic guess**, and injects `STM_PATH` into your context for the **first non-trivial prompt** of the session. Do NOT call `stm-init.py` yourself.
 
 1. **Read STM_PATH** from injected context (or `cat ~/.copilot/session-state/<sessionId>/stm-path.txt`).
-2. **Classify the task** — write the block below into `## [STM] Task Brief`.
+2. **Verify Classification** in `## [STM] Task Brief`. The heuristic is a best-guess from the prompt — it is often right but not always. If wrong, correct via:
+   `bash ~/.copilot/scripts/write-stm.sh "$STM_PATH" orchestrator "RECLASSIFY: Domain=... Type=... Blast=... Pipeline=... BRAIN_TYPE=..."`
 3. **Invoke `brain-data-retrieval`** — no exceptions for EROAD tasks.
 4. **Confirm a specialist agent exists** — if none fits, invoke `agent-factory` (never use `general-purpose` as a fallback).
 
