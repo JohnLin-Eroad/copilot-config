@@ -325,10 +325,12 @@ class WorkflowRegistry:
         """Resolve active STM dir: .active symlink → newest-mtime fallback.
 
         Mirrors module-level _resolve_active_stm() fallback chain so per-workflow
-        is_active flags stay consistent with /health endpoint.
+        is_active flags stay consistent with /health endpoint. Self-heals the
+        .active symlink when missing/dangling.
         """
-        # 1. .active symlink with containment check
         active_link = self._stm_dir / ".active"
+
+        # 1. .active symlink with containment check
         if active_link.is_symlink():
             try:
                 target = active_link.resolve()
@@ -336,6 +338,11 @@ class WorkflowRegistry:
                 if str(target).startswith(str(stm_real) + os.sep):
                     if target.is_dir() and (target / STM_FILENAME).exists():
                         return target
+            except OSError:
+                pass
+            # Dangling / out-of-bounds — clean it up so fallback can rewrite
+            try:
+                active_link.unlink()
             except OSError:
                 pass
 
@@ -357,6 +364,21 @@ class WorkflowRegistry:
                     continue
         except OSError:
             return None
+
+        # 3. Self-heal — rewrite .active symlink atomically when fallback fires
+        if best_dir is not None and not active_link.is_symlink():
+            tmp_link = self._stm_dir / f".active.tmp.{os.getpid()}.{int(time.time()*1000)}"
+            try:
+                if tmp_link.exists() or tmp_link.is_symlink():
+                    tmp_link.unlink()
+                os.symlink(best_dir, tmp_link)
+                os.replace(str(tmp_link), str(active_link))
+            except OSError:
+                try:
+                    tmp_link.unlink()
+                except OSError:
+                    pass
+
         return best_dir
 
     def _read_dashboard_id(self, d: Path) -> str:
