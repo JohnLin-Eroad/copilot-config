@@ -3846,3 +3846,16 @@ hint: have locally. This is usually caused by another repository pushing to
 hint: the same ref. If you want to integrate the remote changes, use
 hint: 'git pull' before pushing again.
 hint: See the 'Note about fast-forwards' in 'git push --help' for details.
+warning: in the working copy of '.obsidian/plugins/obsidian-excalidraw-plugin/manifest.json', CRLF will be replaced by LF the next time Git touches it
+error: read error while indexing 01 - Services/asset-devices-device-telemetry.md: Resource deadlock avoided
+error: 01 - Services/asset-devices-device-telemetry.md: failed to insert into database
+error: unable to index file '01 - Services/asset-devices-device-telemetry.md'
+fatal: adding files failed
+To https://github.com/JohnLin-Eroad/eroad-brain.git
+ ! [rejected]        main -> main (fetch first)
+error: failed to push some refs to 'https://github.com/JohnLin-Eroad/eroad-brain.git'
+hint: Updates were rejected because the remote contains work that you do not
+hint: have locally. This is usually caused by another repository pushing to
+hint: the same ref. If you want to integrate the remote changes, use
+hint: 'git pull' before pushing again.
+hint: See the 'Note about fast-forwards' in 'git push --help' for details.
