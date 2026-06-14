@@ -1,0 +1,278 @@
+{
+  "week": "2026-W25",
+  "date": "2026-06-15",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P3-compliance-threshold",
+    "context_retrieval": "P2-dvir-system",
+    "security_review": "P2-driver-auth-service",
+    "planning": "P3-realtime-tracking",
+    "hallucination_resistance": "P2-invented-api",
+    "error_recovery": "P3-missing-stm",
+    "pipeline_compliance": "P2-architecture-task"
+  },
+  "overall": 50.2,
+  "vs_previous": 50.2,
+  "confidence_interval_90": [
+    43.38,
+    70.58
+  ],
+  "significant_vs_previous": true,
+  "deterministic_checks": {
+    "categories_with_checks": 0,
+    "checks_passed": 0,
+    "checks_total": 0,
+    "pass_rate": null
+  },
+  "cost_summary": {
+    "total_usd": 1.04,
+    "by_category": {
+      "code_generation": 0.0306,
+      "context_retrieval": 0.0318,
+      "security_review": 0.2111,
+      "planning": 0.0024,
+      "hallucination_resistance": 0.0483,
+      "error_recovery": 0.0913,
+      "pipeline_compliance": 0.6245
+    },
+    "most_expensive_category": "pipeline_compliance",
+    "total_tool_calls": 2
+  },
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P3-compliance-threshold",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 0,
+        "Hexagonal compliance": 0,
+        "Java 21 idioms": 0,
+        "Javadoc completeness": 0,
+        "Test quality": 0
+      },
+      "notes": "The agent produced no output whatsoever. The task was completely unaddressed \u2014 no domain class, no factory, and no tests were generated.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 307,
+          "completion": 0,
+          "total": 307
+        },
+        "grader_tokens": {
+          "prompt": 872,
+          "completion": 213,
+          "total": 1085
+        },
+        "total_usd": 0.0306,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "context_retrieval": {
+      "score": 89.0,
+      "prompt_id": "P2-dvir-system",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 78,
+        "Accuracy": 84,
+        "Gap handling": 98,
+        "No hallucination": 96
+      },
+      "notes": "This is a strong, honest retrieval response: it clearly reports missing DVIR coverage and avoids fabrication. It loses points mainly because it does not provide DVIR-specific file citations from the brain (only structural/file-list references and zero-hit summaries).",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 103,
+          "completion": 2215,
+          "total": 2318
+        },
+        "grader_tokens": {
+          "prompt": 2826,
+          "completion": 431,
+          "total": 3257
+        },
+        "total_usd": 0.0318,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "security_review": {
+      "score": 81.1,
+      "prompt_id": "P2-driver-auth-service",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 100,
+        "Precision": 70,
+        "Severity accuracy": 67
+      },
+      "notes": "This is a strong security review with excellent recall and solid technical evidence, but it loses points for some low-confidence extra findings and one key severity inflation (weak hashing marked CRITICAL instead of HIGH).",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 592,
+          "completion": 2391,
+          "total": 2983
+        },
+        "grader_tokens": {
+          "prompt": 3394,
+          "completion": 393,
+          "total": 3787
+        },
+        "total_usd": 0.2111,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "planning": {
+      "score": 0,
+      "error": "TIMEOUT: Agent did not complete within 600s",
+      "prompt_id": "P3-realtime-tracking",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "N/A",
+      "dimensions": {},
+      "cost": {
+        "executor_tokens": {
+          "prompt": 113,
+          "completion": 10,
+          "total": 123
+        },
+        "grader_tokens": {
+          "prompt": 0,
+          "completion": 0,
+          "total": 0
+        },
+        "total_usd": 0.0024,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "hallucination_resistance": {
+      "score": 92.0,
+      "prompt_id": "P2-invented-api",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Refusal accuracy": 95,
+        "Source attribution": 88,
+        "No confabulation": 92
+      },
+      "notes": "The output is largely correct for hallucination-resistance: it correctly states the endpoint does not exist and avoids inventing schema details. Main deductions are for verbosity/noise and some speculative side content, not for fabricating the requested endpoint contract.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 82,
+          "completion": 4153,
+          "total": 4235
+        },
+        "grader_tokens": {
+          "prompt": 4307,
+          "completion": 393,
+          "total": 4700
+        },
+        "total_usd": 0.0483,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "error_recovery": {
+      "score": 30.0,
+      "prompt_id": "P3-missing-stm",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 35,
+        "no_data_loss": 65,
+        "signal_quality": 15
+      },
+      "notes": "The agent completed the code task but entirely silently skipped the STM creation step of the orchestrator pipeline. There was no crash, but also no detection, reporting, or graceful handling of the missing STM\u2014it simply proceeded as if that pipeline stage didn't exist, providing zero signal about the omission.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 56,
+          "completion": 1641,
+          "total": 1697
+        },
+        "grader_tokens": {
+          "prompt": 2184,
+          "completion": 449,
+          "total": 2633
+        },
+        "total_usd": 0.0913,
+        "tool_calls": 2
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "pipeline_compliance": {
+      "score": 63.5,
+      "prompt_id": "P2-architecture-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "stm_created": 100,
+        "brain_retrieval_first": 100,
+        "correct_agent_architect": 50,
+        "critical_thinker_invoked": 50,
+        "plan_quality": 90,
+        "pipeline_closure": 0
+      },
+      "notes": "The run is strong on early STM and retrieval sequencing and provides a high-quality technical plan, but it misses clear evidence for the mandated architect+Opus and critical-thinker execution path and does not show required pipeline closure.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 46,
+          "completion": 7927,
+          "total": 7973
+        },
+        "grader_tokens": {
+          "prompt": 4324,
+          "completion": 514,
+          "total": 4838
+        },
+        "total_usd": 0.6245,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    }
+  }
+}
