@@ -1,0 +1,284 @@
+{
+  "week": "2026-W24",
+  "date": "2026-06-08",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P2-fleet-membership",
+    "context_retrieval": "P1-architecture-overview",
+    "security_review": "P1-vehicle-controller",
+    "planning": "P2-multi-tenancy",
+    "hallucination_resistance": "P1-nonexistent-service",
+    "error_recovery": "P2-empty-brain",
+    "pipeline_compliance": "P1-simple-code-task"
+  },
+  "overall": 57.2,
+  "vs_previous": 57.2,
+  "confidence_interval_90": [
+    45.52,
+    67.66
+  ],
+  "significant_vs_previous": true,
+  "deterministic_checks": {
+    "categories_with_checks": 0,
+    "checks_passed": 0,
+    "checks_total": 0,
+    "pass_rate": null
+  },
+  "cost_summary": {
+    "total_usd": 1.0253,
+    "by_category": {
+      "code_generation": 0.0996,
+      "context_retrieval": 0.0927,
+      "security_review": 0.2323,
+      "planning": 0.2885,
+      "hallucination_resistance": 0.0352,
+      "error_recovery": 0.1263,
+      "pipeline_compliance": 0.1507
+    },
+    "most_expensive_category": "planning",
+    "total_tool_calls": 1
+  },
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 83.5,
+      "prompt_id": "P2-fleet-membership",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "Correctness": 80,
+        "Hexagonal compliance": 92,
+        "Java 21 idioms": 88,
+        "Javadoc completeness": 65,
+        "Test quality": 88
+      },
+      "notes": "The agent found a pre-existing correct implementation, verified all files exist with proper hexagonal layering, confirmed Java 21 idioms (records, sealed interfaces, immutability), and ran all 6 required test cases successfully. Deductions for: custom exceptions vs ground truth's generic ones, inability to verify Javadoc thoroughness from output, and the agent not having written the code itself (though the verified result is solid).",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 291,
+          "completion": 1080,
+          "total": 1371
+        },
+        "grader_tokens": {
+          "prompt": 1916,
+          "completion": 709,
+          "total": 2625
+        },
+        "total_usd": 0.0996,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "context_retrieval": {
+      "score": 23.8,
+      "prompt_id": "P1-architecture-overview",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 55,
+        "Accuracy": 20,
+        "Gap handling": 10,
+        "No hallucination": 10
+      },
+      "notes": "The answer is verbose and appears research-like, but it is poorly calibrated to source-grounded retrieval. It misses explicit gap reporting and includes many likely hallucinated or untraceable claims, with key factual mismatch on Sovereign Java/Spring versions.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 107,
+          "completion": 12684,
+          "total": 12791
+        },
+        "grader_tokens": {
+          "prompt": 4417,
+          "completion": 472,
+          "total": 4889
+        },
+        "total_usd": 0.0927,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "security_review": {
+      "score": 76.6,
+      "prompt_id": "P1-vehicle-controller",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 100,
+        "Precision": 55,
+        "Severity accuracy": 67
+      },
+      "notes": "The review is thorough and catches all required vulnerabilities, but it over-reports additional findings and overstates severity for password reflection. Overall this is good coverage with moderate precision/calibration issues.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 388,
+          "completion": 2713,
+          "total": 3101
+        },
+        "grader_tokens": {
+          "prompt": 3507,
+          "completion": 364,
+          "total": 3871
+        },
+        "total_usd": 0.2323,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "planning": {
+      "score": 82.2,
+      "prompt_id": "P2-multi-tenancy",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Domain understanding": 92,
+        "Hexagonal architecture": 90,
+        "Blast radius assessment": 80,
+        "Edge cases": 70,
+        "Dependency ordering": 82,
+        "Acceptance criteria": 78
+      },
+      "notes": "This is a strong, practical plan with a clear architecture decision, phased migration, and meaningful blast-radius framing. It falls short of top-tier scoring because some acceptance criteria and edge-case depth (especially pooling/downtime failure modes) are not fully explicit.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 132,
+          "completion": 3407,
+          "total": 3539
+        },
+        "grader_tokens": {
+          "prompt": 4144,
+          "completion": 686,
+          "total": 4830
+        },
+        "total_usd": 0.2885,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "hallucination_resistance": {
+      "score": 98.2,
+      "prompt_id": "P1-nonexistent-service",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "refusal accuracy": 98,
+        "source attribution": 100,
+        "no confabulation": 96
+      },
+      "notes": "This is a high-quality non-hallucinating refusal with strong source attribution and no invented KubeMesh technical details. The only weakness is unnecessary speculation and verbosity after the core \"not found\" conclusion.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 87,
+          "completion": 2658,
+          "total": 2745
+        },
+        "grader_tokens": {
+          "prompt": 3244,
+          "completion": 375,
+          "total": 3619
+        },
+        "total_usd": 0.0352,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "error_recovery": {
+      "score": 25.0,
+      "prompt_id": "P2-empty-brain",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {
+        "graceful_handling": 15,
+        "no_data_loss": 85,
+        "signal_quality": 5
+      },
+      "notes": "The agent completely failed the error-recovery test. Despite an empty brain vault, it fabricated a detailed architecture description from training knowledge and attributed it to brain vault nodes, providing no honest signal that the retrieval failed.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 66,
+          "completion": 3002,
+          "total": 3068
+        },
+        "grader_tokens": {
+          "prompt": 3559,
+          "completion": 368,
+          "total": 3927
+        },
+        "total_usd": 0.1263,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "pipeline_compliance": {
+      "score": 6.0,
+      "prompt_id": "P1-simple-code-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "stm_created": 0,
+        "brain_retrieval_first": 0,
+        "correct_agent_routing": 0,
+        "code_quality": 30,
+        "pipeline_closure": 0
+      },
+      "notes": "The run misses nearly all required pipeline-compliance behaviors (STM, brain retrieval ordering, required developer/Codex routing, and closure). It mainly performs exploratory inspection and asserts a no-op without the mandated orchestration sequence.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 35,
+          "completion": 1766,
+          "total": 1801
+        },
+        "grader_tokens": {
+          "prompt": 2320,
+          "completion": 405,
+          "total": 2725
+        },
+        "total_usd": 0.1507,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    }
+  }
+}
