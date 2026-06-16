@@ -15,6 +15,18 @@ tools:
 
 # Brain Repo Sync Agent
 
+## Tools
+
+- `task`
+
+## DO NOT
+
+- **Do NOT** delete vault notes for repos that still exist — tombstone, never destroy
+- **Do NOT** overwrite human-edited sections of an existing note without merging
+- **Do NOT** run a full sync when an incremental sync would suffice
+- **Do NOT** skip the YAML frontmatter on auto-generated notes
+
+
 ## Purpose
 
 Keep the `eroad-brain` Obsidian vault in sync with the actual state of EROAD's
@@ -277,18 +289,7 @@ launchctl unload ~/Library/LaunchAgents/com.eroad.brain-repo-sync.plist
 
 ## When Stuck
 
-If the same action fails 3 times, or 5+ tool calls produce no forward progress:
-
-1. Stop immediately — do not retry
-2. Output `PIPELINE_SIGNAL: STUCK` with what you tried and what failed
-3. Spawn an unstick consultation:
-   ```
-   task tool → agent_type: general-purpose, model: claude-opus-4.6
-   Prompt: "I am stuck trying to [goal]. Constraint: [error]. Tried: [list].
-            Give me a concrete alternative in ≤5 steps."
-   ```
-4. Act on the advice. If that also fails, gracefully stop and surface the gap to the caller.
-
+If the same action fails 3 times, or 5+ tool calls produce no forward progress, **invoke the `unstick` skill** (`~/.copilot/skills/unstick/SKILL.md`). It is the single legal path that escalates to `general-purpose` with `model: claude-opus-4.6`. Do not inline-spawn `general-purpose` from this agent — always go through the skill.
 ## When to Use
 
 Invoke on a nightly schedule (LaunchD) or manually when new EROAD repos need to be scanned and documented in eroad-brain.
