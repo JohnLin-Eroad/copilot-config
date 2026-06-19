@@ -1,51 +1,91 @@
 ---
 name: brain-sync
 description: >
-  Invoke at the START of every task to look up relevant context from the brain
-  SQL graph, and at the END of every task to persist new knowledge. The brain is
-  the single source of truth for all institutional knowledge about EROAD's
-  systems, services, and decisions.
+  Invoke at the START of every task to recall relevant knowledge from the local
+  brain, and at the END of every task to persist new learnings. The brain is a
+  local SQLite memory store (the `brain` CLI) and is the single source of truth
+  for durable engineering knowledge.
 ---
 
-# Brain Sync — SQL Graph Integration
+# Brain Sync — local memory integration
 
-The single source of truth is `~/.copilot/brain-graph.db` (SQLite, FTS5-indexed). Obsidian vaults (`~/eroad-brain`, `~/john-brain`) are no longer authoritative and their sync jobs are unloaded — **do not grep, read, or write `.md` files in those vaults**.
+The brain is a per-engineer SQLite store, accessed **only** through the `brain`
+CLI (never read or write the database file directly). SQL is the source of
+truth; any markdown export is a regenerable view.
 
-Vaults available in the graph: `eroad-brain` (858 nodes), `john-brain` (54 nodes).
+> Store: `~/.brain/brain.db` (override `$BRAIN_DB`). Verify with `brain doctor`.
 
 ## When to use
 
-- **Start of every task** — fetch relevant context before specialist work begins.
-- **Mid-task** — when an agent emits `PIPELINE_SIGNAL: NEED_DATA`.
-- **End of every task** — write back learnings, decisions, and new entities.
+- **Start of every task** — recall context before doing the work.
+- **Mid-task** — when you discover something durable, capture it immediately.
+- **End of every task** — write 1–3 learnings; resolve any contradictions.
 
-## Lookup
+## Recall (task start)
 
 ```bash
-# FTS keyword search (use first for most queries)
-python3 ~/.copilot/scripts/brain-graph-query.py search \
-  --query "KEYWORDS" --vault eroad-brain --max-results 10 --fetch-content --compact
+# Keyword search, decay-blended ranking. Use --json for structured reading.
+brain search "KEYWORDS FROM THE TASK" --json --no-reinforce
 
-# BFS traversal from a known node (use when you have an entry point)
-python3 ~/.copilot/scripts/brain-graph-query.py traverse \
-  --start-id "eroad-brain/01 - Services/media-service" --depth 2 --fetch-content
+# Narrow by scope when you know it:
+brain search "KEYWORDS" --level repo --scope "$(basename "$PWD")" --no-reinforce
+brain search "KEYWORDS" --level domain --scope backend --no-reinforce
+
+# Pull a specific memory + its graph neighbours:
+brain get "<id-or-unique-prefix>" --json
+brain traverse "<id-or-unique-prefix>" --depth 2
 ```
 
-Vault routing:
-- EROAD/Sovereign/company/services → `eroad-brain`
-- Copilot config / personal / general → `john-brain`
+Read the top hits before planning. **Respect the flags:** skip or down-weight
+results marked `⚠superseded` or `[stale]`.
 
-## Write-back
+> Use `--no-reinforce` for recall reads done purely to orient yourself, so you
+> don't artificially strengthen memories you didn't actually rely on. Drop the
+> flag when a memory genuinely informed your work (a real recall).
 
-Use SQL upserts into the `nodes` and `edges` tables. See `brain-consolidation.agent.md` for the full protocol. Never write `.md` files into the vaults.
+## Capture (mid-task & task end)
 
-## STM-first rule
+```bash
+# Fast path — a tagged learning. The [CATEGORY] maps to a memory type.
+brain learn "[GOTCHA] @Transactional self-invocation bypasses the Spring proxy" \
+  --level domain --scope backend
 
-Before invoking brain-sync, check the STM Fetch Manifest. If the data is already there, skip. If you need data that is NOT in the STM, emit `PIPELINE_SIGNAL: NEED_DATA` with the specific topics so the orchestrator can route to `brain-data-retrieval`.
+# Structured / longer memory (body via stdin):
+brain add "Payment retry policy" --type workflow --level repo --scope payments \
+  --source "session:$SESSION_ID" --body - <<'MD'
+Retries: 3 attempts, exponential backoff 1s/4s/16s; idempotency key required.
+MD
+```
 
-## Gotchas
+Categories → types: `[DECISION] [PATTERN] [GOTCHA] [WORKFLOW] [PREFERENCE] [TOOL]`.
 
-- **Always use `brain-graph-query.py`** — never query the SQLite DB directly. The FTS5 schema needs JOINs the script handles internally.
-- **Route to the correct vault** — wrong vault = lost knowledge.
-- **Do not duplicate nodes** — search first, then upsert. The graph's value comes from connectedness, not volume.
-- **Per-repo `.github/learnings.md`** is unchanged — that is a separate, local learnings store and is still file-based.
+## Levels — store at the most specific level that is still true
+
+| level | `--scope` | use for |
+|---|---|---|
+| `repo` | repo name | true only for this repository |
+| `project` | project name | spans repos in one initiative |
+| `domain` | domain name | a whole business/technical domain |
+| `global` | — | all of your work |
+| `tooling` | — | the agent/toolchain itself |
+
+## Resolve contradictions — supersede, never overwrite
+
+```bash
+brain supersede "<old-id-or-prefix>" "<new-id-or-prefix>"
+```
+The old memory is kept but marked stale and down-ranked. This stops agents
+flip-flopping between conflicting facts.
+
+## Rules
+
+- **Always use the `brain` CLI** — never `sqlite3` the DB directly; FTS + the
+  recall model are handled internally.
+- **Search before you write** — `brain` dedups identical content by hash, but
+  you should still avoid near-duplicates; link related memories instead
+  (`brain link A B --type relates_to|derived_from|refines`).
+- **Don't duplicate across levels** — write once at the right level, then link.
+- **No secrets / PII** — it's a plaintext SQLite file. Engineering knowledge only.
+- **One memory = one durable fact** — atomic memories decay and supersede cleanly.
+
+See the package docs: `SPEC.md`, `MEMORY-MODEL.md`, `CONVENTIONS.md`.
