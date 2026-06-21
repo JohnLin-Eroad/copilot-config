@@ -157,10 +157,48 @@ def build_html(stats: dict) -> str:
     top_model   = model_labels[0] if model_labels else "—"
     top_model_pct = f"{models_sorted[0][1]['token_pct']}%" if models_sorted else "—"
 
+    # Credits + USD cost (added with credit-pricing model)
+    total_credits  = at.get("total_credits", 0)
+    total_cost_usd = at.get("total_cost_usd", 0)
+    usd_per_credit = at.get("usd_per_credit", 0.04)
+    avg_credits_per_session = (total_credits / sessions) if sessions else 0
+    avg_cost_per_session    = (total_cost_usd / sessions) if sessions else 0
+
     # JSON blobs for JS
     def j(x): return json.dumps(x)
 
     # ── HTML helpers ─────────────────────────────────────────────────────────
+
+    def cost_table_rows() -> str:
+        rows = []
+        all_models = sorted(at.get("by_model", {}).items(),
+                            key=lambda x: -x[1].get("cost_usd", 0))
+        total_usd = max(total_cost_usd, 0.0001)
+        for name, mv in all_models:
+            calls = mv.get("calls", 0)
+            if calls == 0:
+                continue
+            mult = mv.get("multiplier", 1.0)
+            credits = mv.get("credits", 0)
+            cost = mv.get("cost_usd", 0)
+            tokens = mv.get("tokens", 0)
+            pct_cost = (cost / total_usd) * 100
+            badge = ""
+            if name == "unknown":
+                badge = ' <span class="badge badge-yellow">unattributed</span>'
+            mult_cell = f'{mult:g}×' if mult else '<span style="color:#10b981">free</span>'
+            rows.append(f"""<tr>
+              <td style="font-family:monospace;font-size:12px">{name}{badge}</td>
+              <td style="text-align:right">{calls}</td>
+              <td style="text-align:right">{mult_cell}</td>
+              <td style="text-align:right">{credits:,.1f}</td>
+              <td style="text-align:right"><strong>${cost:,.2f}</strong></td>
+              <td style="text-align:right">{pct_cost:.1f}%</td>
+              <td style="text-align:right;color:#94a3b8">{fmt_tokens(tokens)}</td>
+            </tr>""")
+        if not rows:
+            rows.append('<tr><td colspan="7" style="text-align:center;color:#475569">no model data</td></tr>')
+        return "\n".join(rows)
 
     def agent_table_rows() -> str:
         rows = []
@@ -168,10 +206,11 @@ def build_html(stats: dict) -> str:
             calls = av.get("calls", 0)
             tokens = av.get("tokens", 0)
             failures = av.get("failure_count", agent_failures.get(name, {}).get("count", 0))
+            cancelled = av.get("cancelled_count", agent_failures.get(name, {}).get("cancelled_count", 0))
             success_rate = av.get("success_rate", 100.0 if calls == 0 else None)
             avg_dur = av.get("avg_duration_ms", 0)
 
-            if calls == 0 and failures == 0:
+            if calls == 0 and failures == 0 and cancelled == 0:
                 calls_cell = '<span style="color:#475569">—</span>'
                 tokens_cell = '<span style="color:#475569">—</span>'
                 dur_cell = '<span style="color:#475569">—</span>'
@@ -193,6 +232,10 @@ def build_html(stats: dict) -> str:
                 row_style = ''
 
             fail_cell = f'<span style="color:#ef4444;font-weight:600">{failures}</span>' if failures > 0 else '<span style="color:#475569">0</span>'
+            cancel_cell = (
+                f'<span class="badge badge-yellow" title="User-cancelled / aborted (excluded from success rate)">{cancelled}</span>'
+                if cancelled > 0 else '<span style="color:#475569">0</span>'
+            )
 
             rows.append(f"""<tr {row_style}>
               <td style="font-family:monospace;font-size:12px">{name}</td>
@@ -200,6 +243,7 @@ def build_html(stats: dict) -> str:
               <td style="text-align:right">{tokens_cell}</td>
               <td style="text-align:right">{dur_cell}</td>
               <td style="text-align:right">{fail_cell}</td>
+              <td style="text-align:right">{cancel_cell}</td>
               <td style="text-align:right">{rate_cell}</td>
             </tr>""")
         return "\n".join(rows)
@@ -335,6 +379,16 @@ def build_html(stats: dict) -> str:
       <div class="value">{fmt_tokens(total_tok)}</div>
       <div class="sub">{fmt_tokens(sub_tok)} exact + {fmt_tokens(main_tok)} heuristic</div>
     </div>
+    <div class="card green">
+      <div class="label">💰 Total Cost (USD)</div>
+      <div class="value">${total_cost_usd:,.2f}</div>
+      <div class="sub">${avg_cost_per_session:.3f} / session · @ ${usd_per_credit:.3f}/credit</div>
+    </div>
+    <div class="card accent">
+      <div class="label">AI Credits Used</div>
+      <div class="value">{total_credits:,.1f}</div>
+      <div class="sub">{avg_credits_per_session:.2f} avg / session</div>
+    </div>
     <div class="card">
       <div class="label">Sessions</div>
       <div class="value">{sessions}</div>
@@ -384,6 +438,31 @@ def build_html(stats: dict) -> str:
     </div>
   </div>
 
+  <!-- ══════════════ COST BREAKDOWN ══════════════ -->
+  <div class="section-header">💰 Cost Breakdown — by Model</div>
+  <div class="panel" style="margin-bottom:20px;overflow:auto">
+    <div style="display:flex;gap:20px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+      <div><strong>Total:</strong> {total_credits:,.1f} credits · <strong>${total_cost_usd:,.2f}</strong></div>
+      <div style="color:#94a3b8">Rate: ${usd_per_credit:.3f}/credit · {sessions} sessions · ${avg_cost_per_session:.3f} avg/session</div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th style="text-align:right">Calls</th>
+          <th style="text-align:right">Multiplier</th>
+          <th style="text-align:right">Credits</th>
+          <th style="text-align:right">Cost (USD)</th>
+          <th style="text-align:right">% of $</th>
+          <th style="text-align:right">Tokens</th>
+        </tr>
+      </thead>
+      <tbody>
+        {cost_table_rows()}
+      </tbody>
+    </table>
+  </div>
+
   <!-- ══════════════ AGENTS ══════════════ -->
   <div class="section-header">Agents — {len(all_agents)} defined · {len(invoked_agents)} invoked</div>
 
@@ -420,6 +499,7 @@ def build_html(stats: dict) -> str:
               <th style="text-align:right">Tokens</th>
               <th style="text-align:right">Avg Duration</th>
               <th style="text-align:right">Failures</th>
+              <th style="text-align:right">Cancelled</th>
               <th style="text-align:right">Success Rate</th>
             </tr>
           </thead>
