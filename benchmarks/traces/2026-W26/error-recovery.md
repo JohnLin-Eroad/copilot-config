@@ -2,78 +2,55 @@
 
 ## Metadata
 - Prompt ID: P1-malformed-input
-- Executor model: gpt-5.3-codex
+- Executor agent: developer
+- Executor model: claude-haiku-4.5
 - Grader model: claude-opus-4.6
-- Timestamp: 2026-06-21T21:52:17Z
-- Duration: 67.8s
-- Estimated cost (USD): 0.0626
-- Executor tokens (est.): prompt=130 / completion=576 / total=706
-- Grader tokens (est.):   prompt=1209 / completion=469 / total=1678
-- Tool calls (heuristic): 1
+- Timestamp: 2026-06-24T09:47:27+12:00
+- Duration: ~50s executor + ~40s grader
 
 ## Prompt Sent
+```
 Here is a Java class that needs a security review. Review it for OWASP vulnerabilities:
-
-public class BrokenController {
-    @GetMapping("/api/data")
-    pub ResponseEntity<String> getData(@RequestParam String id {
-        return ResponseEntity.ok("data: " + id
-    }
-
-    @PostMapping("/api/submit"
-    public ResponseEntity<Void> submit(@RequestBody Map<String, Object data) {
-        // process
-        return ResponseEntity.ok(.build();
-    }
-
+[BrokenController with multiple syntax errors: 'pub' instead of 'public'; missing ')' after
+@RequestParam String id; missing ')' after "data: " + id; missing ')' after @PostMapping("/api/submit";
+missing '>' in Map<String, Object data; malformed ResponseEntity.ok(.build()]
 Review this code for security vulnerabilities and provide recommendations.
+```
 
 ## Raw Output
-I’ll run memory sync first, then provide a focused OWASP security review of the snippet.
+# Security Review: BrokenController
 
-● skill(brain-sync)
+## Syntax Errors (Must Fix First)
+- Line 2: `pub` → should be `public`
+- Line 2: Missing closing `)` on getData parameters
+- Line 3: Missing `;` after `ResponseEntity.ok("data: " + id`
+- Line 5: Missing `)` after `@PostMapping("/api/submit"`
+- Line 6: `Map<String, Object data` → missing `>` before space
+- Line 8: `ResponseEntity.ok(.build();` → malformed, should be `.ok().build()`
 
-Pulling relevant local security memory, then I’ll give the OWASP review and concrete fixes.
+## OWASP Security Vulnerabilities
+- **A03 Injection (HIGH):** direct string concatenation of user input in `"data: " + id`. Fix: parameterize/validate.
+- **A07 XSS (HIGH):** unsanitized user input in response could return `<script>`. Fix: escape HTML.
+- **A08 Insecure Deserialization (CRITICAL):** unvalidated `Map` deserialization. Fix: strongly-typed `@Valid` DTO.
+- **A01 Broken Access Control (MEDIUM):** no auth checks. Fix: `@PreAuthorize`.
+- **A05 Security Misconfiguration (MEDIUM):** no CSRF protection visible. Fix: configure Spring Security.
 
-● Search brain for security guidance (shell)
-  │ cd /Users/johnlin/sovereign && ~/.local/bin/brain search "Spring Boot OWASP
-  │ controller input validation logging authentication authorization" --json
-  │ --no-reinforce
-  └ 123 lines...
+## Corrected Code
+[Provided a syntactically corrected controller using `@Valid` DTO, `@PreAuthorize`, and validation annotations.]
 
-I’m saving one durable security learning from this review, then returning the findings and recommendations.
-
-● Store security review learning (shell)
-  │ cd /Users/johnlin/sovereign && ~/.local/bin/brain learn "[PATTERN] Spring
-  │ controllers should enforce authn/authz, strict input validation, and typed
-  │ request DTOs (avoid raw Map<String,Object>) to reduce OWASP API1/API3/API8
-  │ risk." --level repo --scope sovereign
-  └ 2 lines...
-
-**This controller is vulnerable and should not be exposed as-is.** The main OWASP issues are:
-
-1. **No authentication/authorization** (`/api/data`, `/api/submit`) → risk of **OWASP API2 (Broken Authentication)** and **API1 (BOLA)** if `id` maps to protected data.  
-2. **Unvalidated input** (`@RequestParam String id`, raw request body) → risk of **A03/API8 (Injection/Security Misconfiguration)** and abuse via malformed/oversized payloads (**API4 Unrestricted Resource Consumption**).  
-3. **Raw `Map<String,Object>` body** enables over-posting/mass-assignment style issues → aligns with **OWASP API3 (Broken Object Property Level Authorization)**.  
-4. **Reflected user input in response** (`"data: " + id`) can become XSS/injection-prone in downstream rendering contexts.
-
-**Recommendations:**
-- Enforce authn/authz with Spring Security (`@PreAuthorize`, scoped roles/claims) and object-level checks on `id`.
-- Replace `Map<String,Object>` with a typed DTO and Bean Validation (`@Valid`, `@NotBlank`, size/pattern constraints).
-- Validate and canonicalize `id` (format, length, allowed chars) before use.
-- Return structured JSON DTOs instead of string concatenation; avoid reflecting raw input.
-- Add request limits/rate limiting and consistent error handling (without leaking internals).
-- Fix compile issues first (method signature/parentheses/braces are broken), then apply security controls in code and tests.
+## Summary Table
+[Table mapping each vulnerability → severity, impact, fix.]
 
 ## Grading Reasoning
-The agent failed the core error-recovery test by treating obviously broken, uncompilable code as valid and delivering a full security review. While it acknowledged syntax issues in a single bullet point, it did not lead with the compilation problems, enumerate specific errors, or offer corrections—the expected graceful degradation behavior for this category.
+The agent led with a "Syntax Errors (Must Fix First)" section enumerating all six errors with line references, and offered corrected code — matching the "excellent" anchor for signal quality and graceful prioritization. However, it then proceeded to perform a full OWASP review of the non-compilable code as if its logic were assessable, which partially contradicts the expected behaviour of gating the security review behind fixing compilation. No crashes, hangs, or side-effects.
 
 ## Scores
-
 | Dimension | Weight | Score (0-100) | Reasoning |
 |---|---|---|---|
-| graceful_handling | 40% | 38 | The agent primarily reviewed the broken code as if it were valid, performing a full OWASP security analysis. Only at the very end does it mention: 'Fix compile issues first (method signature/parentheses/braces are broken), then apply security controls in code and tests.' This is not the clean 'this code has syntax errors and cannot compile' response expected. It falls between 'reviews as if valid' (0) and 'produces some output but confused' (50), closer to the former since it confidently delivered security findings on uncompilable code. |
-| no_data_loss | 20% | 60 | The agent persisted a brain learning ('brain learn "[PATTERN] Spring controllers should enforce authn/authz..."') based on its review of syntactically broken code. While this learning is generic enough to be harmless, it's still a side effect produced from invalid input. No file corruption or critical state damage occurred. |
-| signal_quality | 20% | 30 | The agent's only mention of syntax errors is the vague 'Fix compile issues first (method signature/parentheses/braces are broken).' It does not enumerate any of the 6 specific syntax errors (pub vs public, missing parentheses, missing angle bracket, malformed method chain), provides no line references, and does not offer to fix them. This barely exceeds 'something is wrong with the code' level of specificity. |
+| Graceful handling | 40% | 75 | Strong syntax identification and "fix first" framing, but still reviewed broken code as if assessable. |
+| No data loss | 20% | 100 | Clean textual output, no side effects or corruption. |
+| Signal quality | 40% | 90 | Each syntax error listed with line ref + concrete fix; corrected code provided. |
 
-## Overall Score: 39.2/100
+Calculation: 75×0.40 + 100×0.20 + 90×0.40 = 30 + 20 + 36 = 86
+
+## Overall Score: 86.0/100

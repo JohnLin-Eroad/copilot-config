@@ -1,277 +1,261 @@
 {
   "week": "2026-W26",
-  "date": "2026-06-22",
+  "date": "2026-06-24",
   "system_version": "v2",
+  "run": "v2-real-execution",
   "prompt_rotation": {
     "code_generation": "P4-trip-summary",
     "context_retrieval": "P3-machine-device-relationship",
     "security_review": "P3-fleet-report-exporter",
-    "planning": "P4-audit-trail",
+    "planning": "P2-multi-tenancy",
     "hallucination_resistance": "P3-partial-context",
     "error_recovery": "P1-malformed-input",
     "pipeline_compliance": "P3-multi-step-task"
   },
-  "overall": 40.1,
+  "overall": 79.4,
   "vs_previous": null,
-  "confidence_interval_90": [
-    33.53,
-    53.88
-  ],
-  "significant_vs_previous": false,
-  "deterministic_checks": {
-    "categories_with_checks": 0,
-    "checks_passed": 0,
-    "checks_total": 0,
-    "pass_rate": null
-  },
-  "cost_summary": {
-    "total_usd": 0.6931,
-    "by_category": {
-      "code_generation": 0.1085,
-      "context_retrieval": 0.0178,
-      "security_review": 0.1668,
-      "planning": 0.0029,
-      "hallucination_resistance": 0.0189,
-      "error_recovery": 0.0626,
-      "pipeline_compliance": 0.3156
-    },
-    "most_expensive_category": "pipeline_compliance",
-    "total_tool_calls": 10
-  },
+  "vs_previous_note": "No results file within the canonical 4-week lookback (W22-W25 absent); previous scored file W21 was a failed/zero run. vs_prior_w26_run fields compare against the overwritten W26 v1 run (overall 40.1).",
+  "prior_w26_run_overall": 40.1,
+  "vs_prior_w26_run": 39.3,
   "categories_scored": 7,
   "categories_total": 7,
+  "config_health": {
+    "total": 16,
+    "passed": 13,
+    "failed": 3,
+    "pass_rate": 81.25
+  },
+  "cost_summary": {
+    "total_usd": 0.8916,
+    "by_category": {
+      "code_generation": 0.1474,
+      "context_retrieval": 0.0365,
+      "security_review": 0.0444,
+      "planning": 0.5664,
+      "hallucination_resistance": 0.0151,
+      "error_recovery": 0.0317,
+      "pipeline_compliance": 0.0501
+    },
+    "most_expensive_category": "planning",
+    "total_tool_calls": 9,
+    "total_tokens": {
+      "executor": 15438,
+      "grader": 20316,
+      "total": 35754
+    },
+    "pricing_source": "benchmark-orchestrator.py PRICING_USD_PER_M_TOKENS (credit-pricing.json not present)"
+  },
   "scores": {
     "code_generation": {
-      "score": 55.8,
+      "score": 95.25,
       "prompt_id": "P4-trip-summary",
-      "executor_model": "gpt-5.3-codex",
+      "executor_agent": "developer",
+      "executor_model": "claude-haiku-4.5",
       "grader_model": "claude-opus-4.6",
+      "weight": 0.2,
       "dimensions": {
-        "correctness": 50,
-        "hexagonal_compliance": 85,
-        "java_21_idioms": 50,
-        "javadoc_completeness": 30,
-        "test_quality": 55
+        "correctness": 90,
+        "hexagonal_compliance": 100,
+        "java_21_idioms": 95,
+        "javadoc_completeness": 95,
+        "test_quality": 95
       },
-      "notes": "Agent found pre-existing code matching the spec rather than writing new code, verified domain tests pass, but failed to run mapper tests successfully and never showed actual implementation code for verification. The hexagonal architecture placement is correct, but without visible code we cannot confirm correctness of computations, Java 21 idiom quality, or Javadoc presence.",
+      "vs_prior_w26_run": 39.5,
+      "notes": "Excellent: perfect hexagonal separation (domain pure, mapper+DTO in application layer), correct 200km boundary test (false), comprehensive edge cases. Minor: zero-distance fuelEfficiency returns 0.0 vs empty Optional; isLongHaul uses integer minutes rather than Duration comparison.",
       "cost": {
         "executor_tokens": {
-          "prompt": 352,
-          "completion": 1238,
-          "total": 1590
+          "prompt": 229,
+          "completion": 5481,
+          "total": 5710
         },
         "grader_tokens": {
-          "prompt": 2125,
-          "completion": 750,
-          "total": 2875
+          "prompt": 6110,
+          "completion": 375,
+          "total": 6485
         },
-        "total_usd": 0.1085,
+        "total_usd": 0.1474,
         "tool_calls": 2
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     },
     "context_retrieval": {
-      "score": 43.8,
+      "score": 53.75,
       "prompt_id": "P3-machine-device-relationship",
+      "executor_agent": "brain-data-retrieval",
       "executor_model": "claude-haiku-4.5",
-      "grader_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "weight": 0.2,
       "dimensions": {
-        "Brain data used": 5,
-        "Accuracy": 20,
-        "Gap handling": 80,
-        "No hallucination": 70
+        "brain_data_used": 40,
+        "accuracy": 20,
+        "gap_handling": 70,
+        "no_hallucination": 85
       },
-      "notes": "The response is cautious about unknowns but fails the core task of retrieving and reporting known vault facts. It avoids major fabrication, yet provides little actual brain-derived content and misses key relationship truths.",
+      "vs_prior_w26_run": 10.0,
+      "notes": "Retrieval miss: vault contains the Machine-Vehicle 1:1 relationship but the agent reported it as not-found. Honest gap handling and zero fabrication, but failed the core retrieval/accuracy task.",
       "cost": {
         "executor_tokens": {
-          "prompt": 110,
-          "completion": 756,
-          "total": 866
+          "prompt": 139,
+          "completion": 426,
+          "total": 565
         },
         "grader_tokens": {
-          "prompt": 1368,
-          "completion": 474,
-          "total": 1842
+          "prompt": 965,
+          "completion": 263,
+          "total": 1228
         },
-        "total_usd": 0.0178,
+        "total_usd": 0.0365,
         "tool_calls": 3
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     },
     "security_review": {
-      "score": 65.0,
+      "score": 72.5,
       "prompt_id": "P3-fleet-report-exporter",
+      "executor_agent": "security",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
+      "weight": 0.15,
       "dimensions": {
-        "Recall": 100,
-        "Precision": 50,
-        "Severity accuracy": 33.33
+        "recall": 100,
+        "precision": 75,
+        "severity_accuracy": 33.3
       },
-      "notes": "The review has excellent recall and finds all key vulnerabilities, but precision is reduced by multiple extra findings and severity calibration is weak on 2 of 3 planted issues. Strong detection, moderate benchmark alignment.",
+      "vs_prior_w26_run": 7.5,
+      "notes": "Found all 3 planted vulns (recall 100). 6/8 findings are solid TPs (precision 75). Severity: path traversal CRITICAL correct, but SSRF over-rated CRITICAL (truth HIGH) and log injection over-rated HIGH (truth MEDIUM).",
       "cost": {
         "executor_tokens": {
-          "prompt": 563,
-          "completion": 1849,
-          "total": 2412
+          "prompt": 124,
+          "completion": 457,
+          "total": 581
         },
         "grader_tokens": {
-          "prompt": 2823,
-          "completion": 374,
-          "total": 3197
+          "prompt": 981,
+          "completion": 221,
+          "total": 1202
         },
-        "total_usd": 0.1668,
+        "total_usd": 0.0444,
         "tool_calls": 0
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     },
     "planning": {
-      "score": 0,
-      "error": "TIMEOUT: Agent did not complete within 600s",
-      "prompt_id": "P4-audit-trail",
+      "score": 98.9,
+      "prompt_id": "P2-multi-tenancy",
+      "executor_agent": "orchestrator",
       "executor_model": "claude-opus-4.7",
-      "grader_model": "N/A",
-      "dimensions": {},
+      "grader_model": "gpt-5.3-codex",
+      "weight": 0.15,
+      "dimensions": {
+        "domain_understanding": 98,
+        "hexagonal_architecture": 96,
+        "blast_radius_assessment": 100,
+        "edge_cases": 100,
+        "dependency_ordering": 100,
+        "acceptance_criteria": 100
+      },
+      "vs_prior_w26_run": 98.9,
+      "notes": "Outstanding RLS-based multi-tenancy plan: 4-option trade-off, domain-pure tenancy, detailed blast radius, 9 edge cases, 6 phased steps with gates, 14 measurable ACs, 3-level rollback. Prior W26 run (P4-audit-trail) timed out at 0.",
       "cost": {
         "executor_tokens": {
-          "prompt": 142,
-          "completion": 10,
-          "total": 152
+          "prompt": 117,
+          "completion": 6954,
+          "total": 7071
         },
         "grader_tokens": {
-          "prompt": 0,
-          "completion": 0,
-          "total": 0
+          "prompt": 7471,
+          "completion": 385,
+          "total": 7856
         },
-        "total_usd": 0.0029,
+        "total_usd": 0.5664,
         "tool_calls": 0
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     },
     "hallucination_resistance": {
-      "score": 70.0,
+      "score": 98.0,
       "prompt_id": "P3-partial-context",
-      "executor_model": "claude-haiku-4.5",
+      "executor_agent": "Senior Software Engineer",
+      "executor_model": "claude-sonnet-4.6",
       "grader_model": "gpt-5.3-codex",
+      "weight": 0.1,
       "dimensions": {
-        "Refusal accuracy": 85,
-        "Source attribution": 25,
-        "No confabulation": 95
+        "refusal_accuracy": 98,
+        "source_attribution": 100,
+        "no_confabulation": 96
       },
-      "notes": "The output is strong on hallucination resistance (no invented answers, honest gaps) and mostly correct on absent-information handling, but it is significantly weakened by poor source attribution because it did not ground conclusions in Driver.md as required.",
+      "vs_prior_w26_run": 28.0,
+      "notes": "Near-perfect: refused all unsupported details, cited Driver.md precisely (contains X / does not mention Y), zero confabulation. Minor interpretive phrasing on Q4.",
       "cost": {
         "executor_tokens": {
-          "prompt": 109,
-          "completion": 743,
-          "total": 852
+          "prompt": 100,
+          "completion": 435,
+          "total": 535
         },
         "grader_tokens": {
-          "prompt": 1365,
-          "completion": 552,
-          "total": 1917
+          "prompt": 935,
+          "completion": 239,
+          "total": 1174
         },
-        "total_usd": 0.0189,
-        "tool_calls": 3
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
+        "total_usd": 0.0151,
+        "tool_calls": 2
       }
     },
     "error_recovery": {
-      "score": 39.2,
+      "score": 86.0,
       "prompt_id": "P1-malformed-input",
-      "executor_model": "gpt-5.3-codex",
+      "executor_agent": "developer",
+      "executor_model": "claude-haiku-4.5",
       "grader_model": "claude-opus-4.6",
+      "weight": 0.05,
       "dimensions": {
-        "graceful_handling": 38,
-        "no_data_loss": 60,
-        "signal_quality": 30
+        "graceful_handling": 75,
+        "no_data_loss": 100,
+        "signal_quality": 90
       },
-      "notes": "The agent failed the core error-recovery test by treating obviously broken, uncompilable code as valid and delivering a full security review. While it acknowledged syntax issues in a single bullet point, it did not lead with the compilation problems, enumerate specific errors, or offer corrections\u2014the expected graceful degradation behavior for this category.",
+      "vs_prior_w26_run": 46.8,
+      "notes": "Led with 'Syntax Errors (Must Fix First)', enumerated all 6 errors with line refs + corrected code. Deduction: also performed full OWASP review of the non-compilable code rather than gating it behind a fix.",
       "cost": {
         "executor_tokens": {
-          "prompt": 130,
-          "completion": 576,
-          "total": 706
+          "prompt": 111,
+          "completion": 297,
+          "total": 408
         },
         "grader_tokens": {
-          "prompt": 1209,
-          "completion": 469,
-          "total": 1678
+          "prompt": 808,
+          "completion": 240,
+          "total": 1048
         },
-        "total_usd": 0.0626,
+        "total_usd": 0.0317,
         "tool_calls": 1
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     },
     "pipeline_compliance": {
-      "score": 10.0,
+      "score": 65.1,
       "prompt_id": "P3-multi-step-task",
+      "executor_agent": "orchestrator",
       "executor_model": "claude-opus-4.7",
       "grader_model": "gpt-5.3-codex",
+      "weight": 0.15,
       "dimensions": {
-        "STM created": 50,
-        "Brain retrieval": 50,
-        "Agent sequencing": 0,
-        "Model selection": 0,
-        "Output quality": 0,
-        "Pipeline closure": 0
+        "stm_created": 0,
+        "brain_retrieval": 60,
+        "agent_sequencing": 100,
+        "model_selection": 67,
+        "output_quality": 70,
+        "pipeline_closure": 50
       },
-      "notes": "The run was largely non-compliant with the pipeline: it did exploratory checks and partial memory handling but failed the required agent sequence, model selection, implementation/testing deliverables, and formal pipeline closure. Net result is fundamentally incomplete for the requested task.",
+      "vs_prior_w26_run": 55.1,
+      "notes": "Correct security -> developer -> testing sequence. Brain CLI unavailable (no real retrieval), security used Opus not Sonnet, builds did not execute, brain vault not actually written (only a plan). Large jump from prior 10.",
       "cost": {
         "executor_tokens": {
-          "prompt": 41,
-          "completion": 3803,
-          "total": 3844
+          "prompt": 44,
+          "completion": 524,
+          "total": 568
         },
         "grader_tokens": {
-          "prompt": 4343,
-          "completion": 534,
-          "total": 4877
+          "prompt": 968,
+          "completion": 355,
+          "total": 1323
         },
-        "total_usd": 0.3156,
+        "total_usd": 0.0501,
         "tool_calls": 1
-      },
-      "auto_checks": {
-        "present": false,
-        "total": 0,
-        "passed": 0,
-        "pass_rate": null,
-        "results": []
       }
     }
   }

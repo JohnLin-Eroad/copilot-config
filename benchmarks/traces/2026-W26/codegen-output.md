@@ -1,28 +1,3 @@
-# Trace: code-generation — 2026-W26
-
-## Metadata
-- Prompt ID: P4-trip-summary
-- Executor agent: developer
-- Executor model: claude-haiku-4.5
-- Grader model: claude-opus-4.6
-- Timestamp: 2026-06-24T09:47:27+12:00
-- Duration: ~110s executor + ~50s grader
-
-## Prompt Sent
-```
-Write a Java 21 Spring Boot 3.4 implementation: a TripSummary immutable record read model
-(tripId, vehicleId, driverId UUIDs; startTime/endTime Instant; distanceKm double;
-durationMinutes long; averageSpeedKmh double; fuelUsedLitres Optional<Double>) with computed
-methods fuelEfficiency() (Optional<Double>, litres per 100km, empty if no fuel), duration()
-(Duration), isLongHaul() (distance > 200km OR duration > 4 hours), and a static factory
-from(TripStartedEvent, TripCompletedEvent, Optional<FuelRecord>). Plus event records
-TripStartedEvent, TripCompletedEvent, FuelRecord. Plus a TripSummaryMapper -> TripSummaryDto
-(strings/numbers, ISO 8601 timestamps, optional fuel as null). Plus JUnit 5 tests covering
-factory projection, computed methods, and edge cases (zero distance, no fuel, exactly 200km
-boundary). Hexagonal: domain pure; mapper/DTO outside domain. Javadoc on all public methods/events.
-```
-
-## Raw Output
 # TripSummary Implementation - Java 21 Spring Boot 3.4
 
 ## Domain Layer - Pure Domain Model
@@ -621,19 +596,3 @@ This implementation follows **hexagonal architecture** principles:
   - UUID and timestamp formatting
 
 All public methods include Javadoc. Immutability is enforced through Java 21 records.
-
-## Grading Reasoning
-Formula `(litres / distanceKm) * 100` is correct; zero-distance returns 0.0 (graceful, arguably should be empty). `isLongHaul` uses `durationMinutes > 240` (works but loses sub-minute precision vs a Duration comparison). Factory projection accurate; Optional handled throughout. Domain in `com.eroad.trip.domain.*` is pure (zero framework imports); mapper in `application.mapper`, DTO in `application.dto` — perfect hexagonal separation. Records used for all value types; Optional API fluent (`.map()`, `.orElse(null)`); Duration API used. Javadoc on all public methods and record types. Tests cover factory projection, duration, fuelEfficiency calc, no-fuel (empty Optional), zero distance, exactly-200km boundary (`assertFalse` — correct for strict `>`), 240-min boundary, average speed, immutability, and mapper formatting.
-
-## Scores
-| Dimension | Weight | Score (0-100) | Reasoning |
-|---|---|---|---|
-| Correctness | 20% | 90 | Formula + factory correct; zero-distance returns 0.0 vs empty (debatable); integer-minute isLongHaul. |
-| Hexagonal compliance | 25% | 100 | Domain pure; mapper + DTO in application layer. |
-| Java 21 idioms | 20% | 95 | Records everywhere; fluent Optional; Duration API. |
-| Javadoc completeness | 15% | 95 | All public methods + record types documented. |
-| Test quality | 20% | 95 | Boundary (200km=false), zero distance, empty fuel, efficiency calc all covered. |
-
-Calculation: 90×0.20 + 100×0.25 + 95×0.20 + 95×0.15 + 95×0.20 = 18 + 25 + 19 + 14.25 + 19 = 95.25
-
-## Overall Score: 95.25/100
