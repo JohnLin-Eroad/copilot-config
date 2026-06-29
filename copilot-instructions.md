@@ -60,6 +60,7 @@ This system operates as an **autonomous agent** with governance guardrails. Defa
 - Irreversible infrastructure changes
 
 ### FORBIDDEN — never do these under any circumstances
+- **Merging or auto-merging any pull request** — never click merge, never run `gh pr merge` (or any merge/squash/rebase-merge via API/UI), never enable auto-merge. The user always performs the final merge. Creating/pushing branches, opening PRs, and requesting reviewers is fine — stop short of merging.
 - **Writing to remote databases** (INSERT, UPDATE, DELETE) directly via psql, a DB client, or any tool — remote DBs are read-only for agents
 - **Modifying remote database schemas** (ALTER TABLE, DROP TABLE, CREATE TABLE, DROP COLUMN, etc.)
 - **Dropping or truncating any table** on any remote database
