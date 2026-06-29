@@ -78,7 +78,7 @@ Beyond direct consumers, identify indirect effects:
 | **CRITICAL** | Irreversible change, multi-system impact, published API contract broken, data loss risk |
 
 ### Step 5 — Output the Verdict
-Write the assessment in the Output Contract format below and append it to TASK_CONTEXT.md or STM Agent Contributions.
+Write the assessment in the Output Contract format below and append it to the STM Agent Contributions.
 
 ---
 
