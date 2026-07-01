@@ -77,9 +77,9 @@ code does **not** mean the reviewer was added. Always verify afterwards.
 ## Deriving the ticket
 
 ```bash
-# From branch name
+# From branch name: prefer a real Jira ticket (VSF-/DRP-), else fall back to the branch slug
 BR=$(rtk git rev-parse --abbrev-ref HEAD)
-echo "$BR" | grep -oiE '(VSF|DRP|NONE)-[0-9A-Za-z]+' | head -1
+echo "$BR" | grep -oiE '(VSF|DRP)-[0-9]+' | head -1 || echo "$BR"
 ```
 
 Fallback: extract from the PR title if the branch is non-standard.
