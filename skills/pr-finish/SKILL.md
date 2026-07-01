@@ -61,7 +61,9 @@ If no PR exists for the branch, tell the user and stop (don't open one unless as
 rtk gh pr edit <num> --add-reviewer naveednizar,atienzajazz,almirjamee
 ```
 - Skip any handle that is the PR author (GitHub rejects self-review).
-- If a handle isn't a collaborator, report it rather than failing silently.
+- **`gh` exits 0 even when a reviewer is silently dropped** (non-collaborator / author).
+  Always verify with `gh pr view <num> --json reviewRequests` and report anyone missing —
+  don't trust the exit code. See DETAIL.md.
 
 ### 3. Rename the session/terminal to the ticket
 
