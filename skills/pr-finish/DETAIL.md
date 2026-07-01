@@ -56,16 +56,23 @@ threads blindly — leave anything unaddressed open.
 
 ## Reviewer not a collaborator
 
-`gh pr edit --add-reviewer` fails the whole call if any handle can't be requested. If it
-errors:
+**Important:** `gh pr edit --add-reviewer` exits 0 even when GitHub silently drops a
+handle (e.g. the user isn't a collaborator on the repo, or is the PR author). A zero exit
+code does **not** mean the reviewer was added. Always verify afterwards.
 
 1. Add reviewers individually so one bad handle doesn't block the rest:
    ```bash
    for r in naveednizar atienzajazz almirjamee; do
-     rtk gh pr edit "$NUM" --add-reviewer "$r" || echo "skip: $r"
+     rtk gh pr edit "$NUM" --add-reviewer "$r" 2>/dev/null || true
    done
    ```
-2. Report which handle was skipped and why (not a collaborator / is the author).
+2. **Verify what actually attached** (source of truth — not the exit code):
+   ```bash
+   rtk gh pr view "$NUM" --json reviewRequests --jq '[.reviewRequests[].login]'
+   ```
+3. Report any requested handle missing from that list as skipped, with the likely reason
+   (not a collaborator on this repo / is the author). On EROAD repos all three are
+   collaborators, so the list should contain all non-author handles.
 
 ## Deriving the ticket
 
