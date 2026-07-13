@@ -1,0 +1,275 @@
+{
+  "week": "2026-W29",
+  "date": "2026-07-14",
+  "system_version": "v2",
+  "prompt_rotation": {
+    "code_generation": "P1-vehicle-odometer",
+    "context_retrieval": "P2-dvir-system",
+    "security_review": "P2-driver-auth-service",
+    "planning": "P1-driver-hours",
+    "hallucination_resistance": "P2-invented-api",
+    "error_recovery": "P1-malformed-input",
+    "pipeline_compliance": "P3-multi-step-task"
+  },
+  "overall": 28.9,
+  "vs_previous": null,
+  "confidence_interval_90": [
+    25.3,
+    52.8
+  ],
+  "significant_vs_previous": false,
+  "deterministic_checks": {
+    "categories_with_checks": 0,
+    "checks_passed": 0,
+    "checks_total": 0,
+    "pass_rate": null
+  },
+  "cost_summary": {
+    "total_usd": 1.548,
+    "by_category": {
+      "code_generation": 0.0456,
+      "context_retrieval": 0.0126,
+      "security_review": 0.2059,
+      "planning": 1.0843,
+      "hallucination_resistance": 0.0613,
+      "error_recovery": 0.0345,
+      "pipeline_compliance": 0.1038
+    },
+    "most_expensive_category": "planning",
+    "total_tool_calls": 7
+  },
+  "categories_scored": 7,
+  "categories_total": 7,
+  "scores": {
+    "code_generation": {
+      "score": 0.0,
+      "prompt_id": "P1-vehicle-odometer",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: ",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 195,
+          "completion": 1098,
+          "total": 1293
+        },
+        "grader_tokens": {
+          "prompt": 1874,
+          "completion": 0,
+          "total": 1874
+        },
+        "total_usd": 0.0456,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "context_retrieval": {
+      "score": 28.8,
+      "prompt_id": "P2-dvir-system",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Brain data used": 5,
+        "Accuracy": 10,
+        "Gap handling": 0,
+        "No hallucination": 100
+      },
+      "notes": "The response failed to answer the DVIR questions or cite vault evidence, so it scores very poorly on retrieval, accuracy, and gap handling. Its only strength is avoiding hallucinated details.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 103,
+          "completion": 354,
+          "total": 457
+        },
+        "grader_tokens": {
+          "prompt": 965,
+          "completion": 395,
+          "total": 1360
+        },
+        "total_usd": 0.0126,
+        "tool_calls": 3
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "security_review": {
+      "score": 66.7,
+      "prompt_id": "P2-driver-auth-service",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Recall": 66.67,
+        "Precision": 83.33,
+        "Severity accuracy": 50
+      },
+      "notes": "This is a decent security review with strong issue discovery but it missed one key planted vulnerability (JWT expiry) and over-classified weak hashing severity. Useful output, but not benchmark-excellent under the provided ground truth.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 592,
+          "completion": 2267,
+          "total": 2859
+        },
+        "grader_tokens": {
+          "prompt": 3270,
+          "completion": 711,
+          "total": 3981
+        },
+        "total_usd": 0.2059,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "planning": {
+      "score": 51.2,
+      "prompt_id": "P1-driver-hours",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "domain_understanding": 75,
+        "hexagonal_architecture": 90,
+        "blast_radius_assessment": 70,
+        "edge_cases": 45,
+        "dependency_ordering": 25,
+        "acceptance_criteria": 5
+      },
+      "notes": "The output shows strong architectural understanding and reasonable domain grounding, but it largely fails the planning deliverable itself: it lacks ordered implementation tasks and measurable acceptance criteria. Net result is partial performance with significant gaps against the rubric.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 83,
+          "completion": 14023,
+          "total": 14106
+        },
+        "grader_tokens": {
+          "prompt": 4470,
+          "completion": 600,
+          "total": 5070
+        },
+        "total_usd": 1.0843,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "hallucination_resistance": {
+      "score": 40.0,
+      "prompt_id": "P2-invented-api",
+      "executor_model": "claude-haiku-4.5",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "Refusal accuracy": 10,
+        "Source attribution": 30,
+        "No confabulation": 90
+      },
+      "notes": "The response fails the core requirement because it never states the endpoint does not exist and never delivers a grounded answer. It avoids explicit schema fabrication in the visible output, but attribution and conclusion quality are poor.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 82,
+          "completion": 6371,
+          "total": 6453
+        },
+        "grader_tokens": {
+          "prompt": 4307,
+          "completion": 524,
+          "total": 4831
+        },
+        "total_usd": 0.0613,
+        "tool_calls": 2
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "error_recovery": {
+      "score": 0.0,
+      "prompt_id": "P1-malformed-input",
+      "executor_model": "gpt-5.3-codex",
+      "grader_model": "claude-opus-4.6",
+      "dimensions": {},
+      "notes": "Failed to parse grading output (0 chars). First 300: ",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 130,
+          "completion": 812,
+          "total": 942
+        },
+        "grader_tokens": {
+          "prompt": 1445,
+          "completion": 0,
+          "total": 1445
+        },
+        "total_usd": 0.0345,
+        "tool_calls": 1
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    },
+    "pipeline_compliance": {
+      "score": 10.0,
+      "prompt_id": "P3-multi-step-task",
+      "executor_model": "claude-opus-4.7",
+      "grader_model": "gpt-5.3-codex",
+      "dimensions": {
+        "STM created": 100,
+        "Brain retrieval": 0,
+        "Agent sequencing": 0,
+        "Model selection": 0,
+        "Output quality": 0,
+        "Pipeline closure": 0
+      },
+      "notes": "This run only satisfied STM presence and failed the core pipeline-compliance requirements. It did not perform brain retrieval, specialist sequencing, remediation/testing work, or pipeline closure.",
+      "cost": {
+        "executor_tokens": {
+          "prompt": 41,
+          "completion": 1120,
+          "total": 1161
+        },
+        "grader_tokens": {
+          "prompt": 1704,
+          "completion": 711,
+          "total": 2415
+        },
+        "total_usd": 0.1038,
+        "tool_calls": 0
+      },
+      "auto_checks": {
+        "present": false,
+        "total": 0,
+        "passed": 0,
+        "pass_rate": null,
+        "results": []
+      }
+    }
+  }
+}
