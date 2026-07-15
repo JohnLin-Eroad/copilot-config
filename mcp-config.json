@@ -31,15 +31,6 @@
     }
   },
   "_disabled": {
-    "figma": {
-      "command": "npx",
-      "args": [
-        "figma-mcp"
-      ],
-      "env": {
-        "FIGMA_ACCESS_TOKEN": "YOUR_FIGMA_ACCESS_TOKEN"
-      }
-    },
     "microsoft-teams": {
       "type": "http",
       "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_TeamsServer"
