@@ -1,0 +1,27 @@
+{
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "bash $HOME/.copilot/hooks/session-bootstrap.sh",
+        "timeoutSec": 5
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "bash $HOME/.copilot/hooks/pipeline-bootstrap.sh",
+        "timeoutSec": 30
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "bash $HOME/.copilot/hooks/security-check.sh",
+        "timeoutSec": 10
+      }
+    ]
+  },
+  "model": "claude-opus-4.7",
+  "effort": "high"
+}

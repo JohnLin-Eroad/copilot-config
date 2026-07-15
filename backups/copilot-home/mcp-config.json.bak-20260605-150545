@@ -1,0 +1,54 @@
+{
+  "_comment": "All MCP servers disabled 2026-06-03 for token optimization (~15-20k tok/session saved). Historic usage was ~zero. To re-enable a server, move its config from _disabled back to mcpServers. Original config backed up to mcp-config.json.bak-*.",
+  "mcpServers": {
+    "atlassian": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.atlassian.com/v1/mcp"
+      ]
+    }
+  },
+  "_disabled": {
+    "figma": {
+      "command": "npx",
+      "args": [
+        "figma-mcp"
+      ],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "[REDACTED-ROTATE-THIS-TOKEN]"
+      }
+    },
+    "microsoft-teams": {
+      "type": "http",
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_TeamsServer"
+    },
+    "microsoft-mail": {
+      "type": "http",
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_MailTools"
+    },
+    "microsoft-calendar": {
+      "type": "http",
+      "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_CalendarTools"
+    },
+    "slack": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.slack.com/mcp",
+        "--static-oauth-client-info",
+        "/Users/johnlin/.copilot/mcp-oauth-config/slack.json"
+      ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer [REDACTED-ROTATE-THIS-TOKEN]\", \"Notion-Version\": \"2022-06-28\"}"
+      }
+    }
+  }
+}
