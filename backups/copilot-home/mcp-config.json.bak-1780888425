@@ -11,26 +11,18 @@
     "datadog": {
       "type": "http",
       "url": "https://mcp.datadoghq.com/api/unstable/mcp-server/mcp?toolsets=all"
-    },
-    "sumologic": {
-      "command": "bash",
-      "args": [
-        "-c",
-        "set -a; source \"$HOME/.copilot/.sumo.env\"; set +a; exec npx -y @getguru/sumologic-mcp"
-      ]
-    },
-    "notion": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@notionhq/notion-mcp-server"
-      ],
-      "env": {
-        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer YOUR_NOTION_TOKEN\", \"Notion-Version\": \"2022-06-28\"}"
-      }
     }
   },
   "_disabled": {
+    "figma": {
+      "command": "npx",
+      "args": [
+        "figma-mcp"
+      ],
+      "env": {
+        "FIGMA_ACCESS_TOKEN": "[REDACTED-ROTATE-THIS-TOKEN]"
+      }
+    },
     "microsoft-teams": {
       "type": "http",
       "url": "https://agent365.svc.cloud.microsoft/agents/tenants/525d795f-834f-4a88-acc6-ede9f6c1779e/servers/mcp_TeamsServer"
@@ -51,6 +43,16 @@
         "--static-oauth-client-info",
         "/Users/johnlin/.copilot/mcp-oauth-config/slack.json"
       ]
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@notionhq/notion-mcp-server"
+      ],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer [REDACTED-ROTATE-THIS-TOKEN]\", \"Notion-Version\": \"2022-06-28\"}"
+      }
     }
   }
 }
