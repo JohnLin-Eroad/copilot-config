@@ -6,6 +6,11 @@ session-state/
 jb/
 logs/
 restart
+obsidian-sync.log
+obsidian-sync.error.log
+
+# Stale local backups — not meant for git history
+backups/
 
 # OS
 .DS_Store
